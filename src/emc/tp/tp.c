@@ -21,6 +21,8 @@
 #include "motion_types.h"
 #include "spherical_arc.h"
 #include "blendmath.h"
+#include <assert.h>
+
 //KLUDGE Don't include all of emc.hh here, just hand-copy the TERM COND
 //definitions until we can break the emc constants out into a separate file.
 //#include "emc.hh"
@@ -1704,7 +1706,7 @@ STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc) {
  * currently-active accel and vel settings from the tp struct.
  */
 int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double vel, double
-        ini_maxvel, double acc, unsigned char enables, char atspeed, int indexrotary) {
+        ini_maxvel, double acc, double ini_maxjerk, unsigned char enables, char atspeed, int indexrotary) {
 
     if (tpErrorCheck(tp) < 0) {
         return TP_ERR_FAIL;
@@ -1780,9 +1782,15 @@ int tpAddCircle(TP_STRUCT * const tp,
         double vel,
         double ini_maxvel,
         double acc,
+        double ini_maxjerk,
         unsigned char enables,
         char atspeed)
 {
+    if (ini_maxjerk == 0) {
+        rtapi_print_msg(RTAPI_MSG_ERR, "jerk is not provided or jerk is 0\n");
+        assert(ini_maxjerk > 0);
+    }
+
     if (tpErrorCheck(tp)<0) {
         return TP_ERR_FAIL;
     }

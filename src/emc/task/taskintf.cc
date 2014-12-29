@@ -1016,7 +1016,7 @@ int emcTrajSetTermCond(int cond, double tolerance)
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcTrajLinearMove(EmcPose end, int type, double vel, double ini_maxvel, double acc,
+int emcTrajLinearMove(EmcPose end, int type, double vel, double ini_maxvel, double acc, double jerk,
                       int indexrotary)
 {
 #ifdef ISNAN_TRAP
@@ -1037,6 +1037,7 @@ int emcTrajLinearMove(EmcPose end, int type, double vel, double ini_maxvel, doub
     emcmotCommand.vel = vel;
     emcmotCommand.ini_maxvel = ini_maxvel;
     emcmotCommand.acc = acc;
+    emcmotCommand.ini_maxjerk = jerk;
     emcmotCommand.turn = indexrotary;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);

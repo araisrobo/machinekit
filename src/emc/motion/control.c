@@ -598,7 +598,7 @@ static void process_inputs(void)
 	    tpSetId(emcmotQueue, MOTION_PAUSED_RETURN_MOVE);
 	    if (-1 == tpAddLine(emcmotQueue, emcmotStatus->pause_carte_pos, TC_LINEAR,
 				emcmotStatus->current_vel, emcmotCommand->ini_maxvel,
-				emcmotCommand->acc,
+				emcmotCommand->acc, emcmotCommand->ini_maxjerk,
 				emcmotStatus->enables_new, // FIMXE: unsure
 				0,     // FIXME: dont wait for atspeed (?)
 				-1)) { // FIXME: dont know how to handle rotary indexer
@@ -638,7 +638,7 @@ static void process_inputs(void)
 	    tpSetId(emcmotQueue, MOTION_PAUSED_JOG_MOVE);
 	    if (-1 == tpAddLine(emcmotQueue, emcmotStatus->pause_offset_carte_pos, TC_LINEAR,
 				emcmotStatus->current_vel , emcmotCommand->ini_maxvel,
-				emcmotCommand->acc,
+				emcmotCommand->acc, emcmotCommand->ini_maxjerk,
 				emcmotStatus->enables_new,  // ???
 				0, // dont wait for atspeed  ???
 				-1)) { // no indexrotary action ???
