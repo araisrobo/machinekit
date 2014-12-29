@@ -991,6 +991,7 @@ class EMC_TRAJ_STAT:public EMC_TRAJ_STAT_MSG {
     // motions
     double maxVelocity;		// max system velocity
     double maxAcceleration;	// system acceleration
+    double maxJerk;		// system jerk
 
     EmcPose probedPosition;	// last position where probe was tripped.
     bool probe_tripped;		// Has the probe been tripped since the last

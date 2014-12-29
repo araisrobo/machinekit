@@ -502,7 +502,17 @@ int tpSetAmax(TP_STRUCT * const tp, double aMax)
 
     return TP_ERR_OK;
 }
+/** Sets the max jerk for the trajectory planner. */
+int tpSetJmax(TP_STRUCT * const tp, double jMax)
+{
+    if (0 == tp || jMax <= 0.0) {
+        return TP_ERR_FAIL;
+    }
 
+    tp->jMax = jMax;
+
+    return TP_ERR_OK;
+}
 /**
  * Sets the id that will be used for the next appended motions.
  * nextId is incremented so that the next time a motion is appended its id will

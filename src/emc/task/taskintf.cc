@@ -76,6 +76,7 @@ static int localMotionEchoSerialNumber = 0;
 static unsigned char localEmcAxisAxisType[EMCMOT_MAX_JOINTS];
 static double localEmcAxisUnits[EMCMOT_MAX_JOINTS];
 static double localEmcMaxAcceleration = DBL_MAX;
+static double localEmcMaxJerk = DBL_MAX;
 
 // axes are numbered 0..NUM-1
 
@@ -308,6 +309,22 @@ int emcAxisSetMaxAcceleration(int axis, double acc)
     emcmotCommand.command = EMCMOT_SET_JOINT_ACC_LIMIT;
     emcmotCommand.axis = axis;
     emcmotCommand.acc = acc;
+    return usrmotWriteEmcmotCommand(&emcmotCommand);
+}
+
+int emcAxisSetMaxJerk(int axis, double jerk)
+{
+
+    if (axis < 0 || axis >= EMC_AXIS_MAX) {
+	return 0;
+    }
+    if (jerk < 0.0) {
+    	jerk = 0.0;
+    }
+    axis_max_jerk[axis] = jerk;
+    emcmotCommand.command = EMCMOT_SET_JOINT_JERK_LIMIT;
+    emcmotCommand.axis = axis;
+    emcmotCommand.acc = jerk;
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
@@ -740,6 +757,20 @@ int emcTrajSetAcceleration(double acc)
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
+int emcTrajSetJerk(double jerk)
+{
+    if (jerk < 0.0) {
+    	jerk = 0.0;
+    } else if (jerk > localEmcMaxJerk) {
+    	jerk = localEmcMaxJerk;
+    }
+
+    emcmotCommand.command = EMCMOT_SET_JERK;
+    emcmotCommand.jerk = jerk;
+
+    return usrmotWriteEmcmotCommand(&emcmotCommand);
+}
+
 /*
   emcmot has no limits on max velocity, acceleration so we'll save them
   here and apply them in the functions above
@@ -765,6 +796,17 @@ int emcTrajSetMaxAcceleration(double acc)
     }
 
     localEmcMaxAcceleration = acc;
+
+    return 0;
+}
+
+int emcTrajSetMaxJerk(double jerk)
+{
+    if (jerk < 0.0) {
+    	jerk = 0.0;
+    }
+
+    localEmcMaxJerk = jerk;
 
     return 0;
 }
@@ -1155,6 +1197,7 @@ int emcTrajUpdate(EMC_TRAJ_STAT * stat)
     stat->velocity = emcmotStatus.vel;
     stat->acceleration = emcmotStatus.acc;
     stat->maxAcceleration = localEmcMaxAcceleration;
+    stat->maxJerk = localEmcMaxJerk;
 
     if (emcmotStatus.motionFlag & EMCMOT_MOTION_ERROR_BIT) {
 	stat->status = RCS_ERROR;

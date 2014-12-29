@@ -103,6 +103,7 @@ typedef struct {
     double vLimit;		/* absolute upper limit on all vels */
 
     double aMax;        /* max accel (unused) */
+    double jMax;        /* max jerk (unused) */
     //FIXME this shouldn't be a separate limit,
     double aMaxCartesian; /* max cartesian acceleration by machine bounds */
     double aLimit;        /* max accel (unused) */

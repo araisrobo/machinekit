@@ -53,12 +53,15 @@ int ini_hal_init_pins(void);
     FIELD(hal_float_t,traj_max_velocity) \
     FIELD(hal_float_t,traj_default_acceleration) \
     FIELD(hal_float_t,traj_max_acceleration) \
+    FIELD(hal_float_t,traj_default_jerk) \
+    FIELD(hal_float_t,traj_max_jerk) \
 \
     ARRAY(hal_float_t,backlash,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,min_limit,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,max_limit,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,max_velocity,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,max_acceleration,EMCMOT_MAX_JOINTS) \
+    ARRAY(hal_float_t,max_jerk,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,ferror,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,min_ferror,EMCMOT_MAX_JOINTS) \
 

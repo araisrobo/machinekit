@@ -27,6 +27,7 @@ int tpSetCycleTime(TP_STRUCT * tp, double secs);
 int tpSetVmax(TP_STRUCT * tp, double vmax, double ini_maxvel);
 int tpSetVlimit(TP_STRUCT * tp, double limit);
 int tpSetAmax(TP_STRUCT * tp, double amax);
+int tpSetJmax(TP_STRUCT * tp, double jmax);
 int tpSetId(TP_STRUCT * tp, int id);
 int tpGetExecId(TP_STRUCT * tp);
 int tpSetTermCond(TP_STRUCT * tp, int cond, double tolerance);

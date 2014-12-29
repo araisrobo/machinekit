@@ -1051,6 +1051,26 @@ check_stuff ( "before command_handler()" );
 	    tpSetAmax(emcmotPrimQueue, emcmotStatus->acc);
 	    break;
 
+	case EMCMOT_SET_JOINT_JERK_LIMIT:
+	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_JOINT_JERK_LIMIT");
+	    rtapi_print_msg(RTAPI_MSG_DBG, " %d\n", joint_num);
+	    emcmot_config_change();
+	    /* check joint range */
+	    if (joint == 0) {
+		break;
+	    }
+	    joint->jerk_limit = emcmotCommand->jerk;
+	    break;
+
+	case EMCMOT_SET_JERK:
+	    /* set the max acceleration */
+	    /* can do it at any time */
+	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_JERK");
+	    emcmotStatus->jerk = emcmotCommand->jerk;
+	    tpSetJmax(emcmotPrimQueue, emcmotStatus->jerk);
+
+	    break;
+
 	case EMCMOT_PAUSE:
 	    /* pause the motion */
 	    /* can happen at any time */

@@ -99,6 +99,7 @@ int ini_hal_init(void)
         MAKE_FLOAT_PIN_IDX(max_limit,HAL_IN,idx);
         MAKE_FLOAT_PIN_IDX(max_velocity,HAL_IN,idx);
         MAKE_FLOAT_PIN_IDX(max_acceleration,HAL_IN,idx);
+        MAKE_FLOAT_PIN_IDX(max_jerk,HAL_IN,idx);
         MAKE_FLOAT_PIN_IDX(ferror,HAL_IN,idx);
         MAKE_FLOAT_PIN_IDX(min_ferror,HAL_IN,idx);
     }
@@ -107,7 +108,8 @@ int ini_hal_init(void)
     MAKE_FLOAT_PIN(traj_max_velocity,HAL_IN);
     MAKE_FLOAT_PIN(traj_default_acceleration,HAL_IN);
     MAKE_FLOAT_PIN(traj_max_acceleration,HAL_IN);
-
+	MAKE_FLOAT_PIN(traj_default_jerk,HAL_IN);
+	MAKE_FLOAT_PIN(traj_max_jerk,HAL_IN);
     hal_ready(comp_id);
     return 0;
 } // ini_hal_init()
@@ -118,6 +120,8 @@ int ini_hal_init_pins()
     INIT_PIN(traj_max_velocity);
     INIT_PIN(traj_default_acceleration);
     INIT_PIN(traj_max_acceleration);
+    INIT_PIN(traj_default_jerk);
+    INIT_PIN(traj_max_jerk);
 
     for (int idx = 0; idx < EMCMOT_MAX_JOINTS; idx++) {
         INIT_PIN(backlash[idx]);
@@ -125,6 +129,7 @@ int ini_hal_init_pins()
         INIT_PIN(max_limit[idx]);
         INIT_PIN(max_velocity[idx]);
         INIT_PIN(max_acceleration[idx]);
+        INIT_PIN(max_jerk[idx]);
         INIT_PIN(ferror[idx]);
         INIT_PIN(min_ferror[idx]);
     }
@@ -182,6 +187,24 @@ int check_ini_hal_items()
             }
         }
     }
+    if (CHANGED(traj_default_jerk)) {
+        if (debug) SHOW_CHANGE(traj_default_jerk)
+        UPDATE(traj_default_jerk);
+        if (0 != emcTrajSetJerk(NEW(traj_default_jerk))) {
+            if (emc_debug & EMC_DEBUG_CONFIG) {
+                rcs_print("check_ini_hal_items:bad return value from emcTrajSetJerk\n");
+            }
+        }
+    }
+    if (CHANGED(traj_max_jerk)) {
+        if (debug) SHOW_CHANGE(traj_max_jerk)
+        UPDATE(traj_max_jerk);
+        if (0 != emcTrajSetMaxJerk(NEW(traj_max_jerk))) {
+            if (emc_debug & EMC_DEBUG_CONFIG) {
+                rcs_print("check_ini_hal_items:bad return value from emcTrajSetMaxJerk\n");
+            }
+        }
+    }
 
     for (int idx = 0; idx < EMCMOT_MAX_JOINTS; idx++) {
         if (CHANGED_IDX(backlash,idx) ) {
@@ -226,6 +249,15 @@ int check_ini_hal_items()
             if (0 != emcAxisSetMaxAcceleration(idx, NEW(max_acceleration[idx]))) {
                 if (emc_debug & EMC_DEBUG_CONFIG) {
                     rcs_print_error("check_ini_hal_items:bad return from emcAxisSetMaxAcceleration\n");
+                }
+            }
+        }
+        if (CHANGED_IDX(max_jerk,idx) ) {
+            if (debug) SHOW_CHANGE_IDX(max_jerk,idx);
+            UPDATE_IDX(max_jerk,idx);
+            if (0 != emcAxisSetMaxJerk(idx, NEW(max_jerk[idx]))) {
+                if (emc_debug & EMC_DEBUG_CONFIG) {
+                    rcs_print_error("check_ini_hal_items:bad return from emcAxisSetMaxJerk\n");
                 }
             }
         }

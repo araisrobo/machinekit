@@ -388,6 +388,7 @@ extern int emcAxisSetHomingParams(int axis, double home, double offset, double h
 				  int is_shared, int home_sequence, int volatile_home, int locking_indexer);
 extern int emcAxisSetMaxVelocity(int axis, double vel);
 extern int emcAxisSetMaxAcceleration(int axis, double acc);
+extern int emcAxisSetMaxJerk(int axis, double jerk);
 
 extern int emcAxisInit(int axis);
 extern int emcAxisHalt(int axis);
@@ -416,8 +417,10 @@ extern int emcTrajSetMode(int axes);
 extern int emcTrajSetTeleopVector(EmcPose vel);
 extern int emcTrajSetVelocity(double vel, double ini_maxvel);
 extern int emcTrajSetAcceleration(double acc);
+extern int emcTrajSetJerk(double jerk);
 extern int emcTrajSetMaxVelocity(double vel);
 extern int emcTrajSetMaxAcceleration(double acc);
+extern int emcTrajSetMaxJerk(double jerk);
 extern int emcTrajSetScale(double scale);
 extern int emcTrajSetFOEnable(unsigned char mode);   //feed override enable
 extern int emcTrajSetFHEnable(unsigned char mode);   //feed hold enable
