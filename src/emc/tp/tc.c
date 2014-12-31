@@ -280,8 +280,7 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
             break;
         case TC_LINEAR:
             pmCartLinePoint(&tc->coords.line.xyz,
-                    progress * tc->coords.line.xyz.tmag / tc->target,
-                    &xyz);
+                    progress, &xyz);
             pmCartLinePoint(&tc->coords.line.uvw,
                     progress * tc->coords.line.uvw.tmag / tc->target,
                     &uvw);
@@ -498,6 +497,11 @@ int tcInit(TC_STRUCT * const tc,
 
     tc->active_depth = 1;
 
+    tc->progress = 0.0;
+    tc->accel_state = ACCEL_S3;
+    tc->feed_override = 0.0;
+    tc->cur_accel = 0.0;
+    tc->currentvel = 0.0;
     return TP_ERR_OK;
 }
 
@@ -508,12 +512,16 @@ int tcInit(TC_STRUCT * const tc,
 int tcSetupMotion(TC_STRUCT * const tc,
         double vel,
         double ini_maxvel,
-        double acc)
+        double acc,
+        double ini_maxjerk,
+        double cycle_time)
 {
 
-    tc->maxaccel = acc;
+    tc->jerk = ini_maxjerk * cycle_time * cycle_time * cycle_time;
 
-    tc->maxvel = ini_maxvel;
+    tc->maxaccel = acc * cycle_time * cycle_time;
+
+    tc->maxvel = ini_maxvel * cycle_time;
 
     tc->reqvel = vel;
     // Initial guess at target velocity is just the requested velocity

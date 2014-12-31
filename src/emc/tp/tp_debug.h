@@ -52,6 +52,26 @@
 #define tp_info_print(...)
 #endif
 
+#if (TRACE)
+#include <stdio.h>
+#define DP(fmt, args...)                                                \
+    do {                                                                \
+        fprintf(dptrace, "%s: (%s:%d) ",                                \
+                         __FILE__, __FUNCTION__, __LINE__ );            \
+        fprintf(dptrace, fmt, ##args);                                  \
+        fflush(dptrace);                                                \
+    } while (0)
+#define DPS(fmt, args...)                                               \
+    do {                                                                \
+        fprintf(dptrace, fmt, ##args);                                  \
+        fflush(dptrace);                                                \
+    } while (0)
+#else 
+// TRACE == 0
+#define DP(fmt, args...)     do {} while(0)
+#define DPS(fmt, args...)    do {} while(0)
+#endif
+
 int gdb_fake_catch(int condition);
 int gdb_fake_assert(int condition);
 #endif
