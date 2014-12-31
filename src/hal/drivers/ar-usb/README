@@ -1,0 +1,15 @@
+TODO: identify a better documentation style
+
+HAL signals
+
+* risc-jog-vel
+    + HOST:
+        . description: requested velocity for risc jogging
+        . direction: INPUT
+        . type: hal_float_t
+        . velocity: unit/second
+    + RISC:
+        . parameter: JOG_VEL
+        . format: signed 32-bit value
+        . format: 16.16 pulse unit per servo-period
+        . description: jog velocity for RISC-Jogging

@@ -1329,6 +1329,17 @@ hm2_pci-objs  :=			  \
     $(MATHSTUB)
 endif
 
+## Begin: WOU - wishbone over usb
+# build WOU if there's libwou-dev installed
+ifneq ($(WOU_VER),)
+SUBDIRS += hal/drivers/ar-usb
+EXTRA_CFLAGS += $(WOU_CFLAGS) -DMOTION_OVER_USB -I$(BASEPWD)/hal/drivers/ar-usb
+LDFLAGS += $(WOU_LIBS)
+obj-$(CONFIG_WOU) += wou.o
+wou-objs := hal/drivers/ar-usb/wou_stepgen.o $(MATHSTUB)
+endif
+## End: WOU - wishbone over usb
+
 obj-$(CONFIG_PROBE_PARPORT) += probe_parport.o
 probe_parport-objs := hal/drivers/probe_parport.o $(MATHSTUB)
 endif
@@ -1527,6 +1538,10 @@ $(RTLIBDIR)/hm2_7i43$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_7i43-objs))
 $(RTLIBDIR)/hm2_7i90$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_7i90-objs))
 $(RTLIBDIR)/hm2_pci$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_pci-objs))
 $(RTLIBDIR)/hm2_test$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_test-objs)) 
+endif
+
+ifneq ($(WOU_VER),)
+$(RTLIBDIR)/wou$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(wou-objs))
 endif
 
 ifdef TARGET_PLATFORM_BEAGLEBONE
