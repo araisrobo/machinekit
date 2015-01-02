@@ -77,6 +77,7 @@ class LinkedList {
     void *get_tail();
     void *get_next();
     void *get_last();
+    void *get_current();
     void *find_node(int _node_number);
     void delete_node(int _id);
     void delete_current_node();

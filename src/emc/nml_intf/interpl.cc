@@ -144,6 +144,80 @@ NMLmsg *NML_INTERP_LIST::get()
     return ret;
 }
 
+// get current NML cmd, and move current_node to next
+NMLmsg *NML_INTERP_LIST::get_and_next()
+{
+    NMLmsg *ret;
+    NML_INTERP_LIST_NODE *node_ptr;
+
+    if (NULL == linked_list_ptr) {
+        line_number = 0;
+        return NULL;
+    }
+
+    // move current_node of linked_list to next node
+    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_current();
+
+    if (NULL == node_ptr) {
+        line_number = 0;
+        return NULL;
+    }
+
+    // save line number of this one, for use by get_line_number
+    line_number = node_ptr->line_number;
+
+    // copy NML message
+    ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
+
+    // move current_node to next node
+    linked_list_ptr->get_next();
+
+    return ret;
+}
+
+// get 1st NML_cmd which matches the given line_number
+NMLmsg *NML_INTERP_LIST::get_by_lineno(int lineno)
+{
+    NMLmsg *ret;
+    NML_INTERP_LIST_NODE *node_ptr;
+
+    if (NULL == linked_list_ptr) {
+        line_number = 0;
+        return NULL;
+    }
+
+    // move current_node of linked_list to head
+    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_head();
+    while (NULL != node_ptr) {
+        // save line number of this one, for use by get_line_number
+        line_number = node_ptr->line_number;
+        if (line_number == lineno) {
+            break; // got the node; break while-loop
+        } else {
+            node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_next();
+        }
+    }
+
+    if (NULL == node_ptr) {
+        line_number = 0;
+        return NULL;
+    }
+
+    // copy NML message
+    ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
+
+    return ret;
+}
+
+bool NML_INTERP_LIST::is_eol()
+{
+    if (-1 == linked_list_ptr->get_current_id()) {
+        return (true);
+    } else {
+        return (false);
+    }
+}
+
 void NML_INTERP_LIST::clear()
 {
     if (NULL != linked_list_ptr) {

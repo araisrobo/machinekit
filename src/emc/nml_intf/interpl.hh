@@ -53,6 +53,9 @@ class NML_INTERP_LIST {
     int append(NMLmsg &);
     int append(NMLmsg *);
     NMLmsg *get();
+    NMLmsg *get_and_next();
+    NMLmsg *get_by_lineno(int lineno);
+    bool is_eol();
     void clear();
     void print();
     int len();

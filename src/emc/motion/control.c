@@ -563,6 +563,11 @@ static void process_inputs(void)
 	// position is the initial pause position, so ok to resume
 	if (emcmotStatus->resuming) {
 	    // a resume was signalled.
+	    // truncate the other TC commands from primary queue
+	    // only keep current TC
+	    while (tcqLen(&(emcmotPrimQueue->queue)) > 1) {
+	        tcqPopBack(&(emcmotPrimQueue->queue));
+	    }
 	    // switch to primary queue and resume.
 	    rtapi_print_msg(RTAPI_MSG_DBG, "resuming\n");
 	    emcmotStatus->resuming = 0;

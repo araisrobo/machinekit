@@ -18,6 +18,7 @@ extern "C" {
 #include <stdlib.h>		/* malloc() */
 #include <string.h>		/* memcpy() */
 #include <stdio.h>		/* fprintf(), stderr */
+#include <assert.h>
 #ifdef __cplusplus
 }
 #endif
@@ -138,6 +139,9 @@ void *LinkedList::retrieve_head()
 	last_size_retrieved = head->size;
 	last_copied_retrieved = head->copied;
 	next_node = head->next;
+	if (current_node == head) {
+	    current_node = next_node;
+	}
 	delete head;
 	head = next_node;
 	if (NULL != head) {
@@ -167,6 +171,9 @@ void *LinkedList::retrieve_tail()
 	last_size_retrieved = tail->size;
 	last_copied_retrieved = tail->copied;
 	last_node = tail->last;
+        if (current_node == tail) {
+            current_node = last_node;
+        }
 	delete tail;
 	tail = last_node;
 	if (NULL != tail) {
@@ -283,7 +290,7 @@ int LinkedList::store_at_tail(void *_data, size_t _size, int _copy)
     LinkedListNode *old_head = head;
 
     if (list_size >= max_list_size) {
-	switch (sizing_mode) {
+        switch (sizing_mode) {
 	case DELETE_FROM_HEAD:
 	    if (NULL != head) {
 		head = head->next;
@@ -331,12 +338,18 @@ int LinkedList::store_at_tail(void *_data, size_t _size, int _copy)
 			"LinkedList: Tail is NULL but head is not.\n");
 		return (-1);
 	    }
+	    // add new node to an empty list
 	    head = new_tail;
+	    current_node = head;
 	} else {
 	    tail->next = new_tail;
 	    new_tail->last = tail;
 	    new_tail->next = (LinkedListNode *) NULL;
 	    tail = new_tail;
+	    if (NULL == current_node) {
+	        // current_node could be NULL by get_next()
+	        current_node = new_tail;
+	    }
 	}
 	list_size++;
 	return (tail->id);
@@ -648,6 +661,16 @@ void *LinkedList::get_last()
 	return (current_node->data);
     } else {
 	return (NULL);
+    }
+}
+
+/* Get the address of the current_node object on the list. */
+void *LinkedList::get_current()
+{
+    if (NULL != current_node) {
+        return (current_node->data);
+    } else {
+        return (NULL);
     }
 }
 
