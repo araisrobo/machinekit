@@ -369,6 +369,7 @@ int abort_and_switchback()
 	emcmotQueue = emcmotPrimQueue;
 	tpClear(emcmotQueue);
 	tpSetPos(emcmotQueue, &where);
+        *emcmot_hal_data->tp_reverse_state = TP_FORWARD;
 	*emcmot_hal_data->pause_state = PS_RUNNING;
 	*emcmot_hal_data->paused_at_motion_type = 0; // valid motions start at 1
 	emcmotStatus->depth = 0; // end task wait
@@ -425,8 +426,10 @@ check_stuff ( "before command_handler()" );
 	}
 
 /* printing of commands for troubleshooting */
-	rtapi_print_msg(RTAPI_MSG_DBG, "%d: CMD %d, code %3d ", emcmotStatus->heartbeat,
-	    emcmotCommand->commandNum, emcmotCommand->command);
+	rtapi_print_msg(RTAPI_MSG_DBG, "%s:%d heartbeat(%d): CMD %d, code %3d ",
+	        __FILE__, __LINE__,
+	        emcmotStatus->heartbeat,
+	        emcmotCommand->commandNum, emcmotCommand->command);
 
 	switch (emcmotCommand->command) {
 	case EMCMOT_ABORT:
@@ -466,6 +469,7 @@ check_stuff ( "before command_handler()" );
 		SET_JOINT_ERROR_FLAG(joint, 0);
 		SET_JOINT_FAULT_FLAG(joint, 0);
 	    }
+            emcmotStatus->tp_reverse_state =  *(emcmot_hal_data->tp_reverse_state) = TP_FORWARD;
 	    emcmotStatus->pause_state =  *(emcmot_hal_data->pause_state) = PS_RUNNING;
 	    emcmotStatus->resuming = 0;
 
@@ -477,7 +481,7 @@ check_stuff ( "before command_handler()" );
 	    /* this command stops a single joint.  It is only usefull
 	       in free mode, so in coord or teleop mode it does
 	       nothing. */
-	    rtapi_print_msg(RTAPI_MSG_DBG, "AXIS_ABORT");
+	    rtapi_print_msg(RTAPI_MSG_DBG, "%s:%d AXIS_ABORT", __FILE__, __LINE__);
 	    rtapi_print_msg(RTAPI_MSG_DBG, " %d", joint_num);
 	    if (GET_MOTION_TELEOP_FLAG()) {
 		/* do nothing in teleop mode */

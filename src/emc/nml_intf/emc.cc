@@ -1503,11 +1503,13 @@ void EMC_TRAJ_LINEAR_MOVE::update(CMS * cms)
 {
 
     EMC_TRAJ_CMD_MSG::update(cms);
+    EmcPose_update(cms, &begin);
     EmcPose_update(cms, &end);
     cms->update(type);
     cms->update(vel);
     cms->update(ini_maxvel);
     cms->update(acc);
+    cms->update(ini_maxjerk);
     cms->update(feed_mode);
     cms->update(indexrotary);
 }
@@ -1523,6 +1525,7 @@ void EMC_TRAJ_CIRCULAR_MOVE::update(CMS * cms)
 {
 
     EMC_TRAJ_CMD_MSG::update(cms);
+    EmcPose_update(cms, &begin);
     EmcPose_update(cms, &end);
     cms->update(center);
     cms->update(normal);
@@ -1531,6 +1534,7 @@ void EMC_TRAJ_CIRCULAR_MOVE::update(CMS * cms)
     cms->update(vel);
     cms->update(ini_maxvel);
     cms->update(acc);
+    cms->update(ini_maxjerk);
     cms->update(feed_mode);
 
 }
@@ -2328,6 +2332,7 @@ void EMC_TRAJ_STAT::update(CMS * cms)
     cms->update(queueFull);
     cms->update(id);
     cms->update(paused);
+    cms->update(tp_reversed);
     cms->update(scale);
     EmcPose_update(cms, &position);
     EmcPose_update(cms, &actualPosition);
@@ -2799,11 +2804,13 @@ void EMC_TRAJ_PROBE::update(CMS * cms)
 {
 
     EMC_TRAJ_CMD_MSG::update(cms);
+    EmcPose_update(cms, &begin);
     EmcPose_update(cms, &pos);
     cms->update(type);
     cms->update(vel);
     cms->update(ini_maxvel);
     cms->update(acc);
+    cms->update(ini_maxjerk);
     cms->update(probe_type);
 }
 
@@ -2837,6 +2844,7 @@ void EMC_TRAJ_RIGID_TAP::update(CMS * cms)
     cms->update(vel);
     cms->update(ini_maxvel);
     cms->update(acc);
+    cms->update(ini_maxjerk);
 
 }
 

@@ -46,11 +46,13 @@ class LinkedListNode {
 
 class LinkedList {
   protected:
-    LinkedListNode * head;
+    LinkedListNode *head;
     LinkedListNode *tail;
     LinkedListNode *current_node;
     LinkedListNode *extra_node;
     int next_node_id;
+    bool hit_bol;
+    bool hit_eol;
   public:
     int get_current_id();
     int list_size;

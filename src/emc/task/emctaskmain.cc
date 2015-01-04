@@ -558,6 +558,10 @@ void readahead_reading(void)
     int execRetval;
 
                 rcs_print("%s %s:%d TODO: replace emc_task_interp_max_len with memory limit protection\n", __FUNCTION__, __FILE__, __LINE__);
+                rcs_print("%s %s:%d interp_list.len(%d) emc_task_interp_max_len(%d)\n",
+                        __FUNCTION__, __FILE__, __LINE__,
+                        interp_list.len(),
+                        emc_task_interp_max_len);
 		if (interp_list.len() <= emc_task_interp_max_len) {
                     int count = 0;
 interpret_again:
@@ -1609,6 +1613,8 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 {
     int retval = 0;
     int execRetval = 0;
+    EmcPose target;     // target position for TP_FORWARD/TP_REVERSE
+    int turn;           // turn for circular motion
 
     if (0 == cmd) {
         if (emc_debug & EMC_DEBUG_TASK_ISSUE) {
@@ -1795,20 +1801,35 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
     case EMC_TRAJ_LINEAR_MOVE_TYPE:
 	emcTrajLinearMoveMsg = (EMC_TRAJ_LINEAR_MOVE *) cmd;
-        retval = emcTrajLinearMove(emcTrajLinearMoveMsg->end,
-                                   emcTrajLinearMoveMsg->type, emcTrajLinearMoveMsg->vel,
-                                   emcTrajLinearMoveMsg->ini_maxvel, emcTrajLinearMoveMsg->acc,
-                                   emcTrajLinearMoveMsg->ini_maxjerk, emcTrajLinearMoveMsg->indexrotary);
-	break;
+	if (emcStatus->motion.traj.tp_reversed == TP_FORWARD) {
+	    target = emcTrajLinearMoveMsg->end;
+	} else {
+            target = emcTrajLinearMoveMsg->begin;       // TP_REVERSE
+	}
+        retval = emcTrajLinearMove(target,
+                emcTrajLinearMoveMsg->type, emcTrajLinearMoveMsg->vel,
+                emcTrajLinearMoveMsg->ini_maxvel, emcTrajLinearMoveMsg->acc,
+                emcTrajLinearMoveMsg->ini_maxjerk, emcTrajLinearMoveMsg->indexrotary);
+        break;
 
     case EMC_TRAJ_CIRCULAR_MOVE_TYPE:
 	emcTrajCircularMoveMsg = (EMC_TRAJ_CIRCULAR_MOVE *) cmd;
-        retval = emcTrajCircularMove(emcTrajCircularMoveMsg->end,
+        if (emcStatus->motion.traj.tp_reversed == TP_FORWARD) {
+            target = emcTrajCircularMoveMsg->end;
+            turn = emcTrajCircularMoveMsg->turn;        // turn: CW/CCW turns
+        } else {
+            // to inverse circular direction and end point for TP_REVERSE
+            target = emcTrajCircularMoveMsg->begin;     // TP_REVERSE
+            turn = -1 - emcTrajCircularMoveMsg->turn;   // turn: G3(CCW) G2(CW)
+        }
+        retval = emcTrajCircularMove(
+                target,
                 emcTrajCircularMoveMsg->center, emcTrajCircularMoveMsg->normal,
-                emcTrajCircularMoveMsg->turn, emcTrajCircularMoveMsg->type,
+                turn, emcTrajCircularMoveMsg->type,
                 emcTrajCircularMoveMsg->vel,
                 emcTrajCircularMoveMsg->ini_maxvel,
-                emcTrajCircularMoveMsg->acc);
+                emcTrajCircularMoveMsg->acc,
+                emcTrajCircularMoveMsg->ini_maxjerk);
 	break;
 
     case EMC_TRAJ_PAUSE_TYPE:
@@ -1869,13 +1890,26 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	break;
 
     case EMC_TRAJ_PROBE_TYPE:
-	retval = emcTrajProbe(
-	    ((EMC_TRAJ_PROBE *) cmd)->pos, 
-	    ((EMC_TRAJ_PROBE *) cmd)->type,
-	    ((EMC_TRAJ_PROBE *) cmd)->vel,
-            ((EMC_TRAJ_PROBE *) cmd)->ini_maxvel,  
-	    ((EMC_TRAJ_PROBE *) cmd)->acc,
-            ((EMC_TRAJ_PROBE *) cmd)->probe_type);
+        if (emcStatus->motion.traj.tp_reversed == TP_FORWARD) {
+            retval = emcTrajProbe(
+                    ((EMC_TRAJ_PROBE *) cmd)->pos,
+                    ((EMC_TRAJ_PROBE *) cmd)->type,
+                    ((EMC_TRAJ_PROBE *) cmd)->vel,
+                    ((EMC_TRAJ_PROBE *) cmd)->ini_maxvel,
+                    ((EMC_TRAJ_PROBE *) cmd)->acc,
+                    ((EMC_TRAJ_PROBE *) cmd)->ini_maxjerk,
+                    ((EMC_TRAJ_PROBE *) cmd)->probe_type);
+        } else { // TP_REVERSE
+            retval = emcTrajLinearMove(
+                    ((EMC_TRAJ_PROBE *) cmd)->begin,        // target-position
+                    EMC_MOTION_TYPE_TRAVERSE,               // type
+                    ((EMC_TRAJ_PROBE *) cmd)->ini_maxvel,   // vel
+                    ((EMC_TRAJ_PROBE *) cmd)->ini_maxvel,   // ini_maxvel
+                    ((EMC_TRAJ_PROBE *) cmd)->acc,
+                    ((EMC_TRAJ_PROBE *) cmd)->ini_maxjerk,
+                    -1);                                    // indexrotary
+        }
+
 	break;
 
     case EMC_AUX_INPUT_WAIT_TYPE:
@@ -1902,7 +1936,8 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	retval = emcTrajRigidTap(((EMC_TRAJ_RIGID_TAP *) cmd)->pos,
 	        ((EMC_TRAJ_RIGID_TAP *) cmd)->vel,
         	((EMC_TRAJ_RIGID_TAP *) cmd)->ini_maxvel,  
-		((EMC_TRAJ_RIGID_TAP *) cmd)->acc);
+		((EMC_TRAJ_RIGID_TAP *) cmd)->acc,
+		((EMC_TRAJ_RIGID_TAP *) cmd)->ini_maxjerk);
 	break;
 
     case EMC_TRAJ_SET_TELEOP_ENABLE_TYPE:
@@ -2271,8 +2306,8 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
     case EMC_TASK_PLAN_RESUME_TYPE:
         // locate next motion line from interp_list
-        interp_list.get_by_lineno(emcStatus->motion.traj.id + 1);
-	emcTrajResume();
+        interp_list.get_by_lineno(emcStatus->motion.traj.id);
+        emcTrajResume();
 	emcStatus->task.interpState =
 	    (enum EMC_TASK_INTERP_ENUM) interpResumeState;
 	emcStatus->task.task_paused = 0;
@@ -2537,10 +2572,15 @@ static int emcTaskExecute(void)
 	    emcStatus->task.interpState != EMC_TASK_INTERP_PAUSED) {
 	    if (0 == emcTaskCommand) {
 		// need a new command
-	        if (emcStatus->task.mode == EMC_TASK_MODE_AUTO)
-	            emcTaskCommand = interp_list.get_and_next(); // get current NML cmd, and move interp_list.current_node to next
-	        else
+	        if (emcStatus->task.mode == EMC_TASK_MODE_AUTO) {
+	            if (emcStatus->motion.traj.tp_reversed == TP_REVERSE) {
+	                emcTaskCommand = interp_list.get_and_last(); // get current NML cmd, and move to last node
+	            } else {
+	                emcTaskCommand = interp_list.get_and_next(); // get current NML cmd, and move to next node
+	            }
+	        } else {
 	            emcTaskCommand = interp_list.get(); // get current NML cmd, and remove it from interp_list
+	        }
 
 		if (0 != emcTaskCommand) {
 		    emcTaskEager = 1;

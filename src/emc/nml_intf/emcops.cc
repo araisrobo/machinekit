@@ -61,6 +61,7 @@ EMC_TRAJ_STAT_MSG(EMC_TRAJ_STAT_TYPE, sizeof(EMC_TRAJ_STAT))
     queueFull = OFF;
     id = 0;
     paused = OFF;
+    tp_reversed = OFF;
     scale = 0.0;
     spindle_scale = 0.0;
 

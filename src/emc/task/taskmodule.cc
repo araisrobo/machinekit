@@ -315,6 +315,7 @@ BOOST_PYTHON_MODULE(emctask) {
 	.def_readwrite("queueFull", &EMC_TRAJ_STAT::queueFull )
 	.def_readwrite("id", &EMC_TRAJ_STAT::id )
 	.def_readwrite("paused", &EMC_TRAJ_STAT::paused )
+        .def_readwrite("tp_reversed", &EMC_TRAJ_STAT::tp_reversed )
 	.def_readwrite("scale", &EMC_TRAJ_STAT::scale )
 	.def_readwrite("spindle_scale", &EMC_TRAJ_STAT::spindle_scale )
 	.def_readwrite("position", &EMC_TRAJ_STAT::position )

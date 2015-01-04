@@ -566,6 +566,11 @@ static int init_hal_io(void)
         return retval;
     }
 
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->tp_reverse_input),
+                                   mot_comp_id, "motion.tp-reverse-input")) < 0) return retval;
+    if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->tp_reverse_state),
+                                   mot_comp_id, "motion.tp-reverse-state")) < 0) return retval;
+
     if ((retval = hal_pin_s32_newf(HAL_OUT, &(emcmot_hal_data->pause_state),
 				   mot_comp_id, "motion.pause-state")) < 0) return retval;
 
@@ -965,6 +970,7 @@ static int init_comm_buffers(void)
     emcmotStatus->depth = 0;
     emcmotStatus->activeDepth = 0;
     emcmotStatus->pause_state  = PS_RUNNING;
+    emcmotStatus->tp_reverse_state  = TP_FORWARD;
     emcmotStatus->resuming = 0;
     emcmotStatus->overrideLimitMask = 0;
     emcmotStatus->spindle.speed = 0.0;

@@ -1044,7 +1044,7 @@ int emcTrajLinearMove(EmcPose end, int type, double vel, double ini_maxvel, doub
 }
 
 int emcTrajCircularMove(EmcPose end, PM_CARTESIAN center,
-			PM_CARTESIAN normal, int turn, int type, double vel, double ini_maxvel, double acc)
+			PM_CARTESIAN normal, int turn, int type, double vel, double ini_maxvel, double acc, double ini_maxjerk)
 {
 #ifdef ISNAN_TRAP
     if (isnan(end.tran.x) || isnan(end.tran.y) || isnan(end.tran.z) ||
@@ -1076,6 +1076,7 @@ int emcTrajCircularMove(EmcPose end, PM_CARTESIAN center,
     emcmotCommand.vel = vel;
     emcmotCommand.ini_maxvel = ini_maxvel;
     emcmotCommand.acc = acc;
+    emcmotCommand.ini_maxjerk = ini_maxjerk;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
@@ -1087,7 +1088,7 @@ int emcTrajClearProbeTrippedFlag()
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcTrajProbe(EmcPose pos, int type, double vel, double ini_maxvel, double acc, unsigned char probe_type)
+int emcTrajProbe(EmcPose pos, int type, double vel, double ini_maxvel, double acc, double ini_maxjerk, unsigned char probe_type)
 {
 #ifdef ISNAN_TRAP
     if (isnan(pos.tran.x) || isnan(pos.tran.y) || isnan(pos.tran.z) ||
@@ -1105,12 +1106,13 @@ int emcTrajProbe(EmcPose pos, int type, double vel, double ini_maxvel, double ac
     emcmotCommand.vel = vel;
     emcmotCommand.ini_maxvel = ini_maxvel;
     emcmotCommand.acc = acc;
+    emcmotCommand.ini_maxjerk = ini_maxjerk;
     emcmotCommand.probe_type = probe_type;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcTrajRigidTap(EmcPose pos, double vel, double ini_maxvel, double acc)
+int emcTrajRigidTap(EmcPose pos, double vel, double ini_maxvel, double acc, double ini_maxjerk)
 {
 #ifdef ISNAN_TRAP
     if (isnan(pos.tran.x) || isnan(pos.tran.y) || isnan(pos.tran.z)) {
@@ -1121,10 +1123,12 @@ int emcTrajRigidTap(EmcPose pos, double vel, double ini_maxvel, double acc)
 
     emcmotCommand.command = EMCMOT_RIGID_TAP;
     emcmotCommand.pos.tran = pos.tran;
+    emcmotCommand.pos.tran = pos.tran;
     emcmotCommand.id = localEmcTrajMotionId;
     emcmotCommand.vel = vel;
     emcmotCommand.ini_maxvel = ini_maxvel;
     emcmotCommand.acc = acc;
+    emcmotCommand.ini_maxjerk = ini_maxjerk;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
@@ -1188,6 +1192,7 @@ int emcTrajUpdate(EMC_TRAJ_STAT * stat)
     }
 
     stat->paused = emcmotStatus.pause_state;
+    stat->tp_reversed = emcmotStatus.tp_reverse_state;
     stat->scale = emcmotStatus.feed_scale;
     stat->spindle_scale = emcmotStatus.spindle_scale;
 

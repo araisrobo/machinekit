@@ -772,8 +772,9 @@ class EMC_TRAJ_LINEAR_MOVE:public EMC_TRAJ_CMD_MSG {
     void update(CMS * cms);
 
     int type;
-    EmcPose end;		// end point
-    double vel, ini_maxvel, acc ,ini_maxjerk;
+    EmcPose begin;		// begin point
+    EmcPose end;                // end point
+    double vel, ini_maxvel, acc, ini_maxjerk;
     int feed_mode;
     int indexrotary;
 };
@@ -788,12 +789,13 @@ class EMC_TRAJ_CIRCULAR_MOVE:public EMC_TRAJ_CMD_MSG {
     // For internal NML/CMS use only.
     void update(CMS * cms);
 
+    EmcPose begin;
     EmcPose end;
     PM_CARTESIAN center;
     PM_CARTESIAN normal;
     int turn;
     int type;
-    double vel, ini_maxvel, acc;
+    double vel, ini_maxvel, acc, ini_maxjerk;
     int feed_mode;
 };
 
@@ -929,9 +931,10 @@ class EMC_TRAJ_PROBE:public EMC_TRAJ_CMD_MSG {
     // For internal NML/CMS use only.
     void update(CMS * cms);
 
+    EmcPose begin;
     EmcPose pos;
     int type;
-    double vel, ini_maxvel, acc;
+    double vel, ini_maxvel, acc, ini_maxjerk;
     unsigned char probe_type;
 };
 
@@ -945,7 +948,7 @@ class EMC_TRAJ_RIGID_TAP:public EMC_TRAJ_CMD_MSG {
     void update(CMS * cms);
 
     EmcPose pos;
-    double vel, ini_maxvel, acc;
+    double vel, ini_maxvel, acc, ini_maxjerk;
 };
 
 // EMC_TRAJ status base class
@@ -980,7 +983,8 @@ class EMC_TRAJ_STAT:public EMC_TRAJ_STAT_MSG {
     int activeQueue;		// number of motions blending
     bool queueFull;		// non-zero means can't accept another motion
     int id;			// id of the currently executing motion
-    bool paused;			// non-zero means motion paused
+    bool paused;                // non-zero means motion paused
+    bool tp_reversed;           // true, if the trajectory planning is at reversed direction
     double scale;		// velocity scale factor
     double spindle_scale;	// spindle velocity scale factor
 

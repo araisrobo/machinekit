@@ -561,13 +561,13 @@ static void process_inputs(void)
     case PS_PAUSED:
 	// on alternate queue, all motion stopped
 	// position is the initial pause position, so ok to resume
+
+        *emcmot_hal_data->tp_reverse_state = *emcmot_hal_data->tp_reverse_input;
 	if (emcmotStatus->resuming) {
 	    // a resume was signalled.
-	    // truncate the other TC commands from primary queue
-	    // only keep current TC
-	    while (tcqLen(&(emcmotPrimQueue->queue)) > 1) {
-	        tcqPopBack(&(emcmotPrimQueue->queue));
-	    }
+            // truncate all TC commands from primary queue
+	    tcqRemove(&(emcmotPrimQueue->queue), tcqLen(&(emcmotPrimQueue->queue)));
+
 	    // switch to primary queue and resume.
 	    rtapi_print_msg(RTAPI_MSG_DBG, "resuming\n");
 	    emcmotStatus->resuming = 0;
@@ -2188,6 +2188,7 @@ static void update_status(void)
 	// waiting for motion
 	emcmotStatus->depth = 1;
     }
+    emcmotStatus->tp_reverse_state = *(emcmot_hal_data->tp_reverse_state);
     emcmotStatus->pause_state = *(emcmot_hal_data->pause_state);
     emcmotStatus->motionType = tpGetMotionType(emcmotQueue);
     emcmotStatus->queueFull = tcqFull(&emcmotQueue->queue);

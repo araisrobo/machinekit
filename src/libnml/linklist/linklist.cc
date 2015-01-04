@@ -40,6 +40,8 @@ LinkedList::LinkedList()
     head = (LinkedListNode *) NULL;
     tail = (LinkedListNode *) NULL;
     current_node = (LinkedListNode *) NULL;
+    hit_bol = false;
+    hit_eol = false;
     extra_node = (LinkedListNode *) NULL;
     last_data_retrieved = NULL;
     last_size_retrieved = 0;
@@ -108,8 +110,11 @@ void LinkedList::flush_list()
 	    last_size_retrieved = 0;
 	}
     }
+    current_node = (LinkedListNode *) NULL;
     head = (LinkedListNode *) NULL;
     tail = (LinkedListNode *) NULL;
+    hit_eol = false;
+    hit_bol = false;
     list_size = 0;
     last_data_stored = NULL;
     last_size_stored = 0;
@@ -255,11 +260,18 @@ int LinkedList::store_at_head(void *_data, size_t _size, int _copy)
 		return (-1);
 	    }
 	    tail = new_head;
+	    hit_eol = false;
+	    hit_bol = false;
+	    current_node = head;
 	} else {
 	    head->last = new_head;
 	    new_head->last = (LinkedListNode *) NULL;
 	    new_head->next = head;
 	    head = new_head;
+	    if ((NULL == current_node) && (true == hit_bol)) {
+	        current_node = head;
+	        hit_bol = false;
+	    }
 	}
 	list_size++;
 	return (head->id);
@@ -341,14 +353,17 @@ int LinkedList::store_at_tail(void *_data, size_t _size, int _copy)
 	    // add new node to an empty list
 	    head = new_tail;
 	    current_node = head;
+	    hit_eol = false;
+	    hit_bol = false;
 	} else {
 	    tail->next = new_tail;
 	    new_tail->last = tail;
 	    new_tail->next = (LinkedListNode *) NULL;
 	    tail = new_tail;
-	    if (NULL == current_node) {
+	    if ((NULL == current_node) && (true == hit_eol)) {
 	        // current_node could be NULL by get_next()
 	        current_node = new_tail;
+	        hit_eol = false;
 	    }
 	}
 	list_size++;
@@ -609,7 +624,7 @@ void *LinkedList::get_head()
 {
     current_node = head;
     if (NULL != current_node) {
-	return (current_node->data);
+        return (current_node->data);
     } else {
 	return (NULL);
     }
@@ -639,10 +654,15 @@ void *LinkedList::get_next()
 {
     if (NULL != current_node) {
 	current_node = current_node->next;
+    } if (hit_bol == true) {
+        if (NULL != head) {
+            current_node = head;
+        }
     }
     if (NULL != current_node) {
 	return (current_node->data);
     } else {
+        hit_eol = true;
 	return (NULL);
     }
 }
@@ -655,11 +675,17 @@ void *LinkedList::get_next()
 void *LinkedList::get_last()
 {
     if (NULL != current_node) {
-	current_node = current_node->last;
+        current_node = current_node->last;
+    } else if (hit_eol == true) {
+        // point current_node to TAIL if we are at EOL (end of linklist)
+        if (NULL != tail) {
+            current_node = tail;
+        }
     }
     if (NULL != current_node) {
 	return (current_node->data);
     } else {
+        hit_bol = true; // hit begin of list
 	return (NULL);
     }
 }

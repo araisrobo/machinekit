@@ -961,19 +961,9 @@ static void flush_segments(void) {
     EMC_TRAJ_LINEAR_MOVE linearMoveMsg;
     linearMoveMsg.feed_mode = feed_mode;
 
-    // now x, y, z, and b are in absolute mm or degree units
-    linearMoveMsg.end.tran.x = TO_EXT_LEN(x);
-    linearMoveMsg.end.tran.y = TO_EXT_LEN(y);
-    linearMoveMsg.end.tran.z = TO_EXT_LEN(z);
-
-    linearMoveMsg.end.u = TO_EXT_LEN(u);
-    linearMoveMsg.end.v = TO_EXT_LEN(v);
-    linearMoveMsg.end.w = TO_EXT_LEN(w);
-
-    // fill in the orientation
-    linearMoveMsg.end.a = TO_EXT_ANG(a);
-    linearMoveMsg.end.b = TO_EXT_ANG(b);
-    linearMoveMsg.end.c = TO_EXT_ANG(c);
+    // convert x, y, z from mm to external units(inch or mm)
+    linearMoveMsg.begin = to_ext_pose(canonEndPoint);
+    linearMoveMsg.end = to_ext_pose(x, y, z, a, b, c, u, v, w);
 
     linearMoveMsg.vel = toExtVel(vel);
     linearMoveMsg.ini_maxvel = toExtVel(ini_maxvel);
@@ -1085,12 +1075,13 @@ void STRAIGHT_TRAVERSE(int line_number,
     else
         linearMoveMsg.type = EMC_MOTION_TYPE_TRAVERSE;
 
-    from_prog(x,y,z,a,b,c,u,v,w);
+    from_prog(x,y,z,a,b,c,u,v,w); // convert from prog unit(inch or mm) to internal unit(mm)
     rotate_and_offset_pos(x,y,z,a,b,c,u,v,w);
 
     vel = getStraightVelocity(x, y, z, a, b, c, u, v, w);
     acc = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
     linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
+    linearMoveMsg.begin = to_ext_pose(canonEndPoint);
     linearMoveMsg.end = to_ext_pose(x,y,z,a,b,c,u,v,w);
     linearMoveMsg.vel = linearMoveMsg.ini_maxvel = toExtVel(vel);
     linearMoveMsg.acc = toExtAcc(acc);
@@ -1116,9 +1107,6 @@ void STRAIGHT_FEED(int line_number,
                    double a, double b, double c,
                    double u, double v, double w)
 {
-    EMC_TRAJ_LINEAR_MOVE linearMoveMsg;
-    linearMoveMsg.feed_mode = feed_mode;
-
     from_prog(x,y,z,a,b,c,u,v,w);
     rotate_and_offset_pos(x,y,z,a,b,c,u,v,w);
     see_segment(line_number, x, y, z, a, b, c, u, v, w);
@@ -1150,6 +1138,10 @@ void RIGID_TAP(int line_number, double x, double y, double z)
     rigidTapMsg.vel = toExtVel(vel);
     rigidTapMsg.ini_maxvel = toExtVel(ini_maxvel);
     rigidTapMsg.acc = toExtAcc(acc);
+    rigidTapMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z,
+                                            canonEndPoint.a, canonEndPoint.b, canonEndPoint.c,
+                                            canonEndPoint.u, canonEndPoint.v, canonEndPoint.w)
+                                        );
 
     flush_segments();
 
@@ -1202,10 +1194,12 @@ void STRAIGHT_PROBE(int line_number,
     probeMsg.vel = toExtVel(vel);
     probeMsg.ini_maxvel = toExtVel(ini_maxvel);
     probeMsg.acc = toExtAcc(acc);
+    probeMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
 
     probeMsg.type = EMC_MOTION_TYPE_PROBING;
     probeMsg.probe_type = probe_type;
 
+    probeMsg.begin = to_ext_pose(canonEndPoint);
     probeMsg.pos = to_ext_pose(x,y,z,a,b,c,u,v,w);
 
     if(vel && acc)  {
@@ -1820,6 +1814,7 @@ void ARC_FEED(int line_number,
         // linear move
         // FIXME (Rob) Am I missing something? the P word should never be zero,
         // or we wouldn't be calling ARC_FEED
+        linearMoveMsg.begin = to_ext_pose(canonEndPoint);
         linearMoveMsg.end = to_ext_pose(endpt);
         linearMoveMsg.type = EMC_MOTION_TYPE_ARC;
         linearMoveMsg.vel = toExtVel(vel);
@@ -1832,6 +1827,7 @@ void ARC_FEED(int line_number,
             interp_list.append(linearMoveMsg);
         }
     } else {
+        circularMoveMsg.begin = to_ext_pose(canonEndPoint);
         circularMoveMsg.end = to_ext_pose(endpt);
 
         // Convert internal center and normal to external units
@@ -1849,7 +1845,7 @@ void ARC_FEED(int line_number,
         circularMoveMsg.vel = toExtVel(vel);
         circularMoveMsg.ini_maxvel = toExtVel(v_max);
         circularMoveMsg.acc = toExtAcc(a_max);
-        linearMoveMsg.ini_maxjerk = j_max_planar;
+        circularMoveMsg.ini_maxjerk = j_max_planar;
 
         //FIXME what happens if accel or vel is zero?
         // The end point is still updated, but nothing is added to the interp list
@@ -2101,10 +2097,12 @@ void CHANGE_TOOL(int slot)
         vel = getStraightVelocity(x, y, z, a, b, c, u, v, w);
         acc = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
 
+        linearMoveMsg.begin = to_ext_pose(canonEndPoint);
         linearMoveMsg.end = to_ext_pose(x, y, z, a, b, c, u, v, w);
 
         linearMoveMsg.vel = linearMoveMsg.ini_maxvel = toExtVel(vel);
         linearMoveMsg.acc = toExtAcc(acc);
+        linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
         linearMoveMsg.type = EMC_MOTION_TYPE_TOOLCHANGE;
 	linearMoveMsg.feed_mode = 0;
         linearMoveMsg.indexrotary = -1;
@@ -3252,6 +3250,7 @@ int UNLOCK_ROTARY(int line_number, int axis) {
     // first, set up a zero length move to interrupt blending and get to final position
     m.type = EMC_MOTION_TYPE_TRAVERSE;
     m.feed_mode = 0;
+    m.begin = to_ext_pose(canonEndPoint);
     m.end = to_ext_pose(canonEndPoint.x, canonEndPoint.y, canonEndPoint.z,
                         canonEndPoint.a, canonEndPoint.b, canonEndPoint.c,
                         canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
