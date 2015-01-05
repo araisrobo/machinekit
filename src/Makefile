@@ -1383,6 +1383,9 @@ maxkins-objs := emc/kinematics/maxkins.o
 obj-m += gantrykins.o
 gantrykins-objs := emc/kinematics/gantrykins.o
 
+obj-m += align_gantry_kins.o
+align_gantry_kins-objs := emc/kinematics/align_gantry_kins.o
+
 obj-m += rotatekins.o
 rotatekins-objs := emc/kinematics/rotatekins.o
 
@@ -1580,6 +1583,7 @@ $(RTLIBDIR)/trivkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(trivkins-objs))
 $(RTLIBDIR)/5axiskins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(5axiskins-objs))
 $(RTLIBDIR)/maxkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(maxkins-objs))
 $(RTLIBDIR)/gantrykins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(gantrykins-objs))
+$(RTLIBDIR)/align_gantry_kins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(align_gantry_kins-objs))
 $(RTLIBDIR)/rotatekins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rotatekins-objs))
 $(RTLIBDIR)/tripodkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tripodkins-objs))
 $(RTLIBDIR)/lineardeltakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(lineardeltakins-objs))
