@@ -82,9 +82,11 @@ to another.
 #include "cubic.h"		/* CUBIC_STRUCT, CUBIC_COEFF */
 #include "emcmotcfg.h"		/* EMCMOT_MAX_JOINTS */
 #include "kinematics.h"
+#include "simple_tp.h"
 #include "rtapi_limits.h"
 #include <stdarg.h>
 
+#include <stdint.h>
 
 // define a special value to denote an invalid motion ID 
 // NB: do not ever generate a motion id of  MOTION_INVALID_ID
@@ -149,6 +151,7 @@ extern "C" {
 					   in joint space like EMCMOT_JOG_* */
 
 	EMCMOT_CLEAR_PROBE_FLAGS,	/* clears probeTripped flag */
+        EMCMOT_END_PROBE,       /* after probe*/
 	EMCMOT_PROBE,		/* go to pos, stop if probe trips, record
 				   trip pos */
 	EMCMOT_RIGID_TAP,	/* go to pos, with sync to spindle speed, 
@@ -529,9 +532,12 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double motor_pos_cmd;	/* commanded position, with comp */
 	double motor_pos_fb;	/* position feedback, with comp */
 	double pos_fb;		/* position feedback, comp removed */
+        double risc_pos_cmd;   /* position command issued by RISC */
+
 	double ferror;		/* following error */
 	double ferror_limit;	/* limit depends on speed */
 	double ferror_high_mark;	/* max following error */
+        simple_tp_t free_tp;        /* planner for free mode motion */
 	double free_pos_cmd;	/* position command for free mode TP */
 	double free_vel_lim;	/* velocity limit for free mode TP */
 	int free_tp_enable;	/* if zero, joint stops ASAP */
@@ -557,6 +563,8 @@ Suggestion: Split this in to an Error and a Status flag register..
 	/* stuff moved from the other structs that might be needed (or might
 	   not!) */
 	double big_vel;		/* used for "debouncing" velocity */
+
+        double      probed_pos;
     } emcmot_joint_t;
 
 /* This structure contains only the "status" data associated with
@@ -624,7 +632,13 @@ Suggestion: Split this in to an Error and a Status flag register..
 */
 
     typedef struct emcmot_status_t {
-	unsigned char head;	/* flag count for mutex detect */
+        uint32_t wait_risc;
+        int sync_pos_cmd;
+        uint32_t update_pos_ack;    /* for RCMD_FSM inside RISC */
+        uint32_t update_pos_req;    /* for RCMD_FSM inside RISC */
+        int update_current_pos_flag;
+
+        unsigned char head;	/* flag count for mutex detect */
 	/* these three are updated only when a new command is handled */
 	cmd_code_t commandEcho;	/* echo of input command */
 	int commandNumEcho;	/* echo of input command number */

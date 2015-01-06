@@ -24,6 +24,9 @@
 #include "tc.h"
 #include "motion_debug.h"
 #include "config.h"
+#include "sync_cmd.h"
+#include <stdint.h>
+#include <assert.h>
 
 // Mark strings for translation, but defer translation to userspace
 #define _(s) (s)
@@ -209,6 +212,7 @@ static void output_to_hal(void);
 */
 static void update_status(void);
 
+static void handle_usbmot_sync(void);
 
 /***********************************************************************
 *                        PUBLIC FUNCTION CODE                          *
@@ -318,6 +322,10 @@ check_stuff ( "after process_inputs()" );
 check_stuff ( "after do_forward_kins()" );
     process_probe_inputs();
 check_stuff ( "after process_probe_inputs()" );
+if (emcmotConfig->usbmotEnable){
+    handle_usbmot_sync();
+    check_stuff ( "after handle_usbmot_sync()" );
+}
     check_for_faults();
 check_stuff ( "after check_for_faults()" );
     set_operating_mode();
@@ -354,90 +362,112 @@ check_stuff ( "after update_status()" );
    at the top of the file in the section called "local function
    prototypes"
 */
-
 static void process_probe_inputs(void) {
-    static int old_probeVal = 0;
-    unsigned char probe_type = emcmotStatus->probe_type;
+    if (emcmotConfig->usbmotEnable){
+        if (emcmotStatus->probing)
+        {
+            if ((*emcmot_hal_data->trigger_result) && (*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ))
+            {
+                int32_t joint_num;
+                emcmot_joint_t *joint;
+                double joint_pos[EMCMOT_MAX_JOINTS] = {0,};
 
-    // don't error
-    char probe_suppress = probe_type & 1;
+                emcmotStatus->probeTripped = 1; // interp_internal.cc: Interp::set_probe_data() #[5070]
+                /* update probed pos */
+                for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++)
+                {
+                    joint = &joints[joint_num];
+                    joint_pos[joint_num] =  joint->probed_pos - (joint->backlash_filt + joint->motor_offset);// + joint->blender_offset);
+                }
+                kinematicsForward(joint_pos, &emcmotStatus->probedPos, &fflags, &iflags);
+                tpAbort(emcmotQueue);
+            }
+            *emcmot_hal_data->trigger_result = 0;
+        }
+    } else{
+        static int old_probeVal = 0;
+        unsigned char probe_type = emcmotStatus->probe_type;
 
-    // trigger when the probe clears, instead of the usual case of triggering when it trips
-    char probe_whenclears = !!(probe_type & 2);
-    
-    /* read probe input */
-    emcmotStatus->probeVal = !!*(emcmot_hal_data->probe_input);
-    if (emcmotStatus->probing) {
-        /* check if the probe has been tripped */
-        if (emcmotStatus->probeVal ^ probe_whenclears) {
-            /* remember the current position */
-            emcmotStatus->probedPos = emcmotStatus->carte_pos_fb; 
-            /* stop! */
-            emcmotStatus->probing = 0;
-            emcmotStatus->probeTripped = 1;
-            abort_and_switchback(); // tpAbort(emcmotQueue);
-        /* check if the probe hasn't tripped, but the move finished */
-        } else if (GET_MOTION_INPOS_FLAG() && tpQueueDepth(emcmotQueue) == 0) {
-            /* we are already stopped, but we need to remember the current 
-               position here, because it will still be queried */
-            emcmotStatus->probedPos = emcmotStatus->carte_pos_fb;
-            emcmotStatus->probing = 0;
-            if (probe_suppress) {
-                emcmotStatus->probeTripped = 0;
-            } else if(probe_whenclears) {
-                reportError(_("G38.4 move finished without breaking contact."));
+        // don't error
+        char probe_suppress = probe_type & 1;
+
+        // trigger when the probe clears, instead of the usual case of triggering when it trips
+        char probe_whenclears = !!(probe_type & 2);
+
+        /* read probe input */
+        emcmotStatus->probeVal = !!*(emcmot_hal_data->probe_input);
+        if (emcmotStatus->probing) {
+            /* check if the probe has been tripped */
+            if (emcmotStatus->probeVal ^ probe_whenclears) {
+                /* remember the current position */
+                emcmotStatus->probedPos = emcmotStatus->carte_pos_fb;
+                /* stop! */
+                emcmotStatus->probing = 0;
+                emcmotStatus->probeTripped = 1;
+                abort_and_switchback(); // tpAbort(emcmotQueue);
+            /* check if the probe hasn't tripped, but the move finished */
+            } else if (GET_MOTION_INPOS_FLAG() && tpQueueDepth(emcmotQueue) == 0) {
+                /* we are already stopped, but we need to remember the current
+                   position here, because it will still be queried */
+                emcmotStatus->probedPos = emcmotStatus->carte_pos_fb;
+                emcmotStatus->probing = 0;
+                if (probe_suppress) {
+                    emcmotStatus->probeTripped = 0;
+                } else if(probe_whenclears) {
+                    reportError(_("G38.4 move finished without breaking contact."));
+                    SET_MOTION_ERROR_FLAG(1);
+                } else {
+                    reportError(_("G38.2 move finished without making contact."));
+                    SET_MOTION_ERROR_FLAG(1);
+                }
+            }
+        } else if (!old_probeVal && emcmotStatus->probeVal) {
+            // not probing, but we have a rising edge on the probe.
+            // this could be expensive if we don't stop.
+            int i;
+            int aborted = 0;
+
+            if(!GET_MOTION_INPOS_FLAG() && tpQueueDepth(emcmotQueue) &&
+               tpGetExecId(emcmotQueue) <= 0) {
+                // running an MDI command
+                abort_and_switchback(); // tpAbort(emcmotQueue);
+                reportError(_("Probe tripped during non-probe MDI command."));
                 SET_MOTION_ERROR_FLAG(1);
-            } else {
-                reportError(_("G38.2 move finished without making contact."));
-                SET_MOTION_ERROR_FLAG(1);
-            }
-        }
-    } else if (!old_probeVal && emcmotStatus->probeVal) {
-        // not probing, but we have a rising edge on the probe.
-        // this could be expensive if we don't stop.
-        int i;
-        int aborted = 0;
-
-        if(!GET_MOTION_INPOS_FLAG() && tpQueueDepth(emcmotQueue) &&
-           tpGetExecId(emcmotQueue) <= 0) {
-            // running an MDI command
-            abort_and_switchback(); // tpAbort(emcmotQueue);
-            reportError(_("Probe tripped during non-probe MDI command."));
-	    SET_MOTION_ERROR_FLAG(1);
-        }
-
-        for(i=0; i<num_joints; i++) {
-            emcmot_joint_t *joint = &joints[i];
-
-            if (!GET_JOINT_ACTIVE_FLAG(joint)) {
-                /* if joint is not active, skip it */
-                continue;
             }
 
-            // abort any homing
-            if(GET_JOINT_HOMING_FLAG(joint)) {
-                joint->home_state = HOME_ABORT;
-                aborted=1;
+            for(i=0; i<num_joints; i++) {
+                emcmot_joint_t *joint = &joints[i];
+
+                if (!GET_JOINT_ACTIVE_FLAG(joint)) {
+                    /* if joint is not active, skip it */
+                    continue;
+                }
+
+                // abort any homing
+                if(GET_JOINT_HOMING_FLAG(joint)) {
+                    joint->home_state = HOME_ABORT;
+                    aborted=1;
+                }
+
+                // abort any jogs
+                if(joint->free_tp_enable == 1) {
+                    joint->free_tp_enable = 0;
+                    // since homing uses free_tp, this protection of aborted
+                    // is needed so the user gets the correct error.
+                    if(!aborted) aborted=2;
+                }
             }
 
-            // abort any jogs
-            if(joint->free_tp_enable == 1) {
-                joint->free_tp_enable = 0;
-                // since homing uses free_tp, this protection of aborted
-                // is needed so the user gets the correct error.
-                if(!aborted) aborted=2;
+            if(aborted == 1) {
+                reportError(_("Probe tripped during homing motion."));
+            }
+
+            if(aborted == 2) {
+                reportError(_("Probe tripped during a jog."));
             }
         }
-
-        if(aborted == 1) {
-            reportError(_("Probe tripped during homing motion."));
-        }
-
-        if(aborted == 2) {
-            reportError(_("Probe tripped during a jog."));
-        }
+        old_probeVal = emcmotStatus->probeVal;
     }
-    old_probeVal = emcmotStatus->probeVal;
 }
 
 #define EQUAL_EMC_POSE(p1,p2) \
@@ -726,6 +756,9 @@ static void process_inputs(void)
 	/* copy data from HAL to joint structure */
 	joint->index_enable = *(joint_data->index_enable);
 	joint->motor_pos_fb = *(joint_data->motor_pos_fb);
+        joint->pos_fb = joint->motor_pos_fb -
+                (joint->backlash_filt + joint->motor_offset);
+        joint->risc_pos_cmd = *(joint_data->risc_pos_cmd);
 	/* calculate pos_fb */
 	if (( joint->home_state == HOME_INDEX_SEARCH_WAIT ) &&
 	    ( joint->index_enable == 0 )) {
@@ -797,6 +830,8 @@ static void process_inputs(void)
 	} else {
 	    SET_JOINT_HOME_SWITCH_FLAG(joint, 0);
 	}
+        joint->probed_pos = *(joint_data->probed_pos);
+
 	/* end of read and process joint inputs loop */
     }
 
@@ -1158,6 +1193,111 @@ static void set_operating_mode(void)
     } else {
 	emcmotStatus->motion_state = EMCMOT_MOTION_FREE;
     }
+}
+
+static int update_current_pos = 0;
+static void handle_usbmot_sync(void)
+{
+    if (*emcmot_hal_data->req_cmd_sync == 1) {
+        emcmotStatus->sync_pos_cmd = 1;
+        update_current_pos = 1;
+        assert(0);
+    } else {
+        emcmotStatus->sync_pos_cmd = 0;
+    }
+
+    /* must not be homing */
+    if (emcmotStatus->homing_active) {
+        // let usb_homing.c control the "update_pos_req" and "rcmd_seq_num_ack"
+        return;
+    }
+
+//    if ((emcmotStatus->depth == 0) && (*(emcmot_hal_data->machine_is_moving) == 0))
+        if ((emcmotStatus->depth == 0))
+    {   // ACK when no more EMCMOT motion commands, and machine is STOPPING
+        emcmotStatus->update_pos_ack = *emcmot_hal_data->update_pos_req;
+    }
+    else
+    {   // block update_pos_ack to RISC when
+        // ((emcmotStatus->motion_state == EMCMOT_MOTION_COORD)
+        //   and there are pending TP commands)
+        emcmotStatus->update_pos_ack = 0;
+    }
+
+    emcmotStatus->update_current_pos_flag = 0;  // prevent emcTaskPlanSynch() at emcTask.cc
+    if (emcmotStatus->update_pos_ack != 0)
+    {
+        int joint_num;
+        emcmot_joint_t *joint;
+        double positions[EMCMOT_MAX_JOINTS];
+
+        for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++) {
+            /* point to joint struct */
+            joint = &joints[joint_num];
+            /* copy risc_pos_cmd feedback */
+            joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset;// - joint->blender_offset;
+            joint->coarse_pos = joint->pos_cmd;
+            joint->free_tp.curr_pos = joint->pos_cmd;
+            joint->free_tp.pos_cmd = joint->pos_cmd;
+            /* to reset cubic parameters */
+            joint->cubic.needNextPoint=1;
+            joint->cubic.filled=0;
+            cubicAddPoint(&(joint->cubic), joint->coarse_pos);
+            /* copy coarse command */
+            positions[joint_num] = joint->coarse_pos;
+//            rtapi_print (
+//                    _("handle_special_cmd: j[%d] risc_pos_cmd(%f) pos_cmd(%f) pos_fb(%f) curr_pos(%f) motor_offset(%f)\n"),
+//                    joint_num,
+//                    joint->risc_pos_cmd,
+//                    joint->pos_cmd,
+//                    joint->pos_fb,
+//                    joint->free_tp.curr_pos,
+//                    joint->motor_offset);
+//            rtapi_print(
+//                      _("enable(%d) result(%d) rcmd_fbs(%d) req_vel(%d) cur_acc(%d) cur_vel(%d)\n"),
+//                      *(emcmot_hal_data->debug_s32_2),
+//                      *(emcmot_hal_data->debug_s32_3),
+//                      *(emcmot_hal_data->debug_s32_4),
+//                      *(emcmot_hal_data->debug_s32_5),
+//                      *(emcmot_hal_data->debug_s32_6),
+//                      *(emcmot_hal_data->debug_s32_7));
+        }
+
+        /* if less than a full complement of joints, zero out the rest */
+        while ( joint_num < EMCMOT_MAX_JOINTS ) {
+            positions[joint_num] = 0.0;
+            joint_num++;
+        }
+
+        /* update carte_pos_cmd for RISC-JOGGING */
+        kinematicsForward(positions, &emcmotStatus->carte_pos_cmd, &fflags, &iflags);
+        /* preset traj planner to current position */
+        tpSetPos(emcmotQueue, &emcmotStatus->carte_pos_cmd); // for EMCMOT_MOTION_COORD mode
+        emcmotStatus->update_current_pos_flag = 1; // force emcTaskPlanSynch() at emcTask.cc
+    }
+
+//    // if spindle position get updated by spindle.comp
+//    if (emcmotStatus->spindle.update_pos_req != 0)
+//    {
+//        emcmot_joint_t *joint;
+//
+//        /* point to joint struct */
+//        joint = &joints[emcmot_hal_data->spindle_joint_id];
+//        /* copy risc_pos_cmd feedback */
+//        joint->pos_cmd = emcmotStatus->spindle.curr_pos_cmd
+//                         - joint->backlash_filt
+//                         - joint->motor_offset;
+//                         // - joint->blender_offset;
+//        joint->coarse_pos = joint->pos_cmd;
+//        joint->free_tp.curr_pos = joint->pos_cmd;
+//        /* to reset cubic parameters */
+//        joint->cubic.needNextPoint=1;
+//        joint->cubic.filled=0;
+//        cubicAddPoint(&(joint->cubic), joint->coarse_pos);
+//        /* update carte_pos_cmd for RISC-JOGGING */
+//        emcmotStatus->carte_pos_cmd.s = joint->pos_cmd;
+//        emcmotDebug->coord_tp.currentPos.s = joint->pos_cmd;
+//    }
 }
 
 static void handle_jogwheels(void)
@@ -1986,6 +2126,7 @@ static void output_to_hal(void)
     static int old_motion_index=0, old_hal_index=0;
 
     /* output machine info to HAL for scoping, etc */
+    *(emcmot_hal_data->probing) = emcmotStatus->probing;
 
     *(emcmot_hal_data->motion_enabled) = GET_MOTION_ENABLE_FLAG();
     *(emcmot_hal_data->in_position) = GET_MOTION_INPOS_FLAG();
@@ -2125,6 +2266,8 @@ static void output_to_hal(void)
 	*(joint_data->faulted) = GET_JOINT_FAULT_FLAG(joint);
 	*(joint_data->home_state) = joint->home_state;
     }
+    *(emcmot_hal_data->update_pos_ack) = emcmotStatus->update_pos_ack;
+
 }
 
 static void update_status(void)

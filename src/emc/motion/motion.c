@@ -20,6 +20,7 @@
 #include "motion_struct.h"
 #include "mot_priv.h"
 #include "rtapi_math.h"
+#include "sync_cmd.h"
 
 // Mark strings for translation, but defer translation to userspace
 #define _(s) (s)
@@ -300,9 +301,26 @@ static int init_hal_io(void)
 	    _("MOTION: emcmot_hal_data malloc failed\n"));
 	return -1;
     }
+    // RISC_CMD REQ and ACK
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->update_pos_req), mot_comp_id, "motion.update-pos-req")) < 0) goto error;
+    if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->update_pos_ack), mot_comp_id, "motion.update-pos-ack")) < 0) goto error;
+    if ((retval = hal_pin_u32_newf(HAL_IN, &(emcmot_hal_data->rcmd_state), mot_comp_id, "motion.rcmd-state")) < 0) goto error;
+    if ((retval = hal_pin_bit_newf(HAL_IO, &(emcmot_hal_data->req_cmd_sync), mot_comp_id, "motion.req-cmd-syn")) < 0) goto error;
+    *emcmot_hal_data->req_cmd_sync = 0;
+    *emcmot_hal_data->update_pos_req = 0;
+    *emcmot_hal_data->update_pos_ack = 0;
+    *emcmot_hal_data->rcmd_state = RCMD_IDLE;
 
     /* export machine wide hal pins */
+    if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->probing), mot_comp_id, "motion.probing")) != 0) goto error;
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->probe_input), mot_comp_id, "motion.probe-input")) < 0) goto error;
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->trigger_result), mot_comp_id, "motion.trigger-result")) != 0) goto error;
+    if ((retval = hal_pin_u32_newf(HAL_IN, &(emcmot_hal_data->trigger_din), mot_comp_id, "motion.trigger.din")) != 0) goto error;
+    if ((retval = hal_pin_u32_newf(HAL_IN, &(emcmot_hal_data->trigger_ain), mot_comp_id, "motion.trigger.ain")) != 0) goto error;
+    if ((retval = hal_pin_u32_newf(HAL_IN, &(emcmot_hal_data->trigger_type), mot_comp_id, "motion.trigger.type")) != 0) goto error;
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->trigger_cond), mot_comp_id, "motion.trigger.cond")) != 0) goto error;
+    if ((retval = hal_pin_u32_newf(HAL_IN, &(emcmot_hal_data->trigger_level), mot_comp_id, "motion.trigger.level")) != 0) goto error;
+
     if ((retval = hal_pin_bit_newf(HAL_IO, &(emcmot_hal_data->spindle_index_enable), mot_comp_id, "motion.spindle-index-enable")) < 0) goto error;
 
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->spindle_on), mot_comp_id, "motion.spindle-on")) < 0) goto error;
@@ -864,6 +882,19 @@ static int export_joint(int num, joint_hal_t * addr)
         retval = hal_pin_bit_newf(HAL_IN, &(addr->is_unlocked), mot_comp_id, "axis.%d.is-unlocked", num);
         if (retval != 0) return retval;
     }
+    retval = hal_pin_float_newf(HAL_IN, &(addr->probed_pos), mot_comp_id, "axis.%d.probed-pos", num);
+    if (retval != 0) {
+        return retval;
+    }
+    retval = hal_pin_bit_newf(HAL_IN, &(addr->usb_ferror_flag), mot_comp_id, "axis.%d.usb-ferror-flag", num);
+    if (retval != 0) {
+        return retval;
+    }
+    retval = hal_pin_float_newf(HAL_IN, &(addr->risc_pos_cmd), mot_comp_id, "axis.%d.risc-pos-cmd", num);
+    if (retval != 0) {
+        return retval;
+    }
+
     /* restore saved message level */
     rtapi_set_msg_level(msg);
     return 0;
@@ -1123,6 +1154,7 @@ static int init_comm_buffers(void)
     // by tpSnapshot() during switching queues
 
     emcmotStatus->tail = 0;
+    emcmotConfig->usbmotEnable = 1;
 
     rtapi_print_msg(RTAPI_MSG_INFO, "MOTION: init_comm_buffers() complete\n");
     return 0;

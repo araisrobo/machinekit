@@ -44,6 +44,7 @@ typedef struct {
     hal_float_t *motor_offset;	/* RPI: motor offset, for checking homing stability */
     hal_float_t *motor_pos_cmd;	/* WPI: commanded position, with comp */
     hal_float_t *motor_pos_fb;	/* RPI: position feedback, with comp */
+    hal_float_t *risc_pos_cmd;  /* RPI: position command issued by RISC */
     hal_float_t *joint_pos_cmd;	/* WPI: commanded position w/o comp, mot ofs */
     hal_float_t *joint_pos_fb;	/* RPI: position feedback, w/o comp */
     hal_float_t *f_error;	/* RPI: following error */
@@ -80,13 +81,28 @@ typedef struct {
     hal_bit_t *jog_enable;	/* RPI: enable jogwheel */
     hal_float_t *jog_scale;	/* RPI: distance to jog on each count */
     hal_bit_t *jog_vel_mode;	/* RPI: true for "velocity mode" jogwheel */
+    hal_float_t *probed_pos;
+    hal_bit_t *usb_ferror_flag;
 
 } joint_hal_t;
 
 /* machine data */
 
 typedef struct {
+    hal_bit_t *req_cmd_sync;
+    /* signal for RISC_CMD REQ and ACK */
+    hal_bit_t *update_pos_req;
+    hal_bit_t *update_pos_ack;
+    hal_u32_t *rcmd_state;
+
     hal_bit_t *probe_input;	/* RPI: probe switch input */
+    hal_bit_t *probing;
+    hal_u32_t *trigger_din;
+    hal_u32_t *trigger_ain;
+    hal_u32_t *trigger_type;
+    hal_bit_t *trigger_cond;
+    hal_u32_t *trigger_level;
+    hal_bit_t *trigger_result;
     hal_bit_t *enable;		/* RPI: motion inhibit input */
     hal_bit_t *spindle_index_enable;
     hal_bit_t *spindle_is_atspeed;

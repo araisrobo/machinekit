@@ -71,6 +71,8 @@
 #include "motion_types.h"
 
 #include "tp_debug.h"
+#include <sync_cmd.h>
+#include <stdint.h>
 
 // Mark strings for translation, but defer translation to userspace
 #define _(s) (s)
@@ -391,6 +393,15 @@ void emcmotCommandHandler(void *arg, long period)
     char issue_atspeed = 0;
     
 check_stuff ( "before command_handler()" );
+    emcmotStatus->wait_risc = 0;
+    if ((emcmotStatus->probing == 1) &&
+        (emcmotConfig->usbmotEnable) &&
+        (*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ))
+    {
+        // prevent execute EMCMOT_END_PROBE for G38.x
+        emcmotStatus->wait_risc = 1;
+        return;
+    }
 
     /* check for split read */
     if (emcmotCommand->head != emcmotCommand->tail) {
@@ -472,7 +483,11 @@ check_stuff ( "before command_handler()" );
             emcmotStatus->tp_reverse_state =  *(emcmot_hal_data->tp_reverse_state) = TP_FORWARD;
 	    emcmotStatus->pause_state =  *(emcmot_hal_data->pause_state) = PS_RUNNING;
 	    emcmotStatus->resuming = 0;
-
+            if (emcmotStatus->probing && emcmotConfig->usbmotEnable){
+                emcmotStatus->probing = 0;
+                emcmotStatus->probeTripped = 0;
+                emcmotStatus->probedPos = emcmotStatus->carte_pos_cmd;
+            }
 	    break;
 
 	case EMCMOT_AXIS_ABORT: //FIXME-AJ: rename
@@ -1400,6 +1415,21 @@ check_stuff ( "before command_handler()" );
             emcmotStatus->probeTripped = 0;
 	    break;
 
+        case EMCMOT_END_PROBE:
+            rtapi_print_msg(RTAPI_MSG_DBG, "END_PROBE");
+            if(emcmotConfig->usbmotEnable)
+            {
+                if (emcmotStatus->probeTripped == 0)
+                {
+                    reportError(_("move finished without making contact"));
+                    emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
+                    abort_and_switchback(); // tpAbort(emcmotQueue);
+                    SET_MOTION_ERROR_FLAG(1);
+                }
+                emcmotStatus->probing = 0;
+            }
+            break;
+
 	case EMCMOT_PROBE:
 	    /* most of this is taken from EMCMOT_SET_LINE */
 	    /* emcmotDebug->tp up a linear move */
@@ -1422,7 +1452,43 @@ check_stuff ( "before command_handler()" );
 		abort_and_switchback(); // tpAbort(emcmotQueue);
 		SET_MOTION_ERROR_FLAG(1);
 		break;
-	    } else if (!(emcmotCommand->probe_type & 1)) {
+	    }
+
+	    if(emcmotConfig->usbmotEnable)
+	    {
+                int n, result, amode, dmode,din_value;
+                float ain_value;
+
+                n = *(emcmot_hal_data->trigger_din);
+                din_value = *(emcmot_hal_data->synch_di[n]);
+                n = *(emcmot_hal_data->trigger_ain);
+                ain_value= *(emcmot_hal_data->analog_input[n]);
+                amode = (ain_value < *(emcmot_hal_data->trigger_level)) ^ (*(emcmot_hal_data->trigger_cond));
+                dmode = (din_value == 0) ^ (*(emcmot_hal_data->trigger_cond));
+
+                switch(*(emcmot_hal_data->trigger_type))
+                {
+                case OR:
+                    result = amode | dmode;
+                    break;
+                case AONLY:
+                    result = amode;
+                    break;
+                case DONLY:
+                    result = dmode;
+                    break;
+                case AND:
+                    result = amode & dmode;
+                    break;
+                }
+                if (result != 0){
+                    reportError(_("Probe condition is already true when starting move"));
+                    emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
+                    abort_and_switchback(); // tpAbort(emcmotQueue);
+                    SET_MOTION_ERROR_FLAG(1);
+                    break;
+                }
+            } else if (!(emcmotCommand->probe_type & 1)) {
                 // if suppress errors = off...
 
                 int probeval = !!*(emcmot_hal_data->probe_input);
@@ -1430,7 +1496,7 @@ check_stuff ( "before command_handler()" );
 
                 if (probeval != probe_whenclears) {
                     // the probe is already in the state we're seeking.
-                    if(probe_whenclears) 
+                    if(probe_whenclears)
                         reportError(_("Probe is already clear when starting G38.4 or G38.5 move"));
                     else
                         reportError(_("Probe is already tripped when starting G38.2 or G38.3 move"));
@@ -1441,10 +1507,16 @@ check_stuff ( "before command_handler()" );
                     break;
                 }
             }
-
 	    /* append it to the emcmotDebug->queue */
 	    tpSetId(emcmotQueue, emcmotCommand->id);
-	    if (-1 == tpAddLine(emcmotQueue, emcmotCommand->pos, emcmotCommand->motion_type, emcmotCommand->vel, emcmotCommand->ini_maxvel, emcmotCommand->acc, emcmotCommand->ini_maxjerk, emcmotStatus->enables_new, 0, -1)) {
+	    if (-1 == tpAddLine(emcmotQueue,
+	                        emcmotCommand->pos,
+                                emcmotCommand->motion_type,
+                                emcmotCommand->vel,
+                                emcmotCommand->ini_maxvel,
+                                emcmotCommand->acc,
+                                emcmotCommand->ini_maxjerk,
+                                emcmotStatus->enables_new, 0, -1)) {
 
 		reportError(_("can't add probe move"));
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;

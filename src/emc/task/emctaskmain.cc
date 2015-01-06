@@ -849,6 +849,7 @@ static int emcTaskPlan(void)
 	    case EMC_TASK_PLAN_SET_BLOCK_DELETE_TYPE:
 	    case EMC_TASK_ABORT_TYPE:
 	    case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:
+            case EMC_TRAJ_END_OF_PROBE_TYPE:
 	    case EMC_TRAJ_PROBE_TYPE:
 	    case EMC_AUX_INPUT_WAIT_TYPE:
 	    case EMC_MOTION_SET_DOUT_TYPE:
@@ -966,6 +967,7 @@ static int emcTaskPlan(void)
 	    case EMC_TASK_PLAN_SET_BLOCK_DELETE_TYPE:
 	    case EMC_TASK_PLAN_OPTIONAL_STOP_TYPE:
 	    case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:
+            case EMC_TRAJ_END_OF_PROBE_TYPE:
 	    case EMC_TRAJ_PROBE_TYPE:
 	    case EMC_AUX_INPUT_WAIT_TYPE:
 	    case EMC_MOTION_SET_DOUT_TYPE:
@@ -1071,6 +1073,7 @@ static int emcTaskPlan(void)
 		case EMC_TASK_PLAN_SET_BLOCK_DELETE_TYPE:
 		case EMC_TASK_PLAN_OPTIONAL_STOP_TYPE:
 		case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:
+                case EMC_TRAJ_END_OF_PROBE_TYPE:
 		case EMC_TRAJ_PROBE_TYPE:
 		case EMC_AUX_INPUT_WAIT_TYPE:
 		case EMC_TRAJ_RIGID_TAP_TYPE:
@@ -1151,6 +1154,7 @@ static int emcTaskPlan(void)
 		case EMC_TASK_SET_STATE_TYPE:
 		case EMC_TASK_ABORT_TYPE:
 		case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:
+                case EMC_TRAJ_END_OF_PROBE_TYPE:
 		case EMC_TRAJ_PROBE_TYPE:
 		case EMC_AUX_INPUT_WAIT_TYPE:
 		case EMC_TRAJ_RIGID_TAP_TYPE:
@@ -1234,6 +1238,7 @@ static int emcTaskPlan(void)
 		case EMC_TASK_PLAN_SET_BLOCK_DELETE_TYPE:
 		case EMC_TASK_PLAN_OPTIONAL_STOP_TYPE:
 		case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:
+                case EMC_TRAJ_END_OF_PROBE_TYPE:
 		case EMC_TRAJ_PROBE_TYPE:
 		case EMC_AUX_INPUT_WAIT_TYPE:
 		case EMC_TRAJ_RIGID_TAP_TYPE:
@@ -1304,6 +1309,7 @@ static int emcTaskPlan(void)
 		case EMC_TASK_SET_STATE_TYPE:
 		case EMC_TASK_ABORT_TYPE:
 		case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:
+                case EMC_TRAJ_END_OF_PROBE_TYPE:
 		case EMC_TRAJ_PROBE_TYPE:
 		case EMC_AUX_INPUT_WAIT_TYPE:
 	        case EMC_TRAJ_RIGID_TAP_TYPE:
@@ -1394,6 +1400,7 @@ static int emcTaskPlan(void)
 	    case EMC_TASK_PLAN_OPTIONAL_STOP_TYPE:
 	    case EMC_TASK_ABORT_TYPE:
 	    case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:
+            case EMC_TRAJ_END_OF_PROBE_TYPE:
 	    case EMC_TRAJ_PROBE_TYPE:
 	    case EMC_AUX_INPUT_WAIT_TYPE:
 	    case EMC_MOTION_SET_DOUT_TYPE:
@@ -1482,6 +1489,7 @@ static int emcTaskCheckPreconditions(NMLmsg * cmd)
     case EMC_TRAJ_PROBE_TYPE:	// prevent blending of this
     case EMC_TRAJ_RIGID_TAP_TYPE: //and this
     case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:	// and this
+    case EMC_TRAJ_END_OF_PROBE_TYPE:
     case EMC_AUX_INPUT_WAIT_TYPE:
     case EMC_SPINDLE_WAIT_ORIENT_COMPLETE_TYPE:
 	return EMC_TASK_EXEC_WAITING_FOR_MOTION_AND_IO;
@@ -1885,9 +1893,14 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	emcStatus->task.g92_offset = ((EMC_TRAJ_SET_G92 *) cmd)->origin;
 	retval = 0;
 	break;
+
     case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:
 	retval = emcTrajClearProbeTrippedFlag();
 	break;
+
+    case EMC_TRAJ_END_OF_PROBE_TYPE:
+        retval = emcTrajEndProbe();
+        break;
 
     case EMC_TRAJ_PROBE_TYPE:
         if (emcStatus->motion.traj.tp_reversed == TP_FORWARD) {
@@ -2416,6 +2429,7 @@ static int emcTaskCheckPostconditions(NMLmsg * cmd)
     case EMC_TRAJ_PROBE_TYPE:
     case EMC_TRAJ_RIGID_TAP_TYPE:
     case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:
+    case EMC_TRAJ_END_OF_PROBE_TYPE:
     case EMC_TRAJ_SET_TELEOP_ENABLE_TYPE:
     case EMC_TRAJ_SET_TELEOP_VECTOR_TYPE:
     case EMC_TRAJ_SET_FO_ENABLE_TYPE:
