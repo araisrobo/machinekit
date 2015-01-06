@@ -1604,6 +1604,13 @@ int emcSetupArcBlends(int arcBlendEnable,
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
+int emcSetupUsbMot(int usbmotEnable)
+{
+    emcmotCommand.command = EMCMOT_SETUP_USBMOT;
+    emcmotCommand.usbmotEnable = usbmotEnable;
+    return usrmotWriteEmcmotCommand(&emcmotCommand);
+}
+
 int emcSetMaxFeedOverride(double maxFeedScale) {
     emcmotCommand.command = EMCMOT_SET_MAX_FEED_OVERRIDE;
     emcmotCommand.maxFeedScale = maxFeedScale;

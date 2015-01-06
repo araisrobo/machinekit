@@ -204,7 +204,16 @@ static int loadTraj(EmcIniFile *trajInifile)
                 rcs_print("bad return value from emcSetupArcBlends\n");
             }
             return -1;
-        } 
+        }
+
+        int usbmotEnable = 0;
+        trajInifile->Find(&usbmotEnable, "USB_MOTION_ENABLE", "TRAJ");
+        if (0 != emcSetupUsbMot(usbmotEnable)) {
+            if (emc_debug & EMC_DEBUG_CONFIG) {
+                rcs_print("bad return value from emcSetupUsbMot\n");
+            }
+            return -1;
+        }
 
         double maxFeedScale = 1.0;
         trajInifile->Find(&maxFeedScale, "MAX_FEED_OVERRIDE", "DISPLAY");

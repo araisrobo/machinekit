@@ -1707,14 +1707,10 @@ check_stuff ( "before command_handler()" );
             emcmotStatus->tool_offset = emcmotCommand->tool_offset;
             break;
 
-	default:
-	    rtapi_print_msg(RTAPI_MSG_DBG, "UNKNOWN");
-	    reportError(_("unrecognized command %d"), emcmotCommand->command);
-	    emcmotStatus->commandStatus = EMCMOT_COMMAND_UNKNOWN_COMMAND;
-	    break;
         case EMCMOT_SET_MAX_FEED_OVERRIDE:
             emcmotConfig->maxFeedScale = emcmotCommand->maxFeedScale;
             break;
+
         case EMCMOT_SETUP_ARC_BLENDS:
             emcmotConfig->arcBlendEnable = emcmotCommand->arcBlendEnable;
             emcmotConfig->arcBlendFallbackEnable = emcmotCommand->arcBlendFallbackEnable;
@@ -1723,6 +1719,15 @@ check_stuff ( "before command_handler()" );
             emcmotConfig->arcBlendRampFreq = emcmotCommand->arcBlendRampFreq;
             break;
 
+        case EMCMOT_SETUP_USBMOT:
+            emcmotConfig->usbmotEnable = emcmotCommand->usbmotEnable;
+            break;
+
+        default:
+            rtapi_print_msg(RTAPI_MSG_DBG, "UNKNOWN");
+            reportError(_("unrecognized command %d"), emcmotCommand->command);
+            emcmotStatus->commandStatus = EMCMOT_COMMAND_UNKNOWN_COMMAND;
+            break;
 	}			/* end of: command switch */
 	if (emcmotStatus->commandStatus != EMCMOT_COMMAND_OK) {
 	    rtapi_print_msg(RTAPI_MSG_DBG, "ERROR: %d",

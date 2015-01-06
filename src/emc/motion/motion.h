@@ -186,8 +186,8 @@ extern "C" {
         EMCMOT_SET_OFFSET, /* set tool offsets */
         EMCMOT_SET_MAX_FEED_OVERRIDE,
         EMCMOT_SETUP_ARC_BLENDS,
-	EMCMOT_SET_AXIS_JERK_LIMIT,         /* set the max axis jerk */
-
+        EMCMOT_SET_AXIS_JERK_LIMIT,     /* set the max axis jerk */
+        EMCMOT_SETUP_USBMOT,            /* setup the USB-FPGA motion control parameters */
     } cmd_code_t;
 
 /* this enum lists the possible results of a command */
@@ -269,6 +269,7 @@ extern "C" {
         double arcBlendGapCycles;
         double arcBlendRampFreq;
         double maxFeedScale;
+        int usbmotEnable;      /* enable USB-FPGA motion control device */
     } emcmot_command_t;
 
 /*! \todo FIXME - these packed bits might be replaced with chars
@@ -777,6 +778,7 @@ Suggestion: Split this in to an Error and a Status flag register..
         double arcBlendGapCycles;
         double arcBlendRampFreq;
         double maxFeedScale;
+        int usbmotEnable;       /* enable usb based motion control device */
     } emcmot_config_t;
 
 /*********************************

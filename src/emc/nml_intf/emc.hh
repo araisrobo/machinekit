@@ -554,6 +554,7 @@ int emcSetupArcBlends(int arcBlendEnable,
         int arcBlendOptDepth,
         double arcBlendGapCycles,
         double arcBlendRampFreq);
+int emcSetupUsbMot(int usbmotEnable);
 
 extern int emcUpdate(EMC_STAT * stat);
 // full EMC status
