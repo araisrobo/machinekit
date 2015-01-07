@@ -238,7 +238,14 @@ int Interp::execute_block(block_pointer block,   //!< pointer to a block of RS27
 {
   int status;
 
-  block->line_number = settings->sequence_number;
+  if (settings->remap_level == 0)
+  {
+      block->line_number = settings->sequence_number;
+  } else
+  {   // use saved_line_number of toplevel for motion-id
+      block->line_number = settings->blocks[settings->remap_level].saved_line_number;
+  }
+
   if ((block->comment[0] != 0) && ONCE(STEP_COMMENT)) {
     status = convert_comment(block->comment);
     CHP(status);
