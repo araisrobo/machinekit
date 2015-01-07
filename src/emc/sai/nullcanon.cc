@@ -306,7 +306,7 @@ void SET_SPINDLE_SPEED(double rpm)
 {
 }
 
-void STOP_SPINDLE_TURNING()
+void STOP_SPINDLE_TURNING(int l)
 {
 
 }

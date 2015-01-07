@@ -41,6 +41,7 @@ limiticon = array.array('B',
 class GLCanon(Translated, ArcsToSegmentsMixin):
     lineno = -1
     def __init__(self, colors, geometry, is_foam=0):
+        self.path = []
         # traverse list - [line number, [start position], [end position], [tlo x, tlo y, tlo z]]
         self.traverse = []; self.traverse_append = self.traverse.append
         # feed list - [line number, [start position], [end position], feedrate, [tlo x, tlo y, tlo z]]
@@ -49,6 +50,10 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.arcfeed = []; self.arcfeed_append = self.arcfeed.append
         # dwell list - [line number, color, pos x, pos y, pos z, plane]
         self.dwells = []; self.dwells_append = self.dwells.append
+        # block path list - [start line, [start position], feedrate]
+        self.blocks = []; self.blocks_append = self.blocks.append
+        self.block_pos = []
+        self.block_feed = 0
         self.choice = None
         self.feedrate = 1
         self.lo = (0,) * 9
@@ -88,6 +93,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.notify = 0
         self.notify_message = ""
         self.highlight_line = None
+        self.pierce = 0
 
     def comment(self, arg):
         if arg.startswith("AXIS,"):
@@ -241,7 +247,15 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         color = self.colors['dwell']
         self.dwells_append((self.lineno, color, self.lo[0], self.lo[1], self.lo[2], self.state.plane/10-17))
 
-
+    def stop_spindle_turning(self, arg):
+        # M5
+        if self.suppress > 0: return
+        self.block_pos = self.lo # None # self.lo # we should record next feed (arcfeed or traverse) 
+        self.blocks_append((self.lineno, self.block_pos,self.block_feed))
+        self.block_pos = []
+        self.pierce += 1
+        self.path.append(('M5', self.lineno))    
+            
     def highlight(self, lineno, geometry):
         glLineWidth(3)
         c = self.colors['selected']

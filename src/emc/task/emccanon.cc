@@ -1949,7 +1949,7 @@ void SET_SPINDLE_SPEED(double r)
     
 }
 
-void STOP_SPINDLE_TURNING()
+void STOP_SPINDLE_TURNING(int l)
 {
     EMC_SPINDLE_OFF emc_spindle_off_msg;
 
