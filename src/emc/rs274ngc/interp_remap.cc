@@ -642,6 +642,9 @@ int Interp::init_remap_sets()
 
     _setup.m_remappable[60] = 1;  //Pallet Change Pause
 
+    _setup.m_remappable[4] = 1;   // araisrobo->plasma
+    _setup.m_remappable[3] = 1;   // araisrobo->plasma
+
 
     // the G codes:
     // in the range 1..999 unused G-codes are remappable
