@@ -248,7 +248,8 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
             filename = s.file
         elif not filename and not s.file:
             return
-
+        if ('nc_subroutines') in filename:
+            return
         td = tempfile.mkdtemp()
         self._current_file = filename
         try:
@@ -378,10 +379,10 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
         if self.mouse_btn_mode == 0:
             if button1:
                 if shift:
-                    self.translateOrRotate(event.x, event.y)
-                elif not cancel:
-                    self.set_prime(event.x, event.y)
                     self.rotateOrTranslate(event.x, event.y)
+                elif not cancel:
+                    self.translateOrRotate(event.x, event.y)
+
             elif button2:
                 self.translateOrRotate(event.x, event.y)
             elif button3:

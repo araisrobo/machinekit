@@ -709,11 +709,13 @@ Suggestion: Split this in to an Error and a Status flag register..
 	/* static status-- only changes upon input commands, e.g., config */
 	double vel;		/* scalar max vel */
 	double acc;		/* scalar max accel */
-	double jerk;	/* scalar max jerk */
+	double jerk;	        /* scalar max jerk */
+        int32_t motionState;    /* s-curve motion state */
 
 	int level;
         int motionType;
         double distance_to_go;  /* in this move */
+        char motion_type;       /* motion_type of current tc */
         EmcPose dtg;
         double current_vel;
         double requested_vel;

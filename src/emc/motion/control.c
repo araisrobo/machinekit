@@ -1151,6 +1151,8 @@ static void set_operating_mode(void)
 		/* clear the override limits flags */
 		emcmotDebug->overriding = 0;
 		emcmotStatus->overrideLimitMask = 0;
+	        *emcmot_hal_data->tp_reverse_state = *emcmot_hal_data->tp_reverse_input;
+	        emcmotStatus->tp_reverse_state = *(emcmot_hal_data->tp_reverse_state);
 		SET_MOTION_COORD_FLAG(1);
 		SET_MOTION_TELEOP_FLAG(0);
 		SET_MOTION_ERROR_FLAG(0);
@@ -2164,6 +2166,8 @@ static void output_to_hal(void)
     *(emcmot_hal_data->spindle_brake) = (emcmotStatus->spindle.brake != 0) ? 1 : 0;
 
     *(emcmot_hal_data->program_line) = emcmotStatus->id;
+    *(emcmot_hal_data->motion_state) = emcmotStatus->motionState;
+    *(emcmot_hal_data->motion_type) = emcmotStatus->motion_type;
     *(emcmot_hal_data->current_motion_type) = emcmotStatus->motionType;
     *(emcmot_hal_data->distance_to_go) = emcmotStatus->distance_to_go;
 

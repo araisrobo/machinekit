@@ -3767,6 +3767,8 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
     } else {
         tpHandleRegularCycle(tp, tc, nexttc);
     }
+    emcmotStatus->motion_type = tc->motion_type;
+    emcmotStatus->motionState = tc->accel_state;
 
 #ifdef TC_DEBUG
     double mag;

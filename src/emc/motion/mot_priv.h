@@ -123,6 +123,8 @@ typedef struct {
     hal_float_t *current_vel;   /* RPI: velocity magnitude in machine units */
     hal_float_t *requested_vel;   /* RPI: requested velocity magnitude in machine units */
     hal_float_t *distance_to_go;/* RPI: distance to go in current move*/
+    hal_s32_t *motion_state;    /* indicate s-curve state */
+    hal_s32_t *motion_type;     /* motion_type of current tc: LINEAR(1) CIRCULAR(2) SPINDLE_SYNC_MOTION(3) NURBS(4) */
 
     hal_bit_t debug_bit_0;	/* RPA: generic param, for debugging */
     hal_bit_t debug_bit_1;	/* RPA: generic param, for debugging */

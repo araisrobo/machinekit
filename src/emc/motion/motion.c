@@ -435,6 +435,10 @@ static int init_hal_io(void)
     if (retval != 0) {
 	return retval;
     }
+
+    if ((retval = hal_pin_s32_newf(HAL_OUT, &(emcmot_hal_data->motion_state), mot_comp_id, "motion.motion-state")) != 0) goto error;
+    if ((retval = hal_pin_s32_newf(HAL_OUT, &(emcmot_hal_data->motion_type), mot_comp_id, "motion.motion-type")) != 0) goto error;
+
     /* export debug parameters */
     /* these can be used to view any internal variable, simply change a line
        in control.c:output_to_hal() and recompile */
