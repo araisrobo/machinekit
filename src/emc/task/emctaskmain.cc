@@ -556,6 +556,7 @@ void readahead_reading(void)
 {
     int readRetval;
     int execRetval;
+    NMLmsg *nmlRetval;
 
                 rcs_print("%s %s:%d TODO: replace emc_task_interp_max_len with memory limit protection\n", __FUNCTION__, __FILE__, __LINE__);
                 rcs_print("%s %s:%d interp_list.len(%d) emc_task_interp_max_len(%d)\n",
@@ -569,8 +570,7 @@ interpret_again:
 			// delay reading of next line until all is done
 			if (interp_list.is_eol() == true &&
 			    emcTaskCommand == 0 &&
-			    emcStatus->task.execState ==
-			    EMC_TASK_EXEC_DONE) {
+			    emcStatus->task.execState == EMC_TASK_EXEC_DONE) {
 			    emcTaskPlanClearWait();
 			 }
 		    } else {
@@ -625,54 +625,19 @@ interpret_again:
                                 emcStatus->task.motionLine = 0;
                                 emcStatus->task.readLine = 0;
 			    } else {
-
 				// executed a good line
 			    }
 
-			    // throw the results away if we're supposed to
-			    // read
-			    // through it
-			    if (programStartLine < 0 ||
-				emcStatus->task.readLine <
-				programStartLine) {
-				// we're stepping over lines, so check them
-				// for
-				// limits, etc. and clear then out
-				if (0 != checkInterpList(&interp_list,
-							 emcStatus)) {
-				    // problem with actions, so do same as we
-				    // did
-				    // for a bad read from emcTaskPlanRead()
-				    // above
-				    emcStatus->task.interpState =
-					EMC_TASK_INTERP_WAITING;
-				}
-				// and clear it regardless
-				interp_list.clear();
-			    }
+			    assert (programStartLine >= 0);
+			    if ((emcStatus->task.readLine == programStartLine)  &&
+			        (emcTaskPlanLevel() == 0))  {
+			        // move current_node to programStartLine
+			        nmlRetval = interp_list.get_by_lineno(programStartLine);
+			        assert(nmlRetval != NULL);
 
-			    if (emcStatus->task.readLine < programStartLine) {
-			    
-				//update the position with our current position, as the other positions are only skipped through
-				CANON_UPDATE_END_POINT(emcStatus->motion.traj.actualPosition.tran.x,
-						       emcStatus->motion.traj.actualPosition.tran.y,
-						       emcStatus->motion.traj.actualPosition.tran.z,
-						       emcStatus->motion.traj.actualPosition.a,
-						       emcStatus->motion.traj.actualPosition.b,
-						       emcStatus->motion.traj.actualPosition.c,
-						       emcStatus->motion.traj.actualPosition.u,
-						       emcStatus->motion.traj.actualPosition.v,
-						       emcStatus->motion.traj.actualPosition.w);
-
-				if ((emcStatus->task.readLine + 1 == programStartLine)  &&
-				    (emcTaskPlanLevel() == 0))  {
-
-				    emcTaskPlanSynch();
-
-                                    // reset programStartLine so we don't fall into our stepping routines
-                                    // if we happen to execute lines before the current point later (due to subroutines).
-                                    programStartLine = 0;
-                                }
+			        // reset programStartLine so we don't fall into our stepping routines
+			        // if we happen to execute lines before the current point later (due to subroutines).
+			        programStartLine = 0;
 			    }
 
                             if (count++ < emc_task_interp_max_len
@@ -680,7 +645,6 @@ interpret_again:
                                     && interp_list.len() <= emc_task_interp_max_len * 2/3) {
                                 goto interpret_again;
                             }
-
 			}	// else read was OK, so execute
 		    }		// else not emcTaskPlanIsWait
 		}		// if interp len is less than max
