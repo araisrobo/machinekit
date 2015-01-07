@@ -794,8 +794,7 @@ static void process_inputs(void)
 
 	/* update following error flag */
 	if (emcmotConfig->usbmotEnable) {
-            rtapi_print("%s:%d TODO: un-comment the next line\n", __FILE__, __LINE__);
-            // SET_JOINT_FERROR_FLAG(joint, *(joint_data->usb_ferror_flag));
+             SET_JOINT_FERROR_FLAG(joint, *(joint_data->usb_ferror_flag));
 	} else {
             if (abs_ferror > joint->ferror_limit) {
                 SET_JOINT_FERROR_FLAG(joint, 1);

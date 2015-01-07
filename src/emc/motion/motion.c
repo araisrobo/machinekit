@@ -1154,7 +1154,6 @@ static int init_comm_buffers(void)
     // by tpSnapshot() during switching queues
 
     emcmotStatus->tail = 0;
-    emcmotConfig->usbmotEnable = 1;
 
     rtapi_print_msg(RTAPI_MSG_INFO, "MOTION: init_comm_buffers() complete\n");
     return 0;
