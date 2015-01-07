@@ -20,7 +20,10 @@
 #include "motion_struct.h"
 #include "mot_priv.h"
 #include "rtapi_math.h"
+
+#ifdef USB_MOTION_ENABLE        /* enable usb motion device */
 #include "sync_cmd.h"
+#endif
 
 // Mark strings for translation, but defer translation to userspace
 #define _(s) (s)
@@ -301,6 +304,7 @@ static int init_hal_io(void)
 	    _("MOTION: emcmot_hal_data malloc failed\n"));
 	return -1;
     }
+
     // RISC_CMD REQ and ACK
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->update_pos_req), mot_comp_id, "motion.update-pos-req")) < 0) goto error;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->update_pos_ack), mot_comp_id, "motion.update-pos-ack")) < 0) goto error;
@@ -309,7 +313,9 @@ static int init_hal_io(void)
     *emcmot_hal_data->req_cmd_sync = 0;
     *emcmot_hal_data->update_pos_req = 0;
     *emcmot_hal_data->update_pos_ack = 0;
+#ifdef USB_MOTION_ENABLE
     *emcmot_hal_data->rcmd_state = RCMD_IDLE;
+#endif // USB_MOTION_ENABLE
 
     /* export machine wide hal pins */
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->probing), mot_comp_id, "motion.probing")) != 0) goto error;

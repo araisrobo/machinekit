@@ -1333,7 +1333,7 @@ endif
 # build WOU if there's libwou-dev installed
 ifneq ($(WOU_VER),)
 SUBDIRS += hal/drivers/ar-usb
-EXTRA_CFLAGS += $(WOU_CFLAGS) -DMOTION_OVER_USB -I$(BASEPWD)/hal/drivers/ar-usb
+EXTRA_CFLAGS += $(WOU_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/ar-usb
 LDFLAGS += $(WOU_LIBS)
 obj-$(CONFIG_WOU) += wou.o
 wou-objs := hal/drivers/ar-usb/wou_stepgen.o $(MATHSTUB)

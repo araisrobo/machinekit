@@ -59,6 +59,7 @@
 
 #include <linux/types.h>
 #include <float.h>
+#include <stdint.h>
 #include "posemath.h"
 #include "rtapi.h"
 #include "hal.h"
@@ -71,8 +72,10 @@
 #include "motion_types.h"
 
 #include "tp_debug.h"
-#include <sync_cmd.h>
-#include <stdint.h>
+
+#ifdef USB_MOTION_ENABLE
+#include "sync_cmd.h"
+#endif
 
 // Mark strings for translation, but defer translation to userspace
 #define _(s) (s)
@@ -393,6 +396,7 @@ void emcmotCommandHandler(void *arg, long period)
     char issue_atspeed = 0;
     
 check_stuff ( "before command_handler()" );
+#ifdef USB_MOTION_ENABLE
     emcmotStatus->wait_risc = 0;
     if ((emcmotStatus->probing == 1) &&
         (emcmotConfig->usbmotEnable) &&
@@ -402,6 +406,7 @@ check_stuff ( "before command_handler()" );
         emcmotStatus->wait_risc = 1;
         return;
     }
+#endif // USB_MOTION_ENABLE
 
     /* check for split read */
     if (emcmotCommand->head != emcmotCommand->tail) {
@@ -1454,6 +1459,7 @@ check_stuff ( "before command_handler()" );
 		break;
 	    }
 
+#ifdef USB_MOTION_ENABLE
 	    if(emcmotConfig->usbmotEnable)
 	    {
                 int n, result, amode, dmode,din_value;
@@ -1488,7 +1494,9 @@ check_stuff ( "before command_handler()" );
                     SET_MOTION_ERROR_FLAG(1);
                     break;
                 }
-            } else if (!(emcmotCommand->probe_type & 1)) {
+            } else
+#endif // USB_MOTION_ENABLE
+            if (!(emcmotCommand->probe_type & 1)) {
                 // if suppress errors = off...
 
                 int probeval = !!*(emcmot_hal_data->probe_input);

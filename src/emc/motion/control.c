@@ -13,6 +13,8 @@
 * Copyright (c) 2004 All rights reserved.
 ********************************************************************/
 
+#include <stdint.h>
+#include <assert.h>
 #include "posemath.h"
 #include "rtapi.h"
 #include "hal.h"
@@ -24,9 +26,10 @@
 #include "tc.h"
 #include "motion_debug.h"
 #include "config.h"
+#ifdef USB_MOTION_ENABLE
 #include "sync_cmd.h"
-#include <stdint.h>
-#include <assert.h>
+#endif
+
 
 // Mark strings for translation, but defer translation to userspace
 #define _(s) (s)
@@ -362,8 +365,10 @@ check_stuff ( "after update_status()" );
    at the top of the file in the section called "local function
    prototypes"
 */
-static void process_probe_inputs(void) {
-    if (emcmotConfig->usbmotEnable){
+static void process_probe_inputs(void)
+{
+#ifdef USB_MOTION_ENABLE
+    if (emcmotConfig->usbmotEnable) {
         if (emcmotStatus->probing)
         {
             if ((*emcmot_hal_data->trigger_result) && (*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ))
@@ -384,7 +389,9 @@ static void process_probe_inputs(void) {
             }
             *emcmot_hal_data->trigger_result = 0;
         }
-    } else{
+    } else
+#endif // USB_MOTION_ENABLE
+    {
         static int old_probeVal = 0;
         unsigned char probe_type = emcmotStatus->probe_type;
 
