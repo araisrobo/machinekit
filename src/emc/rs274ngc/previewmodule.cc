@@ -727,11 +727,11 @@ void MIST_OFF() {}
 void FLOOD_OFF() {}
 void MIST_ON() {}
 void FLOOD_ON() {}
-void CLEAR_AUX_OUTPUT_BIT(int bit) {}
-void SET_AUX_OUTPUT_BIT(int bit) {}
+void CLEAR_AUX_OUTPUT_BIT(int bit, int line) {}
+void SET_AUX_OUTPUT_BIT(int bit, int line) {}
 void SET_AUX_OUTPUT_VALUE(int index, double value) {}
-void CLEAR_MOTION_OUTPUT_BIT(int bit) {}
-void SET_MOTION_OUTPUT_BIT(int bit) {}
+void CLEAR_MOTION_OUTPUT_BIT(int bit, int line) {}
+void SET_MOTION_OUTPUT_BIT(int bit, int line) {}
 void SET_MOTION_OUTPUT_VALUE(int index, double value) {}
 void TURN_PROBE_ON() {}
 void TURN_PROBE_OFF() {}
@@ -845,7 +845,7 @@ CANON_TOOL_TABLE GET_EXTERNAL_TOOL_TABLE(int pocket) {
 
 int GET_EXTERNAL_DIGITAL_INPUT(int index, int def) { return def; }
 double GET_EXTERNAL_ANALOG_INPUT(int index, double def) { return def; }
-int WAIT(int index, int input_type, int wait_type, double timeout) { return 0;}
+int WAIT(int index, int input_type, int wait_type, double timeout, int line) { return 0;}
 
 static void user_defined_function(int num, double arg1, double arg2) {
     if(interp_error) return;

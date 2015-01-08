@@ -3083,7 +3083,7 @@ int USER_DEFINED_FUNCTION_ADD(USER_DEFINED_FUNCTION_TYPE func, int num)
   (the TP doesn't implement a queue of these), 
   use SET_AUX_OUTPUT_BIT instead, that allows to set the value right away
 */
-void SET_MOTION_OUTPUT_BIT(int index)
+void SET_MOTION_OUTPUT_BIT(int index, int line_number)
 {
   EMC_MOTION_SET_DOUT dout_msg;
 
@@ -3094,6 +3094,7 @@ void SET_MOTION_OUTPUT_BIT(int index)
   dout_msg.end = 1;		// endvalue = 1, means it doesn't get reset after current motion
   dout_msg.now = 0;		// not immediate, but synched with motion (goes to the TP)
 
+  interp_list.set_line_number(line_number);
   interp_list.append(dout_msg);
 
   return;
@@ -3111,7 +3112,7 @@ void SET_MOTION_OUTPUT_BIT(int index)
   (the TP doesn't implement a queue of these), 
   use CLEAR_AUX_OUTPUT_BIT instead, that allows to set the value right away
 */
-void CLEAR_MOTION_OUTPUT_BIT(int index)
+void CLEAR_MOTION_OUTPUT_BIT(int index, int line_number)
 {
   EMC_MOTION_SET_DOUT dout_msg;
 
@@ -3122,6 +3123,7 @@ void CLEAR_MOTION_OUTPUT_BIT(int index)
   dout_msg.end = 0;		// endvalue = 0, means it stays 0 after current motion
   dout_msg.now = 0;		// not immediate, but synched with motion (goes to the TP)
 
+  interp_list.set_line_number(line_number);
   interp_list.append(dout_msg);
 
   return;
@@ -3136,7 +3138,7 @@ void CLEAR_MOTION_OUTPUT_BIT(int index)
   (this behaviour can be changed if needed)
   you can use any number of these, as the effect is imediate  
 */
-void SET_AUX_OUTPUT_BIT(int index)
+void SET_AUX_OUTPUT_BIT(int index, int line_number)
 {
 
   EMC_MOTION_SET_DOUT dout_msg;
@@ -3148,6 +3150,7 @@ void SET_AUX_OUTPUT_BIT(int index)
   dout_msg.end = 1;		// endvalue = 1, means it doesn't get reset after current motion
   dout_msg.now = 1;		// immediate, we don't care about synching for AUX
 
+  interp_list.set_line_number(line_number);
   interp_list.append(dout_msg);
 
   return;
@@ -3162,7 +3165,7 @@ void SET_AUX_OUTPUT_BIT(int index)
   (this behaviour can be changed if needed)
   you can use any number of these, as the effect is imediate  
 */
-void CLEAR_AUX_OUTPUT_BIT(int index)
+void CLEAR_AUX_OUTPUT_BIT(int index, int line_number)
 {
   EMC_MOTION_SET_DOUT dout_msg;
 
@@ -3173,6 +3176,7 @@ void CLEAR_AUX_OUTPUT_BIT(int index)
   dout_msg.end = 0;		// endvalue = 0, means it stays 0 after current motion
   dout_msg.now = 1;		// immediate, we don't care about synching for AUX
 
+  interp_list.set_line_number(line_number);
   interp_list.append(dout_msg);
 
   return;
@@ -3228,7 +3232,8 @@ void SET_AUX_OUTPUT_VALUE(int index, double value)
 int WAIT(int index, /* index of the motion exported input */
          int input_type, /*DIGITAL_INPUT or ANALOG_INPUT */
 	 int wait_type,  /* 0 - immediate, 1 - rise, 2 - fall, 3 - be high, 4 - be low */
-	 double timeout) /* time to wait [in seconds], if the input didn't change the value -1 is returned */
+	 double timeout, /* time to wait [in seconds], if the input didn't change the value -1 is returned */
+	 int line_number)
 {
   if (input_type == DIGITAL_INPUT) {
     if ((index < 0) || (index >= EMC_MAX_DIO))
@@ -3247,6 +3252,7 @@ int WAIT(int index, /* index of the motion exported input */
  wait_msg.wait_type = wait_type;
  wait_msg.timeout = timeout;
  
+ interp_list.set_line_number(line_number);
  interp_list.append(wait_msg);
  return 0;
 }

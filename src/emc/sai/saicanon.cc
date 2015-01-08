@@ -811,7 +811,7 @@ CANON_MOTION_MODE motion_mode;
 
 int GET_EXTERNAL_DIGITAL_INPUT(int index, int def) { return def; }
 double GET_EXTERNAL_ANALOG_INPUT(int index, double def) { return def; }
-int WAIT(int index, int input_type, int wait_type, double timeout) { return 0; }
+int WAIT(int index, int input_type, int wait_type, double timeout, int line) { return 0; }
 int UNLOCK_ROTARY(int line_no, int axis) {return 0;}
 int LOCK_ROTARY(int line_no, int axis) {return 0;}
 
@@ -1049,13 +1049,13 @@ int USER_DEFINED_FUNCTION_ADD(USER_DEFINED_FUNCTION_TYPE func, int num)
   return 0;
 }
 
-void SET_MOTION_OUTPUT_BIT(int index)
+void SET_MOTION_OUTPUT_BIT(int index, int line)
 {
     PRINT1("SET_MOTION_OUTPUT_BIT(%d)\n", index);
     return;
 }
 
-void CLEAR_MOTION_OUTPUT_BIT(int index)
+void CLEAR_MOTION_OUTPUT_BIT(int index, int line)
 {
     PRINT1("CLEAR_MOTION_OUTPUT_BIT(%d)\n", index);
     return;
@@ -1067,13 +1067,13 @@ void SET_MOTION_OUTPUT_VALUE(int index, double value)
     return;
 }
 
-void SET_AUX_OUTPUT_BIT(int index)
+void SET_AUX_OUTPUT_BIT(int index, int line)
 {
     PRINT1("SET_AUX_OUTPUT_BIT(%d)\n", index);
     return;
 }
 
-void CLEAR_AUX_OUTPUT_BIT(int index)
+void CLEAR_AUX_OUTPUT_BIT(int index, int line)
 {
     PRINT1("CLEAR_AUX_OUTPUT_BIT(%d)\n", index);
     return;
