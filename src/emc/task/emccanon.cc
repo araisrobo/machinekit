@@ -1880,7 +1880,7 @@ void SET_SPINDLE_MODE(double css_max) {
     css_maximum = fabs(css_max);
 }
 
-void START_SPINDLE_CLOCKWISE()
+void START_SPINDLE_CLOCKWISE(int line)
 {
     EMC_SPINDLE_ON emc_spindle_on_msg;
 
@@ -1899,10 +1899,11 @@ void START_SPINDLE_CLOCKWISE()
 	emc_spindle_on_msg.speed = spindle_dir * spindleSpeed;
 	css_numerator = 0;
     }
+    interp_list.set_line_number(line);
     interp_list.append(emc_spindle_on_msg);
 }
 
-void START_SPINDLE_COUNTERCLOCKWISE()
+void START_SPINDLE_COUNTERCLOCKWISE(int line)
 {
     EMC_SPINDLE_ON emc_spindle_on_msg;
 
@@ -1921,6 +1922,7 @@ void START_SPINDLE_COUNTERCLOCKWISE()
 	emc_spindle_on_msg.speed = spindle_dir * spindleSpeed;
 	css_numerator = 0;
     }
+    interp_list.set_line_number(line);
     interp_list.append(emc_spindle_on_msg);
 }
 
@@ -1955,6 +1957,7 @@ void STOP_SPINDLE_TURNING(int l)
 
     flush_segments();
 
+    interp_list.set_line_number(l);
     interp_list.append(emc_spindle_off_msg);
 }
 
