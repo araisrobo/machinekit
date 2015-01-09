@@ -202,8 +202,6 @@ typedef struct {
 
 
     hal_bit_t *tp_reverse_input;
-    hal_bit_t *tp_reverse_state; // mirror tp-reverse-state in HAL
-
     hal_s32_t *pause_state;  // mirror pause state in HAL
 
 

@@ -599,7 +599,6 @@ static void process_inputs(void)
 	// on alternate queue, all motion stopped
 	// position is the initial pause position, so ok to resume
 
-        *emcmot_hal_data->tp_reverse_state = *emcmot_hal_data->tp_reverse_input;
 	if (emcmotStatus->resuming) {
 	    // a resume was signalled.
             // truncate all TC commands from primary queue
@@ -1158,8 +1157,6 @@ static void set_operating_mode(void)
 		/* clear the override limits flags */
 		emcmotDebug->overriding = 0;
 		emcmotStatus->overrideLimitMask = 0;
-	        *emcmot_hal_data->tp_reverse_state = *emcmot_hal_data->tp_reverse_input;
-	        emcmotStatus->tp_reverse_state = *(emcmot_hal_data->tp_reverse_state);
 		SET_MOTION_COORD_FLAG(1);
 		SET_MOTION_TELEOP_FLAG(0);
 		SET_MOTION_ERROR_FLAG(0);
@@ -2347,7 +2344,7 @@ static void update_status(void)
 	// waiting for motion
 	emcmotStatus->depth = 1;
     }
-    emcmotStatus->tp_reverse_state = *(emcmot_hal_data->tp_reverse_state);
+    emcmotStatus->tp_reverse_state = *(emcmot_hal_data->tp_reverse_input);
     emcmotStatus->pause_state = *(emcmot_hal_data->pause_state);
     emcmotStatus->motionType = tpGetMotionType(emcmotQueue);
     emcmotStatus->queueFull = tcqFull(&emcmotQueue->queue);

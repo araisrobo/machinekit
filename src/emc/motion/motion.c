@@ -596,8 +596,6 @@ static int init_hal_io(void)
 
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->tp_reverse_input),
                                    mot_comp_id, "motion.tp-reverse-input")) < 0) return retval;
-    if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->tp_reverse_state),
-                                   mot_comp_id, "motion.tp-reverse-state")) < 0) return retval;
 
     if ((retval = hal_pin_s32_newf(HAL_OUT, &(emcmot_hal_data->pause_state),
 				   mot_comp_id, "motion.pause-state")) < 0) return retval;
