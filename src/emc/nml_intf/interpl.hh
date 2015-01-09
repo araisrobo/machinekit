@@ -56,6 +56,7 @@ class NML_INTERP_LIST {
     NMLmsg *get_and_next();
     NMLmsg *get_and_last();
     NMLmsg *get_by_lineno(int lineno);
+    NMLmsg *get_next_lineno(int lineno);
     bool is_eol();
     void clear();
     void print();
