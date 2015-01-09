@@ -623,6 +623,8 @@ int LinkedList::store_before_current_node(void *_data, size_t _size,
 void *LinkedList::get_head()
 {
     current_node = head;
+    hit_bol = false; // reset hit begin of list
+    hit_eol = false; // reset hit end of list
     if (NULL != current_node) {
         return (current_node->data);
     } else {
@@ -638,6 +640,8 @@ void *LinkedList::get_head()
 void *LinkedList::get_tail()
 {
     current_node = tail;
+    hit_bol = false; // reset hit begin of list
+    hit_eol = false; // reset hit end of list
     if (NULL != current_node) {
 	return (current_node->data);
     } else {
@@ -657,6 +661,7 @@ void *LinkedList::get_next()
     } if (hit_bol == true) {
         if (NULL != head) {
             current_node = head;
+            hit_bol = false;
         }
     }
     if (NULL != current_node) {
@@ -680,6 +685,7 @@ void *LinkedList::get_last()
         // point current_node to TAIL if we are at EOL (end of linklist)
         if (NULL != tail) {
             current_node = tail;
+            hit_eol = false;
         }
     }
     if (NULL != current_node) {
