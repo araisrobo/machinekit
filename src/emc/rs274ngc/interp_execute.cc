@@ -28,6 +28,8 @@
 #include "interp_internal.hh"
 #include "rs274ngc_interp.hh"
 
+#define RESULT_OK(x) ((x) == INTERP_OK || (x) == INTERP_EXECUTE_FINISH)
+
 /****************************************************************************/
 
 /*! execute binary
@@ -198,6 +200,9 @@ Returned Value: int
      convert_speed
      convert_stop
      convert_tool_select
+   Otherwise, if the probe_flag in the settings is true, 
+   or the input_flag is set to true this returns
+      INTERP_EXECUTE_FINISH.
    Otherwise, it returns INTERP_OK.
 
 Side effects:
@@ -295,6 +300,14 @@ int Interp::execute_block(block_pointer block,   //!< pointer to a block of RS27
 	ERP(status);
     }
   }
+  if (settings->probe_flag)
+      return (INTERP_EXECUTE_FINISH);
+
+  if (settings->input_flag)
+      return (INTERP_EXECUTE_FINISH);
+
+  if (settings->toolchange_flag)
+      return (INTERP_EXECUTE_FINISH);
 
   return INTERP_OK;
 }
