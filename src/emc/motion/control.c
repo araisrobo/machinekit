@@ -601,8 +601,12 @@ static void process_inputs(void)
 
 	if (emcmotStatus->resuming) {
 	    // a resume was signalled.
-            // truncate all TC commands from primary queue
-	    tcqRemove(&(emcmotPrimQueue->queue), tcqLen(&(emcmotPrimQueue->queue)));
+
+	    // truncate the other TC commands from primary queue
+	    // only keep current TC
+	    while (tcqLen(&(emcmotPrimQueue->queue)) > 1) {
+	        tcqPopBack(&(emcmotPrimQueue->queue));
+	    }
 
 	    // switch to primary queue and resume.
 	    rtapi_print_msg(RTAPI_MSG_DBG, "resuming\n");
