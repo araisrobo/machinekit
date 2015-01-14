@@ -1245,6 +1245,11 @@ void SET_NAIVECAM_TOLERANCE(double tolerance)
     canonNaivecamTolerance =  FROM_PROG_LEN(tolerance);
 }
 
+void SET_INTERP_PARAMS(int line_number, int call_level, int remap_level)
+{
+    interp_list.set_interp_params(line_number, call_level, remap_level);
+}
+
 void SELECT_PLANE(CANON_PLANE in_plane)
 {
     activePlane = in_plane;

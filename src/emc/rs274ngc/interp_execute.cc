@@ -232,7 +232,6 @@ feed rate with g0 is illegal and will be detected and result in an
 error message.
 
 */
-
 int Interp::execute_block(block_pointer block,   //!< pointer to a block of RS274/NGC instructions
 			  setup_pointer settings) //!< pointer to machine settings
 {
@@ -245,6 +244,9 @@ int Interp::execute_block(block_pointer block,   //!< pointer to a block of RS27
   {   // use saved_line_number of toplevel for motion-id
       block->line_number = settings->blocks[settings->remap_level].saved_line_number;
   }
+
+  /* SET_INTERP_PARAMS(): send interpreter parameters to CANON */
+  SET_INTERP_PARAMS(block->line_number, settings->call_level, settings->remap_level);
 
   if ((block->comment[0] != 0) && ONCE(STEP_COMMENT)) {
     status = convert_comment(block->comment);

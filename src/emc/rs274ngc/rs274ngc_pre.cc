@@ -280,14 +280,15 @@ int Interp::_execute(const char *command)
 	return status;
     }
   }
-  logDebug("execute:%s %s='%s' mdi_int=%d o_type=%s o_name=%s cl=%d rl=%d type=%s state=%s",
+  logDebug("execute:%s %s='%s' mdi_int=%d o_type=%s o_name=%s cl=%d rl=%d type=%s state=%s lineno(%d)",
 	   MDImode ? "MDI" : "auto",
 	   command ? "command" : "line",
 	   command ? command : _setup.linetext,
 	    _setup.mdi_interrupt, o_ops[eblock->o_type], eblock->o_name,
 	   _setup.call_level,_setup.remap_level, 
 	   eblock->call_type < 0 ? "*unset*" : call_typenames[eblock->call_type], 
-	   call_statenames[_setup.call_state]);
+	   call_statenames[_setup.call_state],
+	   eblock->line_number);
 
   // process control functions -- will skip if skipping
   if ((eblock->o_name != 0) || _setup.mdi_interrupt)  {

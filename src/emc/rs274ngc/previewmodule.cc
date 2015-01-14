@@ -981,6 +981,7 @@ void SET_MOTION_CONTROL_MODE(double tolerance) { }
 void SET_MOTION_CONTROL_MODE(CANON_MOTION_MODE mode) { motion_mode = mode; }
 CANON_MOTION_MODE GET_EXTERNAL_MOTION_CONTROL_MODE() { return motion_mode; }
 void SET_NAIVECAM_TOLERANCE(double tolerance) { }
+void SET_INTERP_PARAMS(int lineno, int call_level, int remap_level) { };
 
 #define RESULT_OK (result == INTERP_OK || result == INTERP_EXECUTE_FINISH)
 static PyObject *parse_file(PyObject *self, PyObject *args) {

@@ -84,6 +84,14 @@ static bool optional_program_stop = ON; //set enabled by default (previous EMC b
 static bool block_delete = ON; //set enabled by default (previous EMC behaviour)
 static double motion_tolerance = 0.;
 static double naivecam_tolerance = 0.;
+
+/**
+ * parameters set by SET_INTERP_PARAMS()
+ */
+static int line_number;
+static int call_level;
+static int remap_level;
+
 /* Dummy status variables */
 static double            _traverse_rate;
 
@@ -388,6 +396,13 @@ extern void SET_NAIVECAM_TOLERANCE(double tolerance)
 {
   naivecam_tolerance = tolerance;
   PRINT1("SET_NAIVECAM_TOLERANCE(%.4f)\n", tolerance);
+}
+
+void SET_INTERP_PARAMS(int lineno, int c_level, int r_level)
+{
+    line_number = lineno;
+    call_level = c_level;
+    remap_level = r_level;
 }
 
 void SELECT_PLANE(CANON_PLANE in_plane)

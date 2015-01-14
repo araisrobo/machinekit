@@ -34,7 +34,11 @@ NML_INTERP_LIST::NML_INTERP_LIST()
     linked_list_ptr = new LinkedList;
 
     next_line_number = 0;
+    next_call_level = -1;
+    next_remap_level = -1;
     line_number = 0;
+    call_level = -1;
+    remap_level = -1;
 }
 
 NML_INTERP_LIST::~NML_INTERP_LIST()
@@ -54,6 +58,15 @@ int NML_INTERP_LIST::append(NMLmsg & nml_msg)
 int NML_INTERP_LIST::set_line_number(int line)
 {
     next_line_number = line;
+    return 0;
+}
+
+// sets the lineno, call_level, and remap_level used for subsequent appends
+int NML_INTERP_LIST::set_interp_params(int line, int c_level, int r_level)
+{
+    next_line_number = line;
+    next_call_level = c_level;
+    next_remap_level = r_level;
     return 0;
 }
 
@@ -98,12 +111,16 @@ int NML_INTERP_LIST::append(NMLmsg * nml_msg_ptr)
     }
     // fill in the NML_INTERP_LIST_NODE
     temp_node.line_number = next_line_number;
+    temp_node.call_level = next_call_level;
+    temp_node.remap_level = next_remap_level;
     memcpy(temp_node.command.commandbuf, nml_msg_ptr, nml_msg_ptr->size);
 
     // stick it on the list
     linked_list_ptr->store_at_tail(&temp_node,
 				   nml_msg_ptr->size +
 				   sizeof(temp_node.line_number) +
+                                   sizeof(temp_node.call_level) +
+                                   sizeof(temp_node.remap_level) +
 				   sizeof(temp_node.dummy) + 32 + (32 -
 								   nml_msg_ptr->
 								   size %
@@ -111,14 +128,16 @@ int NML_INTERP_LIST::append(NMLmsg * nml_msg_ptr)
 
     if (emc_debug & EMC_DEBUG_INTERP_LIST) {
 	rcs_print
-	    ("NML_INTERP_LIST::append(nml_msg_ptr{size=%ld,type=%s}) : list_size=%d, line_number=%d\n",
-	     nml_msg_ptr->size, emc_symbol_lookup(nml_msg_ptr->type),
-	     linked_list_ptr->list_size, temp_node.line_number);
+	    ("%s:%d %s() linked_list_ptr(%p) nml_msg_ptr{size=%ld,type=%s} : list_size=%d, line_number=%d call_level(%d) remap_level(%d)\n",
+	     __FILE__, __LINE__, __FUNCTION__,
+	     linked_list_ptr, nml_msg_ptr->size, emc_symbol_lookup(nml_msg_ptr->type),
+	     linked_list_ptr->list_size, temp_node.line_number, temp_node.call_level, temp_node.remap_level);
     }
 
     return 0;
 }
 
+/* get() does copy and delete the head of the list */
 NMLmsg *NML_INTERP_LIST::get()
 {
     NMLmsg *ret;
@@ -126,6 +145,8 @@ NMLmsg *NML_INTERP_LIST::get()
 
     if (NULL == linked_list_ptr) {
 	line_number = 0;
+	call_level = -1;
+	remap_level = -1;
 	return NULL;
     }
 
@@ -133,10 +154,14 @@ NMLmsg *NML_INTERP_LIST::get()
 
     if (NULL == node_ptr) {
 	line_number = 0;
+	call_level = -1;
+	remap_level = -1;
 	return NULL;
     }
     // save line number of this one, for use by get_line_number
     line_number = node_ptr->line_number;
+    call_level = node_ptr->call_level;
+    remap_level = node_ptr->remap_level;
 
     // get it off the front
     ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
@@ -144,66 +169,102 @@ NMLmsg *NML_INTERP_LIST::get()
     return ret;
 }
 
-// get current NML cmd, and move current_node to next
-NMLmsg *NML_INTERP_LIST::get_and_next()
+/**
+ * update NMLcmd, line_number, call_level from current_node,
+ */
+NMLmsg *NML_INTERP_LIST::update_current()
 {
     NMLmsg *ret;
     NML_INTERP_LIST_NODE *node_ptr;
 
     if (NULL == linked_list_ptr) {
         line_number = 0;
+        call_level = -1;
+        remap_level = -1;
         return NULL;
     }
 
-    // move current_node of linked_list to next node
+    /**
+     * get NML current_node of linked_list of current node
+     */
     node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_current();
 
     if (NULL == node_ptr) {
         line_number = 0;
+        call_level = -1;
+        remap_level = -1;
         return NULL;
     }
 
-    // save line number of this one, for use by get_line_number
+    /**
+     * save line number of current node, for use by get_line_number()
+     */
     line_number = node_ptr->line_number;
 
-    // copy NML message
-    ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
+    /**
+     * save call_level of current node, for use by get_call_level()
+     */
+    call_level = node_ptr->call_level;
 
-    // move current_node to next node
-    linked_list_ptr->get_next();
+    /**
+     * save remap_level of current node, for use by get_remap_level()
+     */
+    remap_level = node_ptr->remap_level;
+
+    /**
+     * copy NML message
+     */
+    ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
 
     return ret;
 }
 
-// get current NML cmd, and move current_node to last
-NMLmsg *NML_INTERP_LIST::get_and_last()
+/**
+ * move current_node to next node
+ *
+ * return(-1): no next node
+ * return(0): successfully move to next node
+ */
+int NML_INTERP_LIST::move_next()
 {
-    NMLmsg *ret;
     NML_INTERP_LIST_NODE *node_ptr;
 
     if (NULL == linked_list_ptr) {
-        line_number = 0;
-        return NULL;
+        return -1;
     }
 
-    // get current_node
-    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_current();
+    // move current_node of linked_list to next node
+    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_next();
 
     if (NULL == node_ptr) {
-        line_number = 0;
-        return NULL;
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
+/**
+ * move current_node to last node
+ *
+ * return(-1): no last node
+ * return(0): successfully move to last node
+ */
+int NML_INTERP_LIST::move_last()
+{
+    NML_INTERP_LIST_NODE *node_ptr;
+
+    if (NULL == linked_list_ptr) {
+        return -1;
     }
 
-    // save line number of this one, for use by get_line_number
-    line_number = node_ptr->line_number;
+    // move current_node of linked_list to next node
+    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_last();
 
-    // copy NML message
-    ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
-
-    // move current_node to last node
-    linked_list_ptr->get_last();
-
-    return ret;
+    if (NULL == node_ptr) {
+        return -1;
+    } else {
+        return 0;
+    }
 }
 
 /**
@@ -243,7 +304,24 @@ NMLmsg *NML_INTERP_LIST::get_by_lineno(int lineno)
         return NULL;
     }
 
-    // copy NML message
+    /**
+     * save line number of current node, for use by get_line_number()
+     */
+    line_number = node_ptr->line_number;
+
+    /**
+     * save call_level of current node, for use by get_call_level()
+     */
+    call_level = node_ptr->call_level;
+
+    /**
+     * save remap_level of current node, for use by get_remap_level()
+     */
+    remap_level = node_ptr->remap_level;
+
+    /**
+     * copy NML message
+     */
     ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
 
     return ret;
@@ -339,4 +417,14 @@ int NML_INTERP_LIST::len()
 int NML_INTERP_LIST::get_line_number()
 {
     return line_number;
+}
+
+int NML_INTERP_LIST::get_call_level()
+{
+    return call_level;
+}
+
+int NML_INTERP_LIST::get_remap_level()
+{
+    return remap_level;
 }
