@@ -103,6 +103,16 @@ to another.
 extern "C" {
 #endif
 
+    enum pause_state {
+        PS_RUNNING=0,  // aka 'not paused'
+        PS_PAUSING=1,  // looking for the first pausable motion (e.g. not spindle-synced)
+        PS_PAUSED=2,   // motion stopped, and ok to unpause
+        PS_PAUSED_IN_OFFSET=3, // motion stopped, but not where we can return to primary queue
+        PS_JOGGING=4,  // coord mode motion in progress
+        PS_RETURNING=5, // executing a return move to return to running
+        PS_PAUSING_FOR_STEP=6,
+    };
+
     typedef struct _EMC_TELEOP_DATA {
 	EmcPose currentVel;
 	EmcPose currentAccel;
@@ -715,6 +725,7 @@ Suggestion: Split this in to an Error and a Status flag register..
 	int level;
         int motionType;
         double distance_to_go;  /* in this move */
+        double prim_dtg;        /* distance_to_go of emcmotPrimQueue */
         char motion_type;       /* motion_type of current tc */
         EmcPose dtg;
         double current_vel;

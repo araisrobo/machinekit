@@ -110,6 +110,7 @@ typedef struct {
 
     double wMax;		/* rotational velocity max */
     double wDotMax;		/* rotational accelleration max */
+    double distance_to_go;      /* distance to go of current TP */
     int nextId;
     int execId;
     int termCond;

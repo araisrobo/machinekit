@@ -602,11 +602,10 @@ static void process_inputs(void)
 	if (emcmotStatus->resuming) {
 	    // a resume was signalled.
 
-	    // truncate the other TC commands from primary queue
-	    // only keep current TC
-	    while (tcqLen(&(emcmotPrimQueue->queue)) > 1) {
-	        tcqPopBack(&(emcmotPrimQueue->queue));
-	    }
+            /**
+             * truncate all TC commands from primary queue
+             */
+            tcqRemove(&(emcmotPrimQueue->queue), tcqLen(&(emcmotPrimQueue->queue)));
 
 	    // switch to primary queue and resume.
 	    rtapi_print_msg(RTAPI_MSG_DBG, "resuming\n");
@@ -2343,6 +2342,7 @@ static void update_status(void)
     if (emcmotQueue == emcmotPrimQueue) {
 	emcmotStatus->depth = tpQueueDepth(emcmotQueue);
 	emcmotStatus->id = tpGetExecId(emcmotQueue);
+	emcmotStatus->prim_dtg = emcmotQueue->distance_to_go;
     } else {
 	// pretend we're doing something so task keeps
 	// waiting for motion

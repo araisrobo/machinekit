@@ -418,6 +418,7 @@ int tpClear(TP_STRUCT * const tp)
     tp->pausing = 0;
     tp->synchronized = 0;
     tp->uu_per_rev = 0.0;
+    tp->distance_to_go = 0;
     emcmotStatus->spindleSync = 0;
     emcmotStatus->current_vel = 0.0;
     emcmotStatus->requested_vel = 0.0;
@@ -2922,6 +2923,7 @@ STATIC void tpUpdateMovementStatus(TP_STRUCT * const tp, TC_STRUCT const * const
     tp->motionType = tc->canon_motion_type;
     tp->activeDepth = tc->active_depth;
     emcmotStatus->distance_to_go = tc->target - tc->progress;
+    tp->distance_to_go = emcmotStatus->distance_to_go;
     emcmotStatus->enables_queued = tc->enables;
     // report our line number to the guis
     tp->execId = tc->id;
