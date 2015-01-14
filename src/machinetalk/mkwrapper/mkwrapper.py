@@ -1191,7 +1191,7 @@ class LinuxCNCWrapper():
             self.status.motion.motion_line = 0
             self.status.motion.motion_type = 0
             self.status.motion.motion_mode = 0
-            self.status.motion.paused = False
+            self.status.motion.pause_state = 0
             self.status.motion.position.MergeFrom(self.zero_position())
             self.status.motion.probe_tripped = False
             self.status.motion.probe_val = 0
@@ -1557,9 +1557,9 @@ class LinuxCNCWrapper():
             self.txStatus.motion.motion_mode = stat.motion_mode
             modified = True
 
-        if (self.status.motion.paused != stat.paused):
-            self.status.motion.paused = stat.paused
-            self.txStatus.motion.paused = stat.paused
+        if (self.status.motion.pause_state != stat.pause_state):
+            self.status.motion.pause_state = stat.pause_state
+            self.txStatus.motion.pause_state = stat.pause_state
             modified = True
 
         positionModified, txPosition = self.check_position(self.status.motion.position, stat.position)

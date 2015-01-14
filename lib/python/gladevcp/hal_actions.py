@@ -341,7 +341,7 @@ class EMC_Action_Resume(_EMC_Action):
     def on_activate(self, w):
         print "RESUME"
         self.stat.poll()
-        if not self.stat.paused:
+        if self.stat.pause_state == 0:
             return
         if self.stat.task_mode not in (linuxcnc.MODE_AUTO, linuxcnc.MODE_MDI):
             return

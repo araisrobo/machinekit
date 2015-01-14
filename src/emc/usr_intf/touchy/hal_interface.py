@@ -212,7 +212,7 @@ class hal_interface:
         self.emc_stat.poll()
         self.c["jog.active"] = self.emc_stat.task_mode == self.emc.MODE_MANUAL
 
-        if self.emc_stat.paused:
+        if (self.emc_stat.pause_state != 0):
             # blink
             self.c["status-indicator"] = not self.c["status-indicator"]
         else:

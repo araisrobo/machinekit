@@ -785,7 +785,7 @@ class LivePlotter:
         vupdate(vars.task_state, self.stat.task_state)
         vupdate(vars.task_paused, self.stat.task_paused)
         vupdate(vars.taskfile, self.stat.file)
-        vupdate(vars.interp_pause, self.stat.paused)
+        vupdate(vars.interp_pause, self.stat.pause_state)
         vupdate(vars.mist, self.stat.mist)
         vupdate(vars.flood, self.stat.flood)
         vupdate(vars.brake, self.stat.spindle_brake)
@@ -2000,7 +2000,8 @@ class TclCommands(nf.TclCommands):
 
     def task_resume(*event):
         s.poll()
-        if not s.paused:
+        if s.pause_state == 0:
+            """ not at PAUSED state """
             return
         if s.task_mode not in (linuxcnc.MODE_AUTO, linuxcnc.MODE_MDI):
             return
@@ -2012,7 +2013,8 @@ class TclCommands(nf.TclCommands):
             return
         ensure_mode(linuxcnc.MODE_AUTO, linuxcnc.MODE_MDI)
         s.poll()
-        if s.paused:
+        if s.pause_state != 0:
+            """at PAUSED state """
             c.auto(linuxcnc.AUTO_RESUME)
         elif s.interp_state != linuxcnc.INTERP_IDLE:
             c.auto(linuxcnc.AUTO_PAUSE)

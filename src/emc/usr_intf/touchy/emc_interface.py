@@ -184,7 +184,7 @@ class emc_control:
         def single_block(self, s):
                 self.sb = s
                 self.emcstat.poll()
-                if self.emcstat.queue > 0 or self.emcstat.paused:
+                if self.emcstat.queue > 0 or (self.emcstat.pause_state != 0):
                         # program or mdi is running
                         if s:
                                 self.emccommand.auto(self.emc.AUTO_PAUSE)
@@ -193,7 +193,7 @@ class emc_control:
 
         def cycle_start(self):
                 self.emcstat.poll()
-                if self.emcstat.paused:
+                if (self.emcstat.pause_state != 0):
                         if self.sb:
                                 self.emccommand.auto(self.emc.AUTO_STEP)
                         else:

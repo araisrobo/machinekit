@@ -238,7 +238,7 @@ message EmcStatusMotion {
     optional int32                  motion_line             = 28;
     optional EmcTrajectoryModeType  motion_type             = 29;
     optional EmcTrajectoryModeType  motion_mode             = 30;
-    optional bool                   paused                  = 31;
+    optional int32                  pause_state             = 31;
     optional Position               position                = 32;
     optional bool                   probe_tripped           = 33;
     optional int32                  probe_val               = 34;
