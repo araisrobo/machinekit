@@ -2343,12 +2343,13 @@ static void update_status(void)
 	emcmotStatus->depth = tpQueueDepth(emcmotQueue);
 	emcmotStatus->id = tpGetExecId(emcmotQueue);
 	emcmotStatus->prim_dtg = emcmotQueue->distance_to_go;
+        emcmotStatus->prim_progress = emcmotQueue->progress;
     } else {
 	// pretend we're doing something so task keeps
 	// waiting for motion
 	emcmotStatus->depth = 1;
     }
-    emcmotStatus->tp_reverse_state = *(emcmot_hal_data->tp_reverse_input);
+    emcmotStatus->tp_reverse_input = *(emcmot_hal_data->tp_reverse_input);
     emcmotStatus->pause_state = *(emcmot_hal_data->pause_state);
     emcmotStatus->motionType = tpGetMotionType(emcmotQueue);
     emcmotStatus->queueFull = tcqFull(&emcmotQueue->queue);

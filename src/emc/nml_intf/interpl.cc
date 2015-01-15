@@ -268,6 +268,54 @@ int NML_INTERP_LIST::move_last()
 }
 
 /**
+ * move current_node to head
+ *
+ * return(-1): no head node
+ * return(0): successfully move to head node
+ */
+int NML_INTERP_LIST::move_head()
+{
+    NML_INTERP_LIST_NODE *node_ptr;
+
+    if (NULL == linked_list_ptr) {
+        return -1;
+    }
+
+    // move current_node of linked_list to next node
+    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_head();
+
+    if (NULL == node_ptr) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
+/**
+ * move current_node to tail
+ *
+ * return(-1): no tail node
+ * return(0): successfully move to tail node
+ */
+int NML_INTERP_LIST::move_tail()
+{
+    NML_INTERP_LIST_NODE *node_ptr;
+
+    if (NULL == linked_list_ptr) {
+        return -1;
+    }
+
+    // move current_node of linked_list to next node
+    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_tail();
+
+    if (NULL == node_ptr) {
+        return -1;
+    } else {
+        return 0;
+    }
+}
+
+/**
  * get_by_lineno - get 1st NML_cmd which matches the given line_number
  * @lineno: the line number of selected g-code
  *          set to 0 to get the head of interp_list
@@ -353,7 +401,46 @@ NMLmsg *NML_INTERP_LIST::get_next_lineno (int lineno)
             node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_next();
         }
     }
-    assert (lineno >= 0);
+    assert (line_number >= 0);
+
+    if (NULL == node_ptr) {
+        line_number = 0;
+        return NULL;
+    }
+
+    // copy NML message
+    ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
+
+    return ret;
+}
+
+/**
+ * get_last_lineno - start from tail, get 1st NML_cmd with smaller line_number
+ * @lineno: the line number of selected g-code
+ **/
+NMLmsg *NML_INTERP_LIST::get_last_lineno (int lineno)
+{
+    NMLmsg *ret;
+    NML_INTERP_LIST_NODE *node_ptr;
+
+    if (NULL == linked_list_ptr) {
+        line_number = 0;
+        return NULL;
+    }
+
+    // move current_node of linked_list to head
+    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_tail();
+    // search for node with specified line number
+    while (NULL != node_ptr) {
+        // save line number of this one, for use by get_line_number
+        line_number = node_ptr->line_number;
+        if (line_number < lineno) {
+            break; // got the node; break while-loop
+        } else {
+            node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_last();
+        }
+    }
+    assert (line_number >= 0);
 
     if (NULL == node_ptr) {
         line_number = 0;

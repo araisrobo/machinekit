@@ -1185,6 +1185,7 @@ int emcTrajUpdate(EMC_TRAJ_STAT * stat)
     stat->motion_type = emcmotStatus.motionType;
     stat->distance_to_go = emcmotStatus.distance_to_go;
     stat->prim_dtg = emcmotStatus.prim_dtg;
+    stat->prim_progress = emcmotStatus.prim_progress;
     stat->dtg = emcmotStatus.dtg;
     stat->current_vel = emcmotStatus.current_vel;
     if (EMC_DEBUG_MOTION_TIME & emc_debug) {
@@ -1200,7 +1201,7 @@ int emcTrajUpdate(EMC_TRAJ_STAT * stat)
     }
 
     stat->pause_state = emcmotStatus.pause_state;
-    stat->tp_reversed = emcmotStatus.tp_reverse_state;
+    stat->tp_reverse_input = emcmotStatus.tp_reverse_input;
     stat->scale = emcmotStatus.feed_scale;
     stat->spindle_scale = emcmotStatus.spindle_scale;
 

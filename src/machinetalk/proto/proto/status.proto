@@ -257,6 +257,11 @@ message EmcStatusMotion {
     optional RCS_STATUS             state                   = 47;
     optional double                 max_velocity            = 48;
     optional double                 max_acceleration        = 49;
+    optional double                 prim_dtg                = 50;
+    optional double                 prim_progress           = 51;
+    optional bool                   cur_tp_reversed         = 52;
+    optional bool                   next_tp_reversed        = 53;
+    optional bool                   tp_reverse_input        = 54;
 }
 
 message EmcStatusIo {

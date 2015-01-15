@@ -1009,7 +1009,6 @@ static int init_comm_buffers(void)
     emcmotStatus->depth = 0;
     emcmotStatus->activeDepth = 0;
     emcmotStatus->pause_state  = PS_RUNNING;
-    emcmotStatus->tp_reverse_state  = TP_FORWARD;
     emcmotStatus->resuming = 0;
     emcmotStatus->overrideLimitMask = 0;
     emcmotStatus->spindle.speed = 0.0;

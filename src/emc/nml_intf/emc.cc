@@ -1553,7 +1553,6 @@ void EMC_TRAJ_CIRCULAR_MOVE::update(CMS * cms)
     cms->update(acc);
     cms->update(ini_maxjerk);
     cms->update(feed_mode);
-
 }
 
 /*
@@ -2349,7 +2348,9 @@ void EMC_TRAJ_STAT::update(CMS * cms)
     cms->update(queueFull);
     cms->update(id);
     cms->update(pause_state);
-    cms->update(tp_reversed);
+    cms->update(cur_tp_reversed);
+    cms->update(next_tp_reversed);
+    cms->update(tp_reverse_input);
     cms->update(scale);
     EmcPose_update(cms, &position);
     EmcPose_update(cms, &actualPosition);

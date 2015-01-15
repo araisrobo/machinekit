@@ -61,7 +61,9 @@ EMC_TRAJ_STAT_MSG(EMC_TRAJ_STAT_TYPE, sizeof(EMC_TRAJ_STAT))
     queueFull = OFF;
     id = 0;
     pause_state = 0;  //!< PS_RUNNING=0,  // aka 'not paused'
-    tp_reversed = OFF;
+    next_tp_reversed = OFF;
+    cur_tp_reversed = OFF;
+    tp_reverse_input = OFF;
     scale = 0.0;
     spindle_scale = 0.0;
 
@@ -80,6 +82,9 @@ EMC_TRAJ_STAT_MSG(EMC_TRAJ_STAT_TYPE, sizeof(EMC_TRAJ_STAT))
     
     ZERO_EMC_POSE(dtg);
     distance_to_go = 0.0;
+    prim_progress = 0.0;
+    prim_dtg = 0.0;
+
     kinematics_type = 0;
     motion_type = 0;
     current_vel = 0.0;

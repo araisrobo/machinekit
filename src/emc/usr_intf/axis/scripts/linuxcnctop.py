@@ -87,7 +87,12 @@ maps = {
 'max_velocity': show_float,
 'angular_units': show_float,
 'distance_to_go': show_float,
+'prim_dtg': show_float,
+'prim_progress': show_float,
 'current_vel': show_float,
+'tp_reverse_input': {0: 'forward', 1: 'reverse'},
+'cur_tp_reversed': {0: 'forward', 1: 'reverse'},
+'next_tp_reversed': {0: 'forward', 1: 'reverse'},
 }
 
 if s.kinematics_type == 1:

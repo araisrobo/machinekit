@@ -62,8 +62,11 @@ class NML_INTERP_LIST {
     NMLmsg *update_current();   //!< update contents from current_node
     int move_next();            //!< move current node to next node
     int move_last();            //!< move current node to last node
+    int move_head();            //!< move current node to head
+    int move_tail();            //!< move current node to tail
     NMLmsg *get_by_lineno(int lineno);
     NMLmsg *get_next_lineno(int lineno);
+    NMLmsg *get_last_lineno(int lineno);
     bool is_eol();
     void clear();
     void print();

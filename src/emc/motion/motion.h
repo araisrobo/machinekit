@@ -709,7 +709,7 @@ Suggestion: Split this in to an Error and a Status flag register..
 	int activeDepth;	/* depth of active blend elements */
 	int queueFull;		/* Flag to indicate the tc queue is full */
 	int pause_state;	/* state of the motion pause FSM */
-	int tp_reverse_state;   /* true if trajectory planner is at reverse direction */
+	int tp_reverse_input;   //!< the hal input signal for tp_reversed mode
 	int resuming;	        /* resume operation in progress */
 	int overrideLimitMask;	/* non-zero means one or more limits ignored */
 				/* 1 << (joint-num*2) = ignore neg limit */
@@ -726,6 +726,7 @@ Suggestion: Split this in to an Error and a Status flag register..
         int motionType;
         double distance_to_go;  /* in this move */
         double prim_dtg;        /* distance_to_go of emcmotPrimQueue */
+        double prim_progress;   //!< progress of current-tc of emcmotPrimQueue
         char motion_type;       /* motion_type of current tc */
         EmcPose dtg;
         double current_vel;

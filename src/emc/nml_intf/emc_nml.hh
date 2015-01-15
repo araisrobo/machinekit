@@ -995,7 +995,9 @@ class EMC_TRAJ_STAT:public EMC_TRAJ_STAT_MSG {
     bool queueFull;		// non-zero means can't accept another motion
     int id;			// id of the currently executing motion
     int pause_state;            // non-zero means motion is paused
-    bool tp_reversed;           // true, if the trajectory planning is at reversed direction
+    bool next_tp_reversed;      // true, if the upcoming tp commands are at reversed direction
+    bool cur_tp_reversed;       // true, if the current tp command is at reversed direction
+    bool tp_reverse_input;      // true, if the tp_reverse_input is set to reversed direction
     double scale;		// velocity scale factor
     double spindle_scale;	// spindle velocity scale factor
 
@@ -1017,7 +1019,8 @@ class EMC_TRAJ_STAT:public EMC_TRAJ_STAT_MSG {
     int kinematics_type;	// identity=1,serial=2,parallel=3,custom=4
     int motion_type;
     double distance_to_go;         // in current move
-    double prim_dtg;            // distance_to_go for emcmotPrimQueue
+    double prim_dtg;            //!< distance_to_go of current-tc of emcmotPrimQueue
+    double prim_progress;       //!< progress of current-tc of emcmotPrimQueue
     EmcPose dtg;
     double current_vel;         // in current move
     bool feed_override_enabled;

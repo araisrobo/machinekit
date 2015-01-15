@@ -1176,6 +1176,11 @@ class LinuxCNCWrapper():
             self.status.motion.current_vel = 0.0
             self.status.motion.delay_left = 0.0
             self.status.motion.distance_to_go = 0.0
+            self.status.motion.prim_dtg = 0.0
+            self.status.motion.prim_progress = 0.0
+            self.status.motion.next_tp_reversed = False
+            self.status.motion.cur_tp_reversed = False
+            self.status.motion.tp_reverse_input = False
             self.status.motion.dtg.MergeFrom(self.zero_position())
             self.status.motion.enabled = False
             self.status.motion.feed_hold_enabled = False
@@ -1425,6 +1430,31 @@ class LinuxCNCWrapper():
         if self.notEqual(self.status.motion.distance_to_go, stat.distance_to_go):
             self.status.motion.distance_to_go = stat.distance_to_go
             self.txStatus.motion.distance_to_go = stat.distance_to_go
+            modified = True
+
+        if self.notEqual(self.status.motion.prim_dtg, stat.prim_dtg):
+            self.status.motion.prim_dtg = stat.prim_dtg
+            self.txStatus.motion.prim_dtg = stat.prim_dtg
+            modified = True
+
+        if self.notEqual(self.status.motion.prim_progress, stat.prim_progress):
+            self.status.motion.prim_progress = stat.prim_progress
+            self.txStatus.motion.prim_progress = stat.prim_progress
+            modified = True
+        
+        if self.notEqual(self.status.motion.cur_tp_reversed, stat.cur_tp_reversed):
+            self.status.motion.cur_tp_reversed = stat.cur_tp_reversed
+            self.txStatus.motion.cur_tp_reversed = stat.cur_tp_reversed
+            modified = True
+
+        if self.notEqual(self.status.motion.next_tp_reversed, stat.next_tp_reversed):
+            self.status.motion.next_tp_reversed = stat.next_tp_reversed
+            self.txStatus.motion.next_tp_reversed = stat.next_tp_reversed
+            modified = True
+
+        if self.notEqual(self.status.motion.tp_reverse_input, stat.tp_reverse_input):
+            self.status.motion.tp_reverse_input = stat.tp_reverse_input
+            self.txStatus.motion.tp_reverse_input = stat.tp_reverse_input
             modified = True
 
         txDout = EmcStatusDigitalIO()
