@@ -456,7 +456,8 @@ static int max_mdi_queued_commands = MAX_MDI_QUEUE;
  */
 static void history_append (NMLmsg * cmd, int lineno, int call_level, int remap_level)
 {
-    if (call_level == 0)
+    if ((call_level == 0) &&
+        (emcStatus->task.mode == EMC_TASK_MODE_AUTO))
     {
         if ((cmd->type == EMC_TRAJ_LINEAR_MOVE_TYPE) ||
             (cmd->type == EMC_TRAJ_CIRCULAR_MOVE_TYPE))
@@ -679,6 +680,9 @@ interpret_again:
 				        emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
 				    }
 				    history_queue.move_tail();
+				    if (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) {
+				        emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
+				    }
                                     // reset programStartLine so we don't fall into our stepping routines
                                     // if we happen to execute lines before the current point later (due to subroutines).
                                     programStartLine = 0;
@@ -2708,9 +2712,11 @@ static int emcTaskExecute(void)
 	        if (emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) {
 	            emcTaskCommand = interp_list.get();
 	        } else {
-	            // TODO: get a node from history_list...
-	            emcTaskCommand = history_queue.update_current();
-	            history_queue.move_last();
+	            /* (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) */
+	            if (emcStatus->task.interpState == EMC_TASK_INTERP_WAITING) {
+	                emcTaskCommand = history_queue.update_current();
+	                history_queue.move_last();
+	            }
 	        }
 
 		// interp_list now has line number associated with this -- get it
