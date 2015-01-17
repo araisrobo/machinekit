@@ -67,6 +67,12 @@ public:
 // synchronize your internal model with the external world
  int synch();
 
+// save internal current_* positions
+ int save_cur_pos();
+
+// restore internal current_* positions from saved ones
+ int restore_cur_pos();
+
 /* Interface functions to call to get information from the interpreter.
    If a function has a return value, the return value contains the information.
    If a function returns nothing, information is copied into one of the

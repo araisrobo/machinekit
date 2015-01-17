@@ -628,6 +628,17 @@ typedef struct setup_struct
   double axis_offset_x;         // X-axis g92 offset
   double axis_offset_y;         // Y-axis g92 offset
   double axis_offset_z;         // Z-axis g92 offset
+
+  double saved_AA;
+  double saved_BB;
+  double saved_CC;
+  double saved_x;
+  double saved_y;
+  double saved_z;
+  double saved_u;
+  double saved_v;
+  double saved_w;
+
   // block block1;                 // parsed next block
   // stack of controlling blocks for remap execution
   block blocks[MAX_NESTED_REMAPS];

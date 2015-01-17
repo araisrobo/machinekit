@@ -1933,6 +1933,58 @@ int Interp::synch()
 }
 
 /***********************************************************************/
+
+/*! Interp::save_cur_pos()
+
+Returned Value: int (INTERP_OK)
+
+Called By:
+   external programs
+
+This function save the current positions of _setup
+
+*/
+int Interp::save_cur_pos()
+{
+    _setup.saved_AA = _setup.AA_current;
+    _setup.saved_BB = _setup.BB_current;
+    _setup.saved_CC = _setup.CC_current;
+    _setup.saved_x  = _setup.current_x;
+    _setup.saved_y  = _setup.current_y;
+    _setup.saved_z  = _setup.current_z;
+    _setup.saved_u  = _setup.u_current;
+    _setup.saved_v  = _setup.v_current;
+    _setup.saved_w  = _setup.w_current;
+    return INTERP_OK;
+}
+
+
+/***********************************************************************/
+
+/*! Interp::restore_cur_pos()
+
+Returned Value: int (INTERP_OK)
+
+Called By:
+   external programs
+
+This function restore current positions from saved ones.
+
+*/
+int Interp::restore_cur_pos()
+{
+    _setup.AA_current = _setup.saved_AA;
+    _setup.BB_current = _setup.saved_BB;
+    _setup.CC_current = _setup.saved_CC;
+    _setup.current_x  = _setup.saved_x;
+    _setup.current_y  = _setup.saved_y;
+    _setup.current_z  = _setup.saved_z;
+    _setup.u_current  = _setup.saved_u;
+    _setup.v_current  = _setup.saved_v;
+    _setup.w_current  = _setup.saved_w;
+    return INTERP_OK;
+}
+
 /***********************************************************************/
 
 /*

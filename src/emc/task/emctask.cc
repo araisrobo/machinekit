@@ -500,6 +500,34 @@ int emcTaskPlanSynch()
     return retval;
 }
 
+/**
+ * emcTaskPlanSaveCurPos(pos): save interpreter's current positions
+ */
+int emcTaskPlanSaveCurPos()
+{
+    int retval = interp.save_cur_pos();
+
+    if (emc_debug & EMC_DEBUG_INTERP) {
+        rcs_print("emcTaskPlanSaveCurPos() returned %d\n", retval);
+    }
+
+    return retval;
+}
+
+/**
+ * emcTaskPlanRestoreCurPos(pos): restore interpreter's current positions from saved ones
+ */
+int emcTaskPlanRestoreCurPos()
+{
+    int retval = interp.restore_cur_pos();
+
+    if (emc_debug & EMC_DEBUG_INTERP) {
+        rcs_print("emcTaskPlanRestoreCurPos() returned %d\n", retval);
+    }
+
+    return retval;
+}
+
 void emcTaskPlanExit()
 {
     if (pinterp != NULL) {

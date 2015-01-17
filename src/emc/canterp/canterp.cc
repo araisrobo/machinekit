@@ -78,6 +78,8 @@ public:
     int execute(const char *line);
     int execute(const char *line, int line_number);
     int synch();
+    int save_cur_pos();
+    int restore_cur_pos();
     int exit();
     int open(const char *filename);
     int read();
@@ -686,6 +688,8 @@ int Canterp::close() {
 
 int Canterp::exit() { return 0; }
 int Canterp::synch() { return 0; }
+int Canterp::save_cur_pos() { return 0; }
+int Canterp::restore_cur_pos() { return 0; }
 int Canterp::reset() { return 0; }
 int Canterp::line() { return 0; }
 int Canterp::call_level() { return 0; }

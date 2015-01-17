@@ -35,6 +35,8 @@ int emcTaskPlanSetWait();
 int emcTaskPlanIsWait();
 int emcTaskPlanClearWait();
 int emcTaskPlanSynch();
+int emcTaskPlanSaveCurPos();
+int emcTaskPlanRestoreCurPos();
 int emcTaskPlanSetOptionalStop(bool state);
 int emcTaskPlanSetBlockDelete(bool state);
 void emcTaskPlanExit();
