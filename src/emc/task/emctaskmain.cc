@@ -680,9 +680,6 @@ interpret_again:
 				        emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
 				    }
 				    history_queue.move_tail();
-				    if (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) {
-				        emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
-				    }
                                     // reset programStartLine so we don't fall into our stepping routines
                                     // if we happen to execute lines before the current point later (due to subroutines).
                                     programStartLine = 0;
@@ -698,6 +695,7 @@ interpret_again:
 			}	// else read was OK, so execute
 		    }		// else not emcTaskPlanIsWait
 		}		// if interp len is less than max
+		rcs_print("%s (%s:%d) end\n", __FILE__, __FUNCTION__, __LINE__);
 }
 
 static void mdi_execute_abort(void)
@@ -771,32 +769,38 @@ static void mdi_execute_hook(void)
 
 void readahead_waiting(void)
 {
-	// now handle call logic
-	// check for subsystems done
-	if ((((emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) && (interp_list.len() == 0)) ||
-	     ((emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) && (history_queue.is_eol() == true))) &&
-	    emcTaskCommand == 0 &&
-	    emcStatus->motion.traj.queue == 0 &&
-	    emcStatus->io.status == RCS_DONE)
-	    // finished
-	{
-	    int was_open = taskplanopen;
-	    if (was_open) {
-		emcTaskPlanClose();
-		if (emc_debug & EMC_DEBUG_INTERP && was_open) {
-		    rcs_print
-			("emcTaskPlanClose() called at %s:%d\n",
-			 __FILE__, __LINE__);
-		}
-		// then resynch interpreter
-		emcTaskQueueCommand(&taskPlanSynchCmd);
-	    } else {
-		emcStatus->task.interpState = EMC_TASK_INTERP_IDLE;
-	    }
-	    emcStatus->task.readLine = 0;
-	} else {
-	    // still executing
+    // now handle call logic
+    // check for subsystems done
+    if ((((emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) && (interp_list.len() == 0)) ||
+         ((emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) && (history_queue.is_bol() == true))) &&
+        emcTaskCommand == 0 &&
+        emcStatus->motion.traj.queue == 0 &&
+        emcStatus->io.status == RCS_DONE)
+        // finished
+    {
+        emcTaskPlanClearWait();
+        int was_open = taskplanopen;
+        if (was_open) {
+            emcTaskPlanClose();
+            if (emc_debug & EMC_DEBUG_INTERP && was_open) {
+                rcs_print ("emcTaskPlanClose() called at %s:%d\n", __FILE__, __LINE__);
+            }
         }
+        emcStatus->task.interpState = EMC_TASK_INTERP_IDLE;
+
+        if (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE)
+        {   // abort everything; took from EMC_TASK_ABORT
+            emcTaskAbort();
+            emcIoAbort(EMC_ABORT_TASK_ABORT);
+            emcSpindleAbort();
+            mdi_execute_abort();
+            emcAbortCleanup(EMC_ABORT_TASK_ABORT);
+        }
+
+        emcStatus->task.readLine = 0;
+    } else {
+        // still executing
+    }
 }
 
 /*
@@ -1201,7 +1205,11 @@ static int emcTaskPlan(void)
 
                // handle interp readahead logic
                 readahead_reading();
-                
+
+                if (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) {
+                    emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
+                }
+
 		break;		// EMC_TASK_INTERP_READING
 
 	    case EMC_TASK_INTERP_PAUSED:	// ON, AUTO, PAUSED
@@ -2308,6 +2316,8 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	run_msg = (EMC_TASK_PLAN_RUN *) cmd;
 	programStartLine = run_msg->line;
         history_queue.clear();
+        emcTaskPlanSynch();
+        emcTaskPlanSaveCurPos();
         emcStatus->motion.traj.cur_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
         emcStatus->motion.traj.next_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
 	emcStatus->task.interpState = EMC_TASK_INTERP_READING;
@@ -2366,30 +2376,35 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
         if (emcStatus->motion.traj.next_tp_reversed == TP_FORWARD)
         {
-            double distance_to_go;
-
-            if (emcStatus->motion.traj.cur_tp_reversed == TP_FORWARD) {
-                distance_to_go = emcStatus->motion.traj.prim_dtg;
-            } else {
-                // TP_REVERSE
-                distance_to_go = emcStatus->motion.traj.prim_progress;
-            }
-
-            if (distance_to_go <= (TP_MIN_ARC_LENGTH * 2)) {
+            emcTaskCommand = history_queue.get_by_lineno(emcStatus->motion.traj.id);
+            if (emcTaskCommand == NULL) {
                 /**
-                 * Resume from end of current line, start from next line of NC file
+                 * Resume from remapped line, start from it by reloading NC file
                  */
-                programStartLine = emcStatus->motion.traj.id + 1;
+                programStartLine = emcStatus->motion.traj.id;
             } else {
-                emcTaskCommand = history_queue.get_by_lineno(emcStatus->motion.traj.id);
-                if (emcTaskCommand == NULL) {
+                /**
+                 * Resume from top-level motion line
+                 */
+                double distance_to_go;
+
+                if (emcStatus->motion.traj.cur_tp_reversed == TP_FORWARD) {
+                    distance_to_go = emcStatus->motion.traj.prim_dtg;
+                } else {
+                    // TP_REVERSE
+                    distance_to_go = emcStatus->motion.traj.prim_progress;
+                }
+
+                if (distance_to_go <= (TP_MIN_ARC_LENGTH * 2)) {
                     /**
-                     * Resume from remapped line, start from it from NC file
+                     * Resume from end of current line, start from next line of NC file
+                     * TODO: we don't have to reload NC file in this case
+                     * TODO: we might have to insert REMAPPED procedure if next line is not REMAPPED ones
                      */
-                    programStartLine = emcStatus->motion.traj.id;
+                    programStartLine = emcStatus->motion.traj.id + 1;
                 } else {
                     /**
-                     * Resume from top-level motion line, restore it from history_queue
+                     * restore from current node of history_queue
                      */
                     emcStatus->task.currentLine = emcStatus->motion.traj.id;
                     emcTrajSetMotionId(emcStatus->task.currentLine);
@@ -2397,9 +2412,10 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
                         emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
                         retval = -1;
                     }
-                    emcTaskCommand = 0;
                     programStartLine = emcStatus->motion.traj.id + 1;
                 }
+                emcTaskCommand = 0;     //!< cleanup emcTaskCommand
+
             }
             assert(emcTaskCommand == NULL);
         }
@@ -2715,7 +2731,12 @@ static int emcTaskExecute(void)
 	            /* (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) */
 	            if (emcStatus->task.interpState == EMC_TASK_INTERP_WAITING) {
 	                emcTaskCommand = history_queue.update_current();
-	                history_queue.move_last();
+	                if (-1 == history_queue.move_last()) {
+	                    /**
+	                     * to flush the 1st emcTaskCommand of the head of history_queue
+	                     */
+	                    emcTaskCommand = 0;
+	                }
 	            }
 	        }
 
@@ -2989,6 +3010,7 @@ static int emcTaskExecute(void)
                     emcOperatorError(0, _("can't open %s"), open_msg->file);
                     retval = -1;
                 }
+                emcTaskPlanRestoreCurPos();
                 emcStatus->task.interpState = EMC_TASK_INTERP_READING;
             } else {
                 emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
@@ -3670,7 +3692,7 @@ int main(int argc, char *argv[])
 		   emcStatus->motion.status == RCS_DONE &&
 		   emcStatus->io.status == RCS_DONE &&
 		   (((emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) && (interp_list.len() == 0)) ||
-		    ((emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) && (history_queue.is_eol() == true))) &&
+		    ((emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) && (history_queue.is_bol() == true))) &&
 		   emcTaskCommand == 0 &&
 		   emcStatus->task.interpState == EMC_TASK_INTERP_IDLE) {
 	    emcStatus->status = RCS_DONE;
