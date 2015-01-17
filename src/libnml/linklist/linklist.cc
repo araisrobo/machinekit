@@ -623,12 +623,14 @@ int LinkedList::store_before_current_node(void *_data, size_t _size,
 void *LinkedList::get_head()
 {
     current_node = head;
-    hit_bol = false; // reset hit begin of list
-    hit_eol = false; // reset hit end of list
     if (NULL != current_node) {
+        hit_bol = false; // reset hit begin of list
+        hit_eol = false; // reset hit end of list
         return (current_node->data);
     } else {
-	return (NULL);
+        hit_bol = true; // reset hit begin of list
+        hit_eol = true; // reset hit end of list
+        return (NULL);
     }
 }
 
@@ -640,12 +642,14 @@ void *LinkedList::get_head()
 void *LinkedList::get_tail()
 {
     current_node = tail;
-    hit_bol = false; // reset hit begin of list
-    hit_eol = false; // reset hit end of list
     if (NULL != current_node) {
-	return (current_node->data);
+        hit_bol = false; // reset hit begin of list
+        hit_eol = false; // reset hit end of list
+        return (current_node->data);
     } else {
-	return (NULL);
+        hit_bol = true; // reset hit begin of list
+        hit_eol = true; // reset hit end of list
+        return (NULL);
     }
 }
 
@@ -715,17 +719,28 @@ bool LinkedList::is_empty()
     }
 }
 
+bool LinkedList::is_eol()
+{
+    return (hit_eol);
+}
+
+bool LinkedList::is_bol()
+{
+    return (hit_bol);
+}
+
 void *LinkedList::get_by_id(int _id)
 {
-    LinkedListNode *temp;
-
-    temp = head;
-    while (NULL != temp) {
-	if (temp->id == _id) {
-	    return (temp->data);
+    current_node = head;
+    hit_bol = (NULL == current_node);
+    while (NULL != current_node) {
+	if (current_node->id == _id) {
+	    hit_eol = false;
+	    return (current_node->data);
 	}
-	temp = temp->next;
+	current_node = current_node->next;
     }
+    hit_eol = true;
     return (NULL);
 }
 
@@ -826,9 +841,10 @@ void LinkedList::delete_current_node()
 int LinkedList::get_current_id()
 {
     if (current_node == NULL) {
-	return (-1);
+	return (next_node_id);  //!< return a non-exist-id if there's no current_node
+    } else {
+        return (current_node->id);
     }
-    return (current_node->id);
 }
 
 // Constructor defined private to prevent copying.

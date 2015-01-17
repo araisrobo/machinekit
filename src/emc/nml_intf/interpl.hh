@@ -67,7 +67,8 @@ class NML_INTERP_LIST {
     NMLmsg *get_by_lineno(int lineno);
     NMLmsg *get_next_lineno(int lineno);
     NMLmsg *get_last_lineno(int lineno);
-    bool is_eol();
+    bool is_eol();              //!< is current_node at End-Of-List?
+    bool is_bol();              //!< is current_node at Begin-Of-List?
     void clear();
     void print();
     int len();

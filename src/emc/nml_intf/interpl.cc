@@ -408,6 +408,21 @@ NMLmsg *NML_INTERP_LIST::get_next_lineno (int lineno)
         return NULL;
     }
 
+    /**
+     * save line number of current node, for use by get_line_number()
+     */
+    line_number = node_ptr->line_number;
+
+    /**
+     * save call_level of current node, for use by get_call_level()
+     */
+    call_level = node_ptr->call_level;
+
+    /**
+     * save remap_level of current node, for use by get_remap_level()
+     */
+    remap_level = node_ptr->remap_level;
+
     // copy NML message
     ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
 
@@ -447,6 +462,21 @@ NMLmsg *NML_INTERP_LIST::get_last_lineno (int lineno)
         return NULL;
     }
 
+    /**
+     * save line number of current node, for use by get_line_number()
+     */
+    line_number = node_ptr->line_number;
+
+    /**
+     * save call_level of current node, for use by get_call_level()
+     */
+    call_level = node_ptr->call_level;
+
+    /**
+     * save remap_level of current node, for use by get_remap_level()
+     */
+    remap_level = node_ptr->remap_level;
+
     // copy NML message
     ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
 
@@ -455,11 +485,20 @@ NMLmsg *NML_INTERP_LIST::get_last_lineno (int lineno)
 
 bool NML_INTERP_LIST::is_eol()
 {
-    if (-1 == linked_list_ptr->get_current_id()) {
-        return (true);
-    } else {
-        return (false);
+    if (NULL == linked_list_ptr) {
+        return true;
     }
+
+    return (linked_list_ptr->is_eol());
+}
+
+bool NML_INTERP_LIST::is_bol()
+{
+    if (NULL == linked_list_ptr) {
+        return true;
+    }
+
+    return (linked_list_ptr->is_bol());
 }
 
 void NML_INTERP_LIST::clear()
@@ -474,10 +513,14 @@ void NML_INTERP_LIST::print()
     NMLmsg *ret;
     NML_INTERP_LIST_NODE *node_ptr;
     int line_number;
+    int cur_node_id;
 
     if (NULL == linked_list_ptr) {
 	return;
     }
+
+    cur_node_id = linked_list_ptr->get_current_id(); //<! save node-id of current_node
+
     node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_head();
 
     rcs_print("NML_INTERP_LIST::print(): list size=%d\n",linked_list_ptr->list_size);
@@ -490,6 +533,8 @@ void NML_INTERP_LIST::print()
 	node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_next();
     }
     rcs_print("\n");
+
+    linked_list_ptr->get_by_id(cur_node_id);    //<! restore current_node pointer
 }
 
 int NML_INTERP_LIST::len()
