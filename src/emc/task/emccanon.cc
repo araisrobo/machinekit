@@ -48,7 +48,12 @@
 
 //Simple compile-time debug macro
 #ifdef EMCCANON_DEBUG
-#define canon_debug(...) printf(__VA_ARGS__)
+#define canon_debug(fmt, args...)                                       \
+    do {                                                                \
+        printf("%s: (%s:%d) ",                                          \
+                         __FILE__, __FUNCTION__, __LINE__ );            \
+        printf(fmt, ##args);                                            \
+    } while (0)
 #else
 #define canon_debug(...)
 #endif
