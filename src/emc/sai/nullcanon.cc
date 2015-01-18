@@ -209,7 +209,7 @@ extern void SET_NAIVECAM_TOLERANCE(double tolerance)
 {
 }
 
-void SET_INTERP_PARAMS(int lineno, int call_level, int remap_level)
+void SET_INTERP_PARAMS(int call_level, int remap_level)
 {
 }
 

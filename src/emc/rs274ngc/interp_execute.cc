@@ -246,7 +246,7 @@ int Interp::execute_block(block_pointer block,   //!< pointer to a block of RS27
   }
 
   /* SET_INTERP_PARAMS(): send interpreter parameters to CANON */
-  SET_INTERP_PARAMS(block->line_number, settings->call_level, settings->remap_level);
+  SET_INTERP_PARAMS(settings->call_level, settings->remap_level);
 
   if ((block->comment[0] != 0) && ONCE(STEP_COMMENT)) {
     status = convert_comment(block->comment);

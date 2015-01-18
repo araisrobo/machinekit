@@ -61,10 +61,9 @@ int NML_INTERP_LIST::set_line_number(int line)
     return 0;
 }
 
-// sets the lineno, call_level, and remap_level used for subsequent appends
-int NML_INTERP_LIST::set_interp_params(int line, int c_level, int r_level)
+// sets the call_level, and remap_level used for subsequent appends
+int NML_INTERP_LIST::set_interp_params(int c_level, int r_level)
 {
-    next_line_number = line;
     next_call_level = c_level;
     next_remap_level = r_level;
     return 0;

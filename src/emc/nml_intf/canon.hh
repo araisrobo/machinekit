@@ -657,7 +657,7 @@ extern void SET_MOTION_OUTPUT_VALUE(int index, double value);
 extern void SET_AUX_OUTPUT_VALUE(int index, double value);
 
 /* */
-extern void SET_INTERP_PARAMS(int line_number, int call_level, int remap_level);
+extern void SET_INTERP_PARAMS(int call_level, int remap_level);
 
 
 /* Commands to wait for, query input bits and analog values */

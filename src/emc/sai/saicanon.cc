@@ -88,7 +88,6 @@ static double naivecam_tolerance = 0.;
 /**
  * parameters set by SET_INTERP_PARAMS()
  */
-static int line_number;
 static int call_level;
 static int remap_level;
 
@@ -398,9 +397,8 @@ extern void SET_NAIVECAM_TOLERANCE(double tolerance)
   PRINT1("SET_NAIVECAM_TOLERANCE(%.4f)\n", tolerance);
 }
 
-void SET_INTERP_PARAMS(int lineno, int c_level, int r_level)
+void SET_INTERP_PARAMS(int c_level, int r_level)
 {
-    line_number = lineno;
     call_level = c_level;
     remap_level = r_level;
 }

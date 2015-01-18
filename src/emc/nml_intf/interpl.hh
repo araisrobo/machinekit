@@ -52,7 +52,7 @@ class NML_INTERP_LIST {
     ~NML_INTERP_LIST();
 
     int set_line_number(int line);
-    int set_interp_params(int line, int c_level, int r_level);
+    int set_interp_params(int c_level, int r_level);
     int get_line_number();
     int get_call_level();
     int get_remap_level();
