@@ -465,7 +465,8 @@ static void history_append (NMLmsg * cmd, int lineno, int call_level, int remap_
             /**
              * append to history for top-level-motions only
              */
-            history_queue.set_interp_params(lineno, call_level, remap_level);
+            history_queue.set_line_number(lineno);
+            history_queue.set_interp_params(call_level, remap_level);
             history_queue.append(cmd);      // move from interp_list to history_queue
         }
     }
@@ -582,11 +583,13 @@ void readahead_reading(void)
 {
     int readRetval;
     int execRetval;
+    int call_level;
+    int toplevel_line_number;
 
 		if (interp_list.len() <= emc_task_interp_max_len) {
                     int count = 0;
 interpret_again:
-		    if (emcTaskPlanIsWait()) {
+                    if (emcTaskPlanIsWait()) {
 			// delay reading of next line until all is done
 			if (interp_list.len() == 0 &&
 			    emcTaskCommand == 0 &&
@@ -615,6 +618,8 @@ interpret_again:
 			    // got a good line
 			    // record the line number and command
 			    emcStatus->task.readLine = emcTaskPlanLine();
+			    toplevel_line_number = emcTaskPlanToplevelLine();
+			    call_level = emcTaskPlanLevel();
 
 			    emcTaskPlanCommand((char *) &emcStatus->task.command);
 			    // and execute it
@@ -644,45 +649,44 @@ interpret_again:
                                 emcStatus->task.motionLine = 0;
                                 emcStatus->task.readLine = 0;
 			    } else {
-
 				// executed a good line
 			    }
 
-			    // throw the results away if we're supposed to
-			    // read
-			    // through it
-			    if (programStartLine < 0 ||
-				emcStatus->task.readLine <
-				programStartLine) {
-				// we're stepping over lines, so check them
-				// for
-				// limits, etc. and clear then out
-				if (0 != checkInterpList(&interp_list,
-							 emcStatus)) {
-				    // problem with actions, so do same as we
-				    // did
-				    // for a bad read from emcTaskPlanRead()
-				    // above
-				    emcStatus->task.interpState =
-					EMC_TASK_INTERP_WAITING;
+			    // throw the results away if we're supposed to read through it
+			    assert (emcStatus->task.readLine > 0);
+			    assert (toplevel_line_number > 0);
+			    assert(programStartLine >= 0);
+			    if (toplevel_line_number < programStartLine) {
+				// we're stepping over lines, so check them for limits, etc. and clear then out
+                                /* checkInterpList() flushes nodes from interp_list and moves motion nodes to history_queue */
+				if (0 != checkInterpList(&interp_list, emcStatus)) {
+				    // problem with actions, so do same as we did for a bad read from emcTaskPlanRead() above
+				    emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
 				}
-			    }
+				assert(interp_list.len() == 0);
 
-			    if (emcStatus->task.readLine < programStartLine)
-			    {
-				if ((emcStatus->task.readLine + 1 == programStartLine)  &&
-				    (emcTaskPlanLevel() == 0))  {
-
+                                if ((toplevel_line_number + 1 == programStartLine) && (call_level == 0))
+                                {
 				    FINISH();   // to call flush_segments(), emccanon.cc
-				    /* checkInterpList() flushes nodes from interp_list and moves motion nodes to history_queue */
+				    /* FINISH() might generate some line segments; move them to history_queue */
 				    if (0 != checkInterpList(&interp_list, emcStatus)) {
 				        // problem with actions, so do same as we did for a bad read from emcTaskPlanRead() above
 				        emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
 				    }
+	                            assert(interp_list.len() == 0);
+
 				    history_queue.move_tail();
                                     // reset programStartLine so we don't fall into our stepping routines
                                     // if we happen to execute lines before the current point later (due to subroutines).
                                     programStartLine = 0;
+                                } else {
+                                    if (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) {
+                                        /**
+                                         * Stay at readahead_reading() for TP_REVERSE until hitting programStartLine
+                                         */
+                                        emcStatus->task.interpState = EMC_TASK_INTERP_READING;
+                                        emcTaskPlanClearWait();
+                                    }
                                 }
 			    }
 
@@ -2316,8 +2320,8 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	run_msg = (EMC_TASK_PLAN_RUN *) cmd;
 	programStartLine = run_msg->line;
         history_queue.clear();
-        emcTaskPlanSynch();
-        emcTaskPlanSaveCurPos();
+        emcTaskPlanSynch();             //!< synchronize External Position to Interpreter's internal positions
+        emcTaskPlanSaveCurPos();        //!< save Interpreter's internal positions
         emcStatus->motion.traj.cur_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
         emcStatus->motion.traj.next_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
 	emcStatus->task.interpState = EMC_TASK_INTERP_READING;
@@ -2404,15 +2408,10 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
                     programStartLine = emcStatus->motion.traj.id + 1;
                 } else {
                     /**
-                     * restore from current node of history_queue
+                     * Resume from current line of NC file
                      */
-                    emcStatus->task.currentLine = emcStatus->motion.traj.id;
-                    emcTrajSetMotionId(emcStatus->task.currentLine);
-                    if (0 != emcTaskIssueCommand(emcTaskCommand)) {
-                        emcStatus->task.execState = EMC_TASK_EXEC_ERROR;
-                        retval = -1;
-                    }
-                    programStartLine = emcStatus->motion.traj.id + 1;
+                    programStartLine = emcStatus->motion.traj.id;
+
                 }
                 emcTaskCommand = 0;     //!< cleanup emcTaskCommand
 
