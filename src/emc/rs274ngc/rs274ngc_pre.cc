@@ -2220,6 +2220,30 @@ int Interp::sequence_number()
 
 /***********************************************************************/
 
+/*! Interp::toplevel_sequence_number
+
+Returned Value: the toplevel interpreter sequence number before
+                REMAP or SUB-CALL
+
+Side Effects: none
+
+Called By: external programs
+
+*/
+
+int Interp::toplevel_sequence_number()
+{
+    if (_setup.remap_level == 0)
+    {
+        return _setup.sequence_number;
+    } else
+    {   // use saved_line_number of toplevel for motion-id
+        return _setup.blocks[_setup.remap_level].saved_line_number;
+    }
+}
+
+/***********************************************************************/
+
 /*! Interp::stack_name
 
 Returned Value: none

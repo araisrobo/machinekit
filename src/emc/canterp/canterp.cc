@@ -72,6 +72,7 @@ public:
     char *file_name(char *buf, size_t buflen);
     size_t line_length();
     int sequence_number();
+    int toplevel_sequence_number();
     int ini_load(const char *inifile);
     int init();
     int execute();
@@ -720,6 +721,9 @@ size_t Canterp::line_length() {
    return 0;
 }
 int Canterp::sequence_number() {
+   return -1;
+}
+int Canterp::toplevel_sequence_number() {
    return -1;
 }
 int Canterp::init() { return INTERP_OK; }

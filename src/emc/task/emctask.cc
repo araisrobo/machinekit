@@ -655,6 +655,17 @@ int emcTaskPlanLine()
     return retval;
 }
 
+int emcTaskPlanToplevelLine()
+{
+    int retval = interp.toplevel_sequence_number();
+
+    if (emc_debug & EMC_DEBUG_INTERP) {
+        rcs_print("emcTaskPlanToplevelLine() returned %d\n", retval);
+    }
+
+    return retval;
+}
+
 int emcTaskPlanLevel()
 {
     int retval = interp.call_level();

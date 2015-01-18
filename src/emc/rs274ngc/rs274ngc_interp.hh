@@ -109,6 +109,9 @@ public:
 // return the current sequence number (how many lines read)
  int sequence_number();
 
+// return the toplevel sequence number (how many lines read) before REMAP/SUB-CALL
+ int toplevel_sequence_number();
+
 // copy the function name from the stack_index'th position of the
 // function call stack at the time of the most recent error into
 // the function name string, but stop at max_size if the name is longer

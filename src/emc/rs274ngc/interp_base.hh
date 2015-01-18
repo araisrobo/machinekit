@@ -31,6 +31,7 @@ public:
     virtual char *stack_name(int index, char *buf, size_t buflen) = 0;
     virtual size_t line_length() = 0;
     virtual int sequence_number() = 0;
+    virtual int toplevel_sequence_number() = 0;
     virtual int ini_load(const char *inifile) = 0;
     virtual int init() = 0;
     virtual int execute() = 0;

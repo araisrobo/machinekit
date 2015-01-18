@@ -50,6 +50,7 @@ int emcTaskPlanClose();
 int emcTaskPlanReset();
 
 int emcTaskPlanLine();
+int emcTaskPlanToplevelLine();
 int emcTaskPlanLevel();
 int emcTaskPlanCommand(char *cmd);
 
