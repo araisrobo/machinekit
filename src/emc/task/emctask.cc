@@ -443,6 +443,8 @@ int emcTaskPlanInit()
 	}
     }
 
+    emcTaskPlanSaveCurPos();    //!< init Interp::_setup.current_* positions
+
     if (emc_debug & EMC_DEBUG_INTERP) {
         rcs_print("emcTaskPlanInit() returned %d\n", retval);
     }

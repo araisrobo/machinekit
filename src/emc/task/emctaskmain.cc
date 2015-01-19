@@ -2320,8 +2320,14 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	run_msg = (EMC_TASK_PLAN_RUN *) cmd;
 	programStartLine = run_msg->line;
         history_queue.clear();
-        emcTaskPlanSynch();             //!< synchronize External Position to Interpreter's internal positions
-        emcTaskPlanSaveCurPos();        //!< save Interpreter's internal positions
+        if ((programStartLine == 0) && (emcStatus->motion.traj.tp_reverse_input == TP_FORWARD)) {
+            /* run from beginning of NC file: save start position */
+            emcTaskPlanSynch();             //!< synchronize External Position to Interpreter's internal positions
+            emcTaskPlanSaveCurPos();        //!< save Interpreter's internal positions
+        } else {
+            /* run from here: restore saved start position */
+            emcTaskPlanRestoreCurPos();     //!< restore Interpreter's internal positions from saved ones
+        }
         emcStatus->motion.traj.cur_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
         emcStatus->motion.traj.next_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
 	emcStatus->task.interpState = EMC_TASK_INTERP_READING;
