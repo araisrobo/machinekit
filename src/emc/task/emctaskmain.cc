@@ -664,6 +664,7 @@ interpret_again:
 				    emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
 				}
 				assert(interp_list.len() == 0);
+				emcBypassFlags();
 
                                 if ((toplevel_line_number + 1 == programStartLine) && (call_level == 0))
                                 {

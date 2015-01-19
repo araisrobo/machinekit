@@ -742,3 +742,7 @@ int emcAbortCleanup(int reason, const char *message)
     return status;
 }
 
+int emcBypassFlags(void)  {
+    int status = interp.bypass_flags();
+    return status;
+}

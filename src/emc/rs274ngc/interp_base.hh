@@ -46,6 +46,7 @@ public:
     virtual int read(const char *line) = 0;
     virtual int close() = 0;
     virtual int reset() = 0;
+    virtual int bypass_flags() = 0;
     virtual int line() = 0;
     virtual int call_level() = 0;
     virtual char *command(char *buf, size_t buflen) = 0;

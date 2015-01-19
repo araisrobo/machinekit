@@ -87,6 +87,7 @@ public:
     int read(const char *line);
     int close();
     int reset();
+    int bypass_flags();
     int line();
     int call_level();
     char *command(char *buf, size_t buflen);
@@ -692,6 +693,7 @@ int Canterp::synch() { return 0; }
 int Canterp::save_cur_pos() { return 0; }
 int Canterp::restore_cur_pos() { return 0; }
 int Canterp::reset() { return 0; }
+int Canterp::bypass_flags() { return 0; }
 int Canterp::line() { return 0; }
 int Canterp::call_level() { return 0; }
 

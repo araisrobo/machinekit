@@ -57,6 +57,9 @@ public:
 // reset yourself
  int reset();
 
+ // reset probe_flag and toolchange_flag while bypassing a line
+ int bypass_flags();
+
 // restore interpreter variables from a file
  int restore_parameters(const char *filename);
 

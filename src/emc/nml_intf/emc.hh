@@ -476,6 +476,8 @@ extern int emcMotionUpdate(EMC_MOTION_STAT * stat);
 
 extern int emcAbortCleanup(int reason,const char *message = "");
 
+extern int emcBypassFlags(void);
+
 // implementation functions for EMC_TOOL types
 
 extern int emcToolInit();

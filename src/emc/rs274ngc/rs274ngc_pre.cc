@@ -1667,6 +1667,30 @@ int Interp::reset()
 
 /***********************************************************************/
 
+/*! Interp::bypass_flags
+
+Returned Value: int (INTERP_OK)
+
+Called By:
+   external programs
+
+This function resets the flags of the _setup model having to do with
+reading and interpreting one line.
+
+It will reset flags so that refresh_actual_position() is bypassed for
+skipped lines.
+
+*/
+
+int Interp::bypass_flags()
+{
+    _setup.probe_flag = false;
+    _setup.toolchange_flag = false;
+    return INTERP_OK;
+}
+
+/***********************************************************************/
+
 /*! Interp::restore_parameters
 
 Returned Value:
