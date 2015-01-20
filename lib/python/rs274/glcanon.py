@@ -46,8 +46,14 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.traverse = []; self.traverse_append = self.traverse.append
         # feed list - [line number, [start position], [end position], feedrate, [tlo x, tlo y, tlo z]]
         self.feed = []; self.feed_append = self.feed.append
+        # feed info list - [line number, [start position], [end position]]
+        self.feed_info = []; self.feed_info_append = self.feed_info.append
+        # all_traverse list - [line number , [start position], [end position], feedrate]
+        self.all_traverse = []; self.all_traverse_append = self.all_traverse.append
         # arcfeed list - [line number, [start position], [end position], feedrate, [tlo x, tlo y, tlo z]]
         self.arcfeed = []; self.arcfeed_append = self.arcfeed.append
+        # arc info list - [line number, [c_x,c_y], [s_x, s_y], [e_x, e_y], length, cw]
+        self.arc_info = []; self.arc_info_append = self.arc_info.append
         # dwell list - [line number, color, pos x, pos y, pos z, plane]
         self.dwells = []; self.dwells_append = self.dwells.append
         # block path list - [start line, [start position], feedrate]
@@ -195,6 +201,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         l = self.rotate_and_translate(x,y,z,a,b,c,u,v,w)
         if not self.first_move:
                 self.traverse_append((self.lineno, self.lo, l, [self.xo, self.yo, self.zo]))
+        self.all_traverse_append([self.lineno, self.lo, l, self.feedrate])
         self.lo = l
 
     def rigid_tap(self, x, y, z):
@@ -234,6 +241,8 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         l = self.rotate_and_translate(x,y,z,a,b,c,u,v,w)
         self.feed_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo]))
         self.lo = l
+        self.feed_info_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo]))
+
     straight_probe = straight_feed
 
     def user_defined_function(self, i, p, q):
@@ -255,6 +264,38 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.block_pos = []
         self.pierce += 1
         self.path.append(('M5', self.lineno))    
+
+    def get_last_pos_of_prog(self):
+        if len(self.all_traverse) > 0: 
+            last_traverse = self.all_traverse[len(self.all_traverse)-1]
+            traverse_line = last_traverse[0] 
+        else:
+            traverse_line = None 
+            last_traverse = None
+        if len(self.feed) > 0:
+            feed_line = self.feed[len(self.feed)-1][0]
+        else:
+            feed_line = None
+        if len(self.arcfeed) > 0:
+            arcfeed_line = self.arcfeed[len(self.arcfeed)-1][0]
+        else:
+            arcfeed_line = None
+        if arcfeed_line is None:
+            arcfeed_line = min((arcfeed_line,feed_line,traverse_line))
+        if feed_line is None:
+            feed_line = min((arcfeed_line,feed_line,traverse_line))
+        if traverse_line is None:
+            traverse_line = min((arcfeed_line,feed_line,traverse_line))
+        if feed_line >= max((traverse_line, arcfeed_line)):
+            index = len(self.feed) - 1
+            return self.feed[index][2][:3],self.feed[index][3]
+        if arcfeed_line >= max((traverse_line, feed_line)):
+            index = len(self.arcfeed)- 1
+            return self.arcfeed[index][2][:3],self.arcfeed[index][3]
+        if traverse_line >= max((arcfeed_line, feed_line)):
+            feedrate = last_traverse[3]
+            return last_traverse[2][:3], feedrate
+
             
     def highlight(self, lineno, geometry):
         glLineWidth(3)

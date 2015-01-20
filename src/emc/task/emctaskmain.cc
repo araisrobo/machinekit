@@ -700,7 +700,6 @@ interpret_again:
 			}	// else read was OK, so execute
 		    }		// else not emcTaskPlanIsWait
 		}		// if interp len is less than max
-		rcs_print("%s (%s:%d) end\n", __FILE__, __FUNCTION__, __LINE__);
 }
 
 static void mdi_execute_abort(void)
