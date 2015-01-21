@@ -1162,8 +1162,8 @@ int rtapi_app_main(void)
         pos_scale = fabs(pos_scale);    // absolute pos_scale for MAX_VEL/ACCEL calculation
 
         /* config MAX velocity */
-        // * 1.05 : add 5% head room
-        immediate_data = (uint32_t)((max_vel * pos_scale * dt * FIXED_POINT_SCALE) * 1.05);    
+        // * 1.05 : add 50% head room
+        immediate_data = (uint32_t)((max_vel * pos_scale * dt * FIXED_POINT_SCALE) * 1.5);
         rtapi_print_msg(RTAPI_MSG_DBG,
                 "j[%d] max_vel(%d) = %f*%f*%f*%f\n",
                 n, immediate_data, max_vel, pos_scale, dt, FIXED_POINT_SCALE);
@@ -1173,8 +1173,8 @@ int rtapi_app_main(void)
         stepgen_array[n].pulse_maxv = immediate_data;
 
         /* config acceleration */
-        // * 1.05 : add 5% head room
-        immediate_data = (uint32_t)((max_accel * pos_scale * dt * FIXED_POINT_SCALE * dt) * 1.05 );
+        // * 1.05 : add 50% head room
+        immediate_data = (uint32_t)((max_accel * pos_scale * dt * FIXED_POINT_SCALE * dt) * 1.5 );
         rtapi_print_msg(RTAPI_MSG_DBG,
                 "j[%d] max_accel(%d) = %f*%f*(%f^2)*(%f)\n",
                 n, immediate_data, max_accel, pos_scale, dt, FIXED_POINT_SCALE);
