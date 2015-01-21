@@ -37,6 +37,8 @@ int emcTaskPlanClearWait();
 int emcTaskPlanSynch();
 int emcTaskPlanSaveCurPos();
 int emcTaskPlanRestoreCurPos();
+int emcTaskPlanGetCurPos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
+int emcTaskPlanSetCurPos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
 int emcTaskPlanSetOptionalStop(bool state);
 int emcTaskPlanSetBlockDelete(bool state);
 void emcTaskPlanExit();

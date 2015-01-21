@@ -530,6 +530,37 @@ int emcTaskPlanRestoreCurPos()
     return retval;
 }
 
+/**
+ * emcTaskPlanGetCurPos(pos): get interpreter's current positions
+ */
+int emcTaskPlanGetCurPos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w)
+{
+    int retval = interp.get_cur_pos(x, y, z, a, b, c, u, v, w);
+
+    if (emc_debug & EMC_DEBUG_INTERP) {
+        rcs_print("emcTaskPlanGetCurPos() returned %d\n", retval);
+    }
+
+    return retval;
+}
+
+/**
+ * emcTaskPlanSetCurPos(pos): set interpreter's current positions from saved ones
+ *                            a NULL pointer means do not update specified position
+ *                            for example, assign (z = NULL) to prevent updating 
+ *                            interpreter's current_z
+ */
+int emcTaskPlanSetCurPos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w)
+{
+    int retval = interp.set_cur_pos(x, y, z, a, b, c, u, v, w);
+
+    if (emc_debug & EMC_DEBUG_INTERP) {
+        rcs_print("emcTaskPlanSetCurPos() returned %d\n", retval);
+    }
+
+    return retval;
+}
+
 void emcTaskPlanExit()
 {
     if (pinterp != NULL) {
@@ -610,6 +641,7 @@ int emcTaskPlanExecute(const char *command)
 
 int emcTaskPlanExecute(const char *command, int line_number)
 {
+    rcs_print ("%s (%s:%d) cmd(%s) line_number(%d)\n", __FILE__, __FUNCTION__, __LINE__, command, line_number);
     int retval = interp.execute(command, line_number);
     if (retval > INTERP_MIN_ERROR) {
 	print_interp_error(retval);

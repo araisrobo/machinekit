@@ -2009,6 +2009,34 @@ int Interp::restore_cur_pos()
     return INTERP_OK;
 }
 
+int Interp::get_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w)
+{
+    *a = _setup.AA_current;
+    *b = _setup.BB_current;
+    *c = _setup.CC_current;
+    *x = _setup.current_x ;
+    *y = _setup.current_y ;
+    *z = _setup.current_z ;
+    *u = _setup.u_current ;
+    *v = _setup.v_current ;
+    *w = _setup.w_current ;
+    return INTERP_OK;
+}
+
+int Interp::set_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w)
+{
+    if (x != NULL) { _setup.current_x = *x; }
+    if (y != NULL) { _setup.current_y = *y; }
+    if (z != NULL) { _setup.current_z = *z; }
+    if (a != NULL) { _setup.AA_current = *a; }
+    if (b != NULL) { _setup.BB_current = *b; }
+    if (c != NULL) { _setup.CC_current = *c; }
+    if (u != NULL) { _setup.u_current = *u; }
+    if (v != NULL) { _setup.v_current = *v; }
+    if (w != NULL) { _setup.w_current = *w; }
+    return INTERP_OK;
+}
+
 /***********************************************************************/
 
 /*

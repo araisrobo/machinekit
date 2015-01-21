@@ -81,6 +81,8 @@ public:
     int synch();
     int save_cur_pos();
     int restore_cur_pos();
+    int get_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
+    int set_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
     int exit();
     int open(const char *filename);
     int read();
@@ -692,6 +694,8 @@ int Canterp::exit() { return 0; }
 int Canterp::synch() { return 0; }
 int Canterp::save_cur_pos() { return 0; }
 int Canterp::restore_cur_pos() { return 0; }
+int Canterp::get_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w) { return 0; }
+int Canterp::set_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w) { return 0; }
 int Canterp::reset() { return 0; }
 int Canterp::bypass_flags() { return 0; }
 int Canterp::line() { return 0; }
