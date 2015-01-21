@@ -126,6 +126,9 @@ static double EMC_TASK_CYCLE_TIME_ORIG = 0.0;
 // delay counter
 static double taskExecDelayTimeout = 0.0;
 
+static char resume_startup_code[LINELEN];
+static bool resume_startup_en;
+
 // emcTaskIssueCommand issues command immediately
 static int emcTaskIssueCommand(NMLmsg * cmd);
 
@@ -676,10 +679,32 @@ interpret_again:
 				    }
 	                            assert(interp_list.len() == 0);
 
-				    history_queue.move_tail();
+	                            /**
+                                     * if inserted [RS247NGC]RESUME_STARTUP_CODE is given, execute it here
+                                     */
+	                            if ((strlen(resume_startup_code) > 0) && (resume_startup_en == true)) {
+	                                double x, y, z, a, b, c, u, v, w;
+//	                                rcs_print ("%s (%s:%d) resume_startup_code(%s)\n", __FILE__, __FUNCTION__, __LINE__,
+//	                                        resume_startup_code);
+                                        /**
+                                         * Only support non-motion G/M code for RESUME_STARTUP_CODE
+                                         */
+                                        emcTaskPlanGetCurPos(&x, &y, &z, &a, &b, &c, &u, &v, &w);        //!< save Interpreter's internal positions
+	                                emcTaskPlanSynch();
+	                                emcTaskPlanExecute(resume_startup_code, toplevel_line_number);
+//                                        rcs_print ("%s (%s:%d) back to xy(%f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+//                                                x, y);
+	                                emcTaskPlanSetCurPos(&x, &y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
+                                        resume_startup_en = false;
+
+	                            }
+
+                                    history_queue.move_tail();
                                     // reset programStartLine so we don't fall into our stepping routines
                                     // if we happen to execute lines before the current point later (due to subroutines).
                                     programStartLine = 0;
+
+
                                 } else {
                                     if (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) {
                                         /**
@@ -2420,7 +2445,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
                 }
                 emcTaskCommand = 0;     //!< cleanup emcTaskCommand
-
+                resume_startup_en = true;
             }
             assert(emcTaskCommand == NULL);
         }
@@ -3372,6 +3397,15 @@ static int iniLoad(const char *filename)
 	// not found, use default
 	}
     }
+
+    if (NULL != (inistring = inifile.Find("RESUME_STARTUP_CODE", "RS274NGC"))) {
+        assert(strlen(inistring) < LINELEN);
+        strcpy(resume_startup_code, inistring);
+    } else {
+        strcpy(resume_startup_code, "\0");
+    }
+    resume_startup_en = false;
+
     saveDouble = emc_task_cycle_time;
     EMC_TASK_CYCLE_TIME_ORIG = emc_task_cycle_time;
     emcTaskNoDelay = 0;
