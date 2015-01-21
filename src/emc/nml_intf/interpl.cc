@@ -315,6 +315,55 @@ int NML_INTERP_LIST::move_tail()
 }
 
 /**
+ * search - get 1st NML_cmd which matches the given line_number, call_level, and remap_level
+ * @lineno: the line number of selected g-code
+ * @call_level: the call_level of selected g-code
+ * @remap_level: the remap level of selected g-code
+ **/
+NMLmsg *NML_INTERP_LIST::search(int lineno, int c_level, int r_level)
+{
+    NMLmsg *ret;
+    NML_INTERP_LIST_NODE *node_ptr;
+
+    if (NULL == linked_list_ptr) {
+        line_number = 0;
+        call_level = -1;
+        remap_level = -1;
+        return NULL;
+    }
+
+    // move current_node of linked_list to head
+    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_head();
+    // search for node with specified line number
+    while (NULL != node_ptr) {
+        // save line number of this one, for use by get_line_number
+        line_number = node_ptr->line_number;
+        call_level = node_ptr->call_level;
+        remap_level = node_ptr->remap_level;
+        if ((line_number == lineno) && (call_level == c_level) && (remap_level == r_level)) {
+            break; // got the node; break while-loop
+        } else {
+            node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_next();
+        }
+    }
+    assert (lineno >= 0);
+
+    if (NULL == node_ptr) {
+        line_number = 0;
+        call_level = -1;
+        remap_level = -1;
+        return NULL;
+    }
+
+    /**
+     * copy NML message
+     */
+    ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
+
+    return ret;
+}
+
+/**
  * get_by_lineno - get 1st NML_cmd which matches the given line_number
  * @lineno: the line number of selected g-code
  *          set to 0 to get the head of interp_list
@@ -343,7 +392,6 @@ NMLmsg *NML_INTERP_LIST::get_by_lineno(int lineno)
             }
         }
     }
-    // else if (lineno == 0) : get_head()
     assert (lineno >= 0);
 
     if (NULL == node_ptr) {

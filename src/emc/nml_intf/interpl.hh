@@ -64,6 +64,7 @@ class NML_INTERP_LIST {
     int move_last();            //!< move current node to last node
     int move_head();            //!< move current node to head
     int move_tail();            //!< move current node to tail
+    NMLmsg *search(int lineno, int c_level, int r_level);
     NMLmsg *get_by_lineno(int lineno);
     NMLmsg *get_next_lineno(int lineno);
     NMLmsg *get_last_lineno(int lineno);
