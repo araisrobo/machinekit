@@ -127,6 +127,7 @@ static double EMC_TASK_CYCLE_TIME_ORIG = 0.0;
 static double taskExecDelayTimeout = 0.0;
 
 static char resume_startup_code[LINELEN];
+static int resume_startup_id;
 static bool resume_startup_en;
 
 // emcTaskIssueCommand issues command immediately
@@ -586,7 +587,6 @@ void readahead_reading(void)
 {
     int readRetval;
     int execRetval;
-    int call_level;
     int toplevel_line_number;
 
 		if (interp_list.len() <= emc_task_interp_max_len) {
@@ -622,7 +622,6 @@ interpret_again:
 			    // record the line number and command
 			    emcStatus->task.readLine = emcTaskPlanLine();
 			    toplevel_line_number = emcTaskPlanToplevelLine();
-			    call_level = emcTaskPlanLevel();
 
 			    emcTaskPlanCommand((char *) &emcStatus->task.command);
 			    // and execute it
@@ -669,7 +668,7 @@ interpret_again:
 				assert(interp_list.len() == 0);
 				emcBypassFlags();
 
-                                if ((toplevel_line_number + 1 == programStartLine) && (call_level == 0))
+                                if ((toplevel_line_number + 1 == programStartLine) && (emcTaskPlanLevel() == 0))
                                 {
 				    FINISH();   // to call flush_segments(), emccanon.cc
 				    /* FINISH() might generate some line segments; move them to history_queue */
@@ -684,27 +683,30 @@ interpret_again:
                                      */
 	                            if ((strlen(resume_startup_code) > 0) && (resume_startup_en == true)) {
 	                                double x, y, z, a, b, c, u, v, w;
-//	                                rcs_print ("%s (%s:%d) resume_startup_code(%s)\n", __FILE__, __FUNCTION__, __LINE__,
-//	                                        resume_startup_code);
                                         /**
                                          * Only support non-motion G/M code for RESUME_STARTUP_CODE
                                          */
                                         emcTaskPlanGetCurPos(&x, &y, &z, &a, &b, &c, &u, &v, &w);        //!< save Interpreter's internal positions
-	                                emcTaskPlanSynch();
+                                        //update the position with our current position, as the other positions are only skipped through
+                                        CANON_UPDATE_END_POINT(emcStatus->motion.traj.actualPosition.tran.x,
+                                                               emcStatus->motion.traj.actualPosition.tran.y,
+                                                               emcStatus->motion.traj.actualPosition.tran.z,
+                                                               emcStatus->motion.traj.actualPosition.a,
+                                                               emcStatus->motion.traj.actualPosition.b,
+                                                               emcStatus->motion.traj.actualPosition.c,
+                                                               emcStatus->motion.traj.actualPosition.u,
+                                                               emcStatus->motion.traj.actualPosition.v,
+                                                               emcStatus->motion.traj.actualPosition.w);
+                                        emcTaskPlanSynch();
 	                                emcTaskPlanExecute(resume_startup_code, toplevel_line_number);
-//                                        rcs_print ("%s (%s:%d) back to xy(%f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
-//                                                x, y);
 	                                emcTaskPlanSetCurPos(&x, &y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
                                         resume_startup_en = false;
-
+                                        resume_startup_id = toplevel_line_number;
 	                            }
-
                                     history_queue.move_tail();
                                     // reset programStartLine so we don't fall into our stepping routines
                                     // if we happen to execute lines before the current point later (due to subroutines).
                                     programStartLine = 0;
-
-
                                 } else {
                                     if (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) {
                                         /**
@@ -2401,56 +2403,66 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
             retval = 0;
             break;
         }
-        programStartLine = emcStatus->motion.traj.id + 1; // interprete from next line
         emcStatus->task.interpState = EMC_TASK_INTERP_PAUSED;
         emcStatus->task.execState = EMC_TASK_EXEC_RESUME;       // wait for TCQ finishing pending motion
         emcTaskCommand = NULL;
         emcTrajResume();
 
         emcStatus->motion.traj.next_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
-
         if (emcStatus->motion.traj.next_tp_reversed == TP_FORWARD)
         {
-            emcTaskCommand = history_queue.get_by_lineno(emcStatus->motion.traj.id);
-            if (emcTaskCommand == NULL) {
-                /**
-                 * Resume from remapped line, start from it by reloading NC file
-                 */
-                programStartLine = emcStatus->motion.traj.id;
-            } else {
-                /**
-                 * Resume from top-level motion line
-                 */
-                double distance_to_go;
-
-                if (emcStatus->motion.traj.cur_tp_reversed == TP_FORWARD) {
-                    distance_to_go = emcStatus->motion.traj.prim_dtg;
-                } else {
-                    // TP_REVERSE
-                    distance_to_go = emcStatus->motion.traj.prim_progress;
-                }
-
-                if (distance_to_go <= (TP_MIN_ARC_LENGTH * 2)) {
-                    /**
-                     * Resume from end of current line, start from next line of NC file
-                     * TODO: we don't have to reload NC file in this case
-                     * TODO: we might have to insert REMAPPED procedure if next line is not REMAPPED ones
-                     */
-                    programStartLine = emcStatus->motion.traj.id + 1;
-                } else {
-                    /**
-                     * Resume from current line of NC file
-                     */
-                    programStartLine = emcStatus->motion.traj.id;
-
-                }
-                emcTaskCommand = 0;     //!< cleanup emcTaskCommand
+            if (emcStatus->motion.traj.id == resume_startup_id) {
+                /* resume from RESUME_STARTUP_CODE; start from next line of NC file */
+                programStartLine = emcStatus->motion.traj.id + 1;
                 resume_startup_en = true;
+            }
+            else
+            {
+                emcTaskCommand = history_queue.get_by_lineno(emcStatus->motion.traj.id);
+                if (emcTaskCommand == NULL) {
+                    /**
+                     * Resume from remapped line, start from it by reloading NC file
+                     **/
+                    programStartLine = emcStatus->motion.traj.id;
+                    resume_startup_en = false;
+                } else {
+                    /**
+                     * Resume from top-level motion line
+                     */
+                    double distance_to_go;
+
+                    if (emcStatus->motion.traj.cur_tp_reversed == TP_FORWARD) {
+                        distance_to_go = emcStatus->motion.traj.prim_dtg;
+                    } else {
+                        // TP_REVERSE
+                        distance_to_go = emcStatus->motion.traj.prim_progress;
+                    }
+
+                    if (distance_to_go <= (TP_MIN_ARC_LENGTH * 2)) {
+                        /**
+                         * Resume from end of current line, start from next line of NC file
+                         * TODO: we don't have to reload NC file in this case
+                         * TODO: we might have to insert REMAPPED procedure if next line is not REMAPPED ones
+                         */
+                        programStartLine = emcStatus->motion.traj.id + 1;
+                    } else {
+                        /**
+                         * Resume from current line of NC file
+                         */
+                        programStartLine = emcStatus->motion.traj.id;
+
+                    }
+                    emcTaskCommand = 0;     //!< cleanup emcTaskCommand
+                    resume_startup_en = true;
+                }
             }
             assert(emcTaskCommand == NULL);
         }
         else /* if (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) */
         {
+            /**
+             * Resume from top-level motion line
+             */
             double distance_to_go;
 
             if (emcStatus->motion.traj.cur_tp_reversed == TP_FORWARD) {
@@ -2460,12 +2472,23 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
                 distance_to_go = emcStatus->motion.traj.prim_dtg;
             }
 
-            if (distance_to_go <= (TP_MIN_ARC_LENGTH * 2)) {
-                /**
+            // TODO: use REMAPPED PYTHON to 同步 hisotry_queue 裡的所有 Z 軸水平高度
+            history_queue.set_z(emcStatus->motion.traj.actualPosition.tran.z); // FIXME: replace with remapped python code
+
+            if (emcStatus->motion.traj.id == resume_startup_id)
+            {   /**
+                 * Resume from paused RESUME_STARTUP_CODE
+                 */
+                emcTaskCommand = history_queue.get_next_lineno(emcStatus->motion.traj.id);
+            }
+            else if (distance_to_go <= (TP_MIN_ARC_LENGTH * 2))
+            {   /**
                  * Resume from previous node of history queue
                  */
                 emcTaskCommand = history_queue.get_last_lineno(emcStatus->motion.traj.id);
-            } else {
+            }
+            else
+            {
                 /**
                  * try to resume from top-level motion line, restore it from history_queue
                  */
@@ -2491,12 +2514,13 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
             }
         }
 
+        resume_startup_id = 0;  //!< reset here, will be set inside readahead_reading()
         emcStatus->motion.traj.cur_tp_reversed = emcStatus->motion.traj.next_tp_reversed;
         emcStatus->task.task_paused = 0;
         stepping = 0;
         steppingWait = 0;
         retval = 0;
-	break;
+        break;
 
     case EMC_TASK_PLAN_END_TYPE:
 	retval = 0;

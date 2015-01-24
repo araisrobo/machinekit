@@ -150,6 +150,10 @@ given. */
 extern void CANON_UPDATE_END_POINT(double x, double y, double z, 
 				   double a, double b, double c,
 				   double u, double v, double w);
+extern void INTERP_UPDATE_END_POINT(double x, double y, double z,
+                                   double a, double b, double c,
+                                   double u, double v, double w);
+
 /* Called from emctask to update the canon position during skipping through
    programs started with start-from-line > 0. */
 

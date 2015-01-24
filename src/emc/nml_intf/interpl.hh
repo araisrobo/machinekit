@@ -72,6 +72,8 @@ class NML_INTERP_LIST {
     bool is_bol();              //!< is current_node at Begin-Of-List?
     void clear();
     void print();
+    void set_z(double z);       //!< set Z value of all history nodes TO-BE-FIXED with remapped python program
+
     int len();
 
   private:

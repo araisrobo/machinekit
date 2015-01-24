@@ -74,6 +74,9 @@ static double            _program_position_c = 0; /*CC*/
 static double            _program_position_x = 0;
 static double            _program_position_y = 0;
 static double            _program_position_z = 0;
+static double            _program_position_u = 0;
+static double            _program_position_v = 0;
+static double            _program_position_w = 0;
 static double            _spindle_speed;
 static CANON_DIRECTION   _spindle_turning;
 int                      _pockets_max = CANON_POCKETS_MAX; /*Not static. Driver reads  */
@@ -931,6 +934,22 @@ double GET_EXTERNAL_POSITION_V()
 double GET_EXTERNAL_POSITION_W()
 {
     return 0.;
+}
+
+/* External call to update the canon end point. */
+void INTERP_UPDATE_END_POINT(double x, double y, double z,
+                            double a, double b, double c,
+                            double u, double v, double w)
+{
+    _program_position_x = x;
+    _program_position_y = y;
+    _program_position_z = z;
+    _program_position_a = a;
+    _program_position_b = b;
+    _program_position_c = c;
+    _program_position_u = u;
+    _program_position_v = v;
+    _program_position_w = w;
 }
 
 double GET_EXTERNAL_PROBE_POSITION_U()

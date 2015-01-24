@@ -82,10 +82,12 @@ class LinkedList {
     void *find_node(int _node_number);
     void delete_node(int _id);
     void delete_current_node();
-    int get_current_id();
+    int  get_current_id();
     void *get_by_id(int _id);
     void *get_first_newer(int _id);
     void *get_last_newer(int _id);
+    void get_state(bool * bol, bool * eol);
+    void set_state(bool * bol, bool * eol);
     bool is_empty();
     bool is_eol();
     bool is_bol();

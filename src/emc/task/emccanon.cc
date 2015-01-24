@@ -420,6 +420,20 @@ void CANON_UPDATE_END_POINT(double x, double y, double z,
 			FROM_PROG_LEN(u),FROM_PROG_LEN(v),FROM_PROG_LEN(w));
 }
 
+/**
+ * External call from Interpreter to update the canon end point.
+ * Called by Interp::set_cur_pos(),
+ * input positions are program-positions,
+ * which may be in INCH/MM format, and without offset nor rotation.
+ **/
+void INTERP_UPDATE_END_POINT(double x, double y, double z,
+                             double a, double b, double c,
+                             double u, double v, double w)
+{
+    from_prog(x, y, z, a, b, c, u, v, w);               // convert to CANON internal unit: mm
+    rotate_and_offset_pos(x, y, z, a, b, c, u, v, w);   // CANON internal unit
+    canonUpdateEndPoint(x, y, z, a, b, c, u, v, w);
+}
 
 /* motion control mode is used to signify blended v. stop-at-end moves.
    Set to 0 (invalid) at start, so first call will send command out */

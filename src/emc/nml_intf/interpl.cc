@@ -26,6 +26,7 @@
 #include "linklist.hh"
 #include "nmlmsg.hh"            /* class NMLmsg */
 #include "rcs_print.hh"
+#include "emc_nml.hh"
 
 NML_INTERP_LIST interp_list;	/* NML Union, for interpreter */
 
@@ -126,11 +127,36 @@ int NML_INTERP_LIST::append(NMLmsg * nml_msg_ptr)
 								   32), 1);
 
     if (emc_debug & EMC_DEBUG_INTERP_LIST) {
-	rcs_print
-	    ("%s:%d %s() linked_list_ptr(%p) nml_msg_ptr{size=%ld,type=%s} : list_size=%d, line_number=%d call_level(%d) remap_level(%d)\n",
-	     __FILE__, __LINE__, __FUNCTION__,
-	     linked_list_ptr, nml_msg_ptr->size, emc_symbol_lookup(nml_msg_ptr->type),
-	     linked_list_ptr->list_size, temp_node.line_number, temp_node.call_level, temp_node.remap_level);
+        rcs_print
+        ("%s (%s:%d) linked_list_ptr(%p) nml_msg_ptr{size=%ld,type=%s} : list_size=%d, line_number=%d call_level(%d) remap_level(%d)\n",
+                __FILE__, __FUNCTION__, __LINE__,
+                linked_list_ptr, nml_msg_ptr->size, emc_symbol_lookup(nml_msg_ptr->type),
+                linked_list_ptr->list_size, temp_node.line_number, temp_node.call_level, temp_node.remap_level);
+
+        NMLmsg *ret;
+        ret = (NMLmsg *) ((char *) temp_node.command.commandbuf);
+        rcs_print("--> type=%s,  line_number=%d\n",
+                emc_symbol_lookup((int)ret->type),
+                temp_node.line_number);
+        if (ret->type == EMC_TRAJ_LINEAR_MOVE_TYPE)
+        {
+            EMC_TRAJ_LINEAR_MOVE *emcTrajLinearMoveMsg;
+            emcTrajLinearMoveMsg = (EMC_TRAJ_LINEAR_MOVE *) ret;
+            rcs_print ("%s (%s:%d) LINEAR_MOVE begin_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajLinearMoveMsg->begin.tran.x, emcTrajLinearMoveMsg->begin.tran.y, emcTrajLinearMoveMsg->begin.tran.z);
+            rcs_print ("%s (%s:%d) LINEAR_MOVE end_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajLinearMoveMsg->end.tran.x, emcTrajLinearMoveMsg->end.tran.y, emcTrajLinearMoveMsg->end.tran.z);
+        }
+        else if (ret->type == EMC_TRAJ_CIRCULAR_MOVE_TYPE)
+        {
+            EMC_TRAJ_CIRCULAR_MOVE *emcTrajCircularMoveMsg;
+            emcTrajCircularMoveMsg = (EMC_TRAJ_CIRCULAR_MOVE *) ret;
+            rcs_print ("%s (%s:%d) CIRCULAR_MOVE begin_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajCircularMoveMsg->begin.tran.x, emcTrajCircularMoveMsg->begin.tran.y, emcTrajCircularMoveMsg->begin.tran.z);
+            rcs_print ("%s (%s:%d) CIRCULAR_MOVE end_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajCircularMoveMsg->end.tran.x, emcTrajCircularMoveMsg->end.tran.y, emcTrajCircularMoveMsg->end.tran.z);
+
+        }
     }
 
     return 0;
@@ -561,12 +587,15 @@ void NML_INTERP_LIST::print()
     NML_INTERP_LIST_NODE *node_ptr;
     int line_number;
     int cur_node_id;
+    bool tmp_bol;
+    bool tmp_eol;
 
     if (NULL == linked_list_ptr) {
 	return;
     }
 
     cur_node_id = linked_list_ptr->get_current_id(); //<! save node-id of current_node
+    linked_list_ptr->get_state(&tmp_bol, &tmp_eol);
 
     node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_head();
 
@@ -577,11 +606,80 @@ void NML_INTERP_LIST::print()
 	rcs_print("--> type=%s,  line_number=%d\n",
 		  emc_symbol_lookup((int)ret->type),
 		  line_number);
+	if (ret->type == EMC_TRAJ_LINEAR_MOVE_TYPE)
+	{
+	    EMC_TRAJ_LINEAR_MOVE *emcTrajLinearMoveMsg;
+	    emcTrajLinearMoveMsg = (EMC_TRAJ_LINEAR_MOVE *) ret;
+            rcs_print ("%s (%s:%d) LINEAR_MOVE begin_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajLinearMoveMsg->begin.tran.x, emcTrajLinearMoveMsg->begin.tran.y, emcTrajLinearMoveMsg->begin.tran.z);
+            rcs_print ("%s (%s:%d) LINEAR_MOVE end_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+	            emcTrajLinearMoveMsg->end.tran.x, emcTrajLinearMoveMsg->end.tran.y, emcTrajLinearMoveMsg->end.tran.z);
+	}
+	else if (ret->type == EMC_TRAJ_CIRCULAR_MOVE_TYPE)
+	{
+	    EMC_TRAJ_CIRCULAR_MOVE *emcTrajCircularMoveMsg;
+	    emcTrajCircularMoveMsg = (EMC_TRAJ_CIRCULAR_MOVE *) ret;
+            rcs_print ("%s (%s:%d) CIRCULAR_MOVE begin_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajCircularMoveMsg->begin.tran.x, emcTrajCircularMoveMsg->begin.tran.y, emcTrajCircularMoveMsg->begin.tran.z);
+            rcs_print ("%s (%s:%d) CIRCULAR_MOVE end_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajCircularMoveMsg->end.tran.x, emcTrajCircularMoveMsg->end.tran.y, emcTrajCircularMoveMsg->end.tran.z);
+
+	}
+
+
 	node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_next();
     }
     rcs_print("\n");
 
     linked_list_ptr->get_by_id(cur_node_id);    //<! restore current_node pointer
+    linked_list_ptr->set_state(&tmp_bol, &tmp_eol);
+}
+
+/* set Z position of those in the INTERP_LIST -- FIXME: replace by REMAP PYTHON */
+void NML_INTERP_LIST::set_z(double z)
+{
+    NMLmsg *ret;
+    NML_INTERP_LIST_NODE *node_ptr;
+    int line_number;
+    int cur_node_id;
+    bool tmp_bol;
+    bool tmp_eol;
+
+    if (NULL == linked_list_ptr) {
+        return;
+    }
+
+    cur_node_id = linked_list_ptr->get_current_id(); //<! save node-id of current_node
+    linked_list_ptr->get_state(&tmp_bol, &tmp_eol);
+
+    node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_head();
+
+    rcs_print("NML_INTERP_LIST::set_z(%f): list size=%d\n", z, linked_list_ptr->list_size);
+    while (NULL != node_ptr) {
+        line_number = node_ptr->line_number;
+        ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
+        rcs_print("--> type=%s,  line_number=%d\n",
+                  emc_symbol_lookup((int)ret->type),
+                  line_number);
+        if (ret->type == EMC_TRAJ_LINEAR_MOVE_TYPE) {
+            EMC_TRAJ_LINEAR_MOVE *emcTrajLinearMoveMsg;
+            emcTrajLinearMoveMsg = (EMC_TRAJ_LINEAR_MOVE *) ret;
+            emcTrajLinearMoveMsg->begin.tran.z = z;
+            emcTrajLinearMoveMsg->end.tran.z = z;
+        }
+        else if (ret->type == EMC_TRAJ_CIRCULAR_MOVE_TYPE)
+        {
+            EMC_TRAJ_CIRCULAR_MOVE *emcTrajCircularMoveMsg;
+            emcTrajCircularMoveMsg = (EMC_TRAJ_CIRCULAR_MOVE *) ret;
+            emcTrajCircularMoveMsg->begin.tran.z = z;
+            emcTrajCircularMoveMsg->end.tran.z = z;
+        }
+        node_ptr = (NML_INTERP_LIST_NODE *) linked_list_ptr->get_next();
+    }
+    rcs_print("\n");
+
+    linked_list_ptr->get_by_id(cur_node_id);    //<! restore current_node pointer
+    linked_list_ptr->set_state(&tmp_bol, &tmp_eol);
 }
 
 int NML_INTERP_LIST::len()

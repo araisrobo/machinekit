@@ -2034,6 +2034,22 @@ int Interp::set_cur_pos(double *x, double *y, double *z, double *a, double *b, d
     if (u != NULL) { _setup.u_current = *u; }
     if (v != NULL) { _setup.v_current = *v; }
     if (w != NULL) { _setup.w_current = *w; }
+
+    /**
+     * Will convert to CANON unit(mm), and rotate_and offset_pos()
+     * inside INTERP_UPDATE_END_POINT()
+     **/
+    INTERP_UPDATE_END_POINT(
+            _setup.current_x,
+            _setup.current_y,
+            _setup.current_z,
+            _setup.AA_current,
+            _setup.BB_current,
+            _setup.CC_current,
+            _setup.u_current,
+            _setup.v_current,
+            _setup.w_current);
+
     return INTERP_OK;
 }
 

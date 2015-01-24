@@ -847,6 +847,18 @@ int LinkedList::get_current_id()
     }
 }
 
+void LinkedList::get_state(bool * bol, bool * eol)
+{
+    *bol = hit_bol;
+    *eol = hit_eol;
+}
+
+void LinkedList::set_state(bool * bol, bool * eol)
+{
+    hit_bol = *bol;
+    hit_eol = *eol;
+}
+
 // Constructor defined private to prevent copying.
 LinkedList::LinkedList(LinkedList & list)
 {
