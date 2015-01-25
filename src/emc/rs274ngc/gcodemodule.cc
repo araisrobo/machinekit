@@ -523,6 +523,21 @@ double GET_EXTERNAL_POSITION_C() { return _pos_c; }
 double GET_EXTERNAL_POSITION_U() { return _pos_u; }
 double GET_EXTERNAL_POSITION_V() { return _pos_v; }
 double GET_EXTERNAL_POSITION_W() { return _pos_w; }
+void INTERP_UPDATE_END_POINT(double x, double y, double z,
+                             double a, double b, double c,
+                             double u, double v, double w)
+{
+    _pos_x = x;
+    _pos_y = y;
+    _pos_z = z;
+    _pos_a = a;
+    _pos_b = b;
+    _pos_c = c;
+    _pos_u = u;
+    _pos_v = v;
+    _pos_w = w;
+};
+
 void INIT_CANON() {}
 void GET_EXTERNAL_PARAMETER_FILE_NAME(char *name, int max_size) {
     PyObject *result = PyObject_GetAttrString(callback, "parameter_file");

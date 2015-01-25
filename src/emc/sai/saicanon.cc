@@ -938,8 +938,8 @@ double GET_EXTERNAL_POSITION_W()
 
 /* External call to update the canon end point. */
 void INTERP_UPDATE_END_POINT(double x, double y, double z,
-                            double a, double b, double c,
-                            double u, double v, double w)
+                             double a, double b, double c,
+                             double u, double v, double w)
 {
     _program_position_x = x;
     _program_position_y = y;
