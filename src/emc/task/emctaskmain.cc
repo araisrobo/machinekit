@@ -727,7 +727,8 @@ interpret_again:
                                     }
                                 }
 			    }
-			    else if ((emcTaskPlanLevel() == 0) && (wait_resume_startup == true))
+
+			    if ((emcTaskPlanLevel() == 0) && (wait_resume_startup == true))
 			    {   // there was resume_startup_code issued, about to terminate and sync positions
                                 FINISH();   // to call flush_segments(), emccanon.cc
                                 emcTaskPlanSetWait();
