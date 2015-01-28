@@ -752,7 +752,7 @@ void MIST_ON()
 void PALLET_SHUTTLE()
 {PRINT0("PALLET_SHUTTLE()\n");}
 
-void TURN_PROBE_OFF()
+void TURN_PROBE_OFF(unsigned char probe_type)
 {PRINT0("TURN_PROBE_OFF()\n");}
 
 void TURN_PROBE_ON()

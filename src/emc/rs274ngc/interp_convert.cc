@@ -3460,7 +3460,7 @@ int Interp::convert_probe(block_pointer block,   //!< pointer to a block of RS27
                  AA_end, BB_end, CC_end,
                  u_end, v_end, w_end, probe_type);
 
-  TURN_PROBE_OFF();
+  TURN_PROBE_OFF(probe_type);
   settings->motion_mode = g_code;
   settings->probe_flag = true;
   return INTERP_OK;

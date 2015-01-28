@@ -1088,9 +1088,10 @@ int emcTrajClearProbeTrippedFlag()
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcTrajEndProbe()
+int emcTrajEndProbe(unsigned char probe_type)
 {
     emcmotCommand.command = EMCMOT_END_PROBE;
+    emcmotCommand.probe_type = probe_type;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }

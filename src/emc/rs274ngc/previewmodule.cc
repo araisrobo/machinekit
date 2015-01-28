@@ -734,7 +734,7 @@ void CLEAR_MOTION_OUTPUT_BIT(int bit, int line) {}
 void SET_MOTION_OUTPUT_BIT(int bit, int line) {}
 void SET_MOTION_OUTPUT_VALUE(int index, double value) {}
 void TURN_PROBE_ON() {}
-void TURN_PROBE_OFF() {}
+void TURN_PROBE_OFF(unsigned char probe_type) {}
 int UNLOCK_ROTARY(int line_no, int axis) {return 0;}
 int LOCK_ROTARY(int line_no, int axis) {return 0;}
 void INTERP_ABORT(int reason,const char *message) {}

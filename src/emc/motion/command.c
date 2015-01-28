@@ -1422,8 +1422,10 @@ check_stuff ( "before command_handler()" );
             rtapi_print_msg(RTAPI_MSG_DBG, "END_PROBE");
             if(emcmotConfig->usbmotEnable)
             {
-                if (emcmotStatus->probeTripped == 0)
+                if ((emcmotStatus->probeTripped == 0) &&
+                    ((emcmotCommand->probe_type & 1) == 0))
                 {
+                    // if suppress errors = off... (G38.2, G38.4)
                     reportError(_("move finished without making contact"));
                     emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
                     abort_and_switchback(); // tpAbort(emcmotQueue);

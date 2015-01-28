@@ -905,6 +905,7 @@ class EMC_TRAJ_END_OF_PROBE:public EMC_TRAJ_CMD_MSG {
 
     // For internal NML/CMS use only.
     void update(CMS * cms);
+    unsigned char probe_type;
 };
 
 class EMC_TRAJ_SET_TELEOP_ENABLE:public EMC_TRAJ_CMD_MSG {

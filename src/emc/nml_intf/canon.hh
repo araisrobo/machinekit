@@ -595,7 +595,7 @@ this will not result in an error condition in the controller.
 If the machining center does not have a pallet shuttle, this command
 should result in an error condition in the controller. */
 
-extern void TURN_PROBE_OFF();
+extern void TURN_PROBE_OFF(unsigned char probe_type);
 extern void TURN_PROBE_ON();
 
 extern void UNCLAMP_AXIS(CANON_AXIS axis);

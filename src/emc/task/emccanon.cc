@@ -2431,11 +2431,12 @@ void PALLET_SHUTTLE()
     /*! \todo FIXME-- unimplemented */
 }
 
-void TURN_PROBE_OFF()
+void TURN_PROBE_OFF(unsigned char probe_type)
 {
     // don't do anything-- this is called when the probing is done
     EMC_TRAJ_END_OF_PROBE endMsg;
 
+    endMsg.probe_type = probe_type;
     interp_list.append(endMsg);
 }
 

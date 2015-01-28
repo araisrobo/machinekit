@@ -657,7 +657,7 @@ int Canterp::execute(const char *line) {
     }
 
     if (!strcmp(the_command_name, "TURN_PROBE_OFF")) {
-	TURN_PROBE_OFF();
+	TURN_PROBE_OFF(0);      // force probe_type as 0, enabling probe error handeling
 	return 0;
     }
 
