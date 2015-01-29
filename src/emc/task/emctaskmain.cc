@@ -2411,7 +2411,8 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	break;
 
     case EMC_TASK_PLAN_RESUME_TYPE:
-        if (emcStatus->motion.traj.pause_state != PS_PAUSED) // not at PAUSED state
+        if ((emcStatus->motion.traj.pause_state != PS_PAUSED) &&
+            (emcStatus->motion.traj.pause_state != PS_PAUSED_IN_OFFSET)) // not at PAUSED state
         {
             /**
              * do not execute RESUME command

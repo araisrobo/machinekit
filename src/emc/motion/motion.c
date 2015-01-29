@@ -599,8 +599,10 @@ static int init_hal_io(void)
 
     if ((retval = hal_pin_s32_newf(HAL_OUT, &(emcmot_hal_data->pause_state),
 				   mot_comp_id, "motion.pause-state")) < 0) return retval;
-
     // feedhold-offset related pins
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->pause_return_path),
+                                   mot_comp_id, "motion.pause-return-path")) < 0) return retval;
+
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->pause_offset_enable),
 				   mot_comp_id, "motion.pause-offset-enable")) < 0) return retval;
 

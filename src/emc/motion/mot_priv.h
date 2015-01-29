@@ -209,6 +209,7 @@ typedef struct {
     // record position (fh_carte_pos, motion type), and switch to the alternate
     // motion queue.
     hal_bit_t *pause_offset_enable;
+    hal_bit_t *pause_return_path;
 
     hal_bit_t *pause_offset_in_range;    // current offset ok with joint limits
 

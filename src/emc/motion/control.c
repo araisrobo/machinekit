@@ -478,15 +478,15 @@ static void process_probe_inputs(void)
 }
 
 #define EQUAL_EMC_POSE(p1,p2) \
-    (((p1).tran.x == (p2).tran.x) && \
-     ((p1).tran.y == (p2).tran.y) && \
-     ((p1).tran.z == (p2).tran.z) && \
-     ((p1).a == (p2).a) &&		 \
-     ((p1).b == (p2).b) &&		 \
-     ((p1).c == (p2).c) &&		 \
-     ((p1).u == (p2).u) &&		 \
-     ((p1).v == (p2).v) &&		 \
-     ((p1).w == (p2).w))
+    ((fabs((p1).tran.x - (p2).tran.x) < TP_POS_EPSILON) && \
+     (fabs((p1).tran.y - (p2).tran.y) < TP_POS_EPSILON) && \
+     (fabs((p1).tran.z - (p2).tran.z) < TP_POS_EPSILON) && \
+     (fabs((p1).a      - (p2).a)      < TP_POS_EPSILON) && \
+     (fabs((p1).b      - (p2).b)      < TP_POS_EPSILON) && \
+     (fabs((p1).c      - (p2).c)      < TP_POS_EPSILON) && \
+     (fabs((p1).u      - (p2).u)      < TP_POS_EPSILON) && \
+     (fabs((p1).v      - (p2).v)      < TP_POS_EPSILON) && \
+     (fabs((p1).w      - (p2).w)      < TP_POS_EPSILON))
 
 extern int inRange(EmcPose pos, int id, char *move_type); // from command.c
 
@@ -602,7 +602,7 @@ static void process_inputs(void)
 	if (emcmotStatus->resuming) {
 	    // a resume was signalled.
 
-            /**
+	    /**
              * truncate all TC commands from primary queue
              */
             tcqRemove(&(emcmotPrimQueue->queue), tcqLen(&(emcmotPrimQueue->queue)));
@@ -629,7 +629,25 @@ static void process_inputs(void)
 	// also PS_PAUSED if not resuming
 	// on alternate queue  here, all motion stopped
 
-	if (emcmotStatus->resuming || emcmotDebug->stepping) {
+        if (((*emcmot_hal_data->pause_return_path) && (emcmotConfig->usbmotEnable)) ||
+            emcmotStatus->resuming ||
+            emcmotDebug->stepping)
+        {
+            if (tcqLen(&(emcmotQueue->queue)) == 0)
+            {
+                EmcPose here;
+                tpGetPos(emcmotQueue, &here);
+                if (EQUAL_EMC_POSE(emcmotStatus->pause_carte_pos,here)) {
+                    // at initial pause position.
+                    *emcmot_hal_data->pause_state = PS_PAUSED;
+                    break;
+                } else {
+                    *emcmot_hal_data->pause_state = PS_PAUSED_IN_OFFSET;
+                }
+            } else {
+                // prevent issuing tpAddLine() if there's pending TCQ motions
+                break;
+            }
 	    // resume, or step was signalled during PS_PAUSED_IN_OFFSET
 	    // execute return move, which should result in state PS_PAUSED
 	    rtapi_print_msg(RTAPI_MSG_DBG, "resuming from PAUSED_IN_OFFSET\n");
@@ -639,7 +657,7 @@ static void process_inputs(void)
 		(*emcmot_hal_data->pause_jog_vel < emcmotCommand->ini_maxvel) ?
 		*emcmot_hal_data->pause_jog_vel : emcmotCommand->ini_maxvel;
 
-	    tpSetId(emcmotQueue, MOTION_PAUSED_RETURN_MOVE);
+	    tpSetId(emcmotQueue, emcmotStatus->id);
 	    if (-1 == tpAddLine(emcmotQueue, emcmotStatus->pause_carte_pos, TC_LINEAR,
 				emcmotStatus->current_vel, emcmotCommand->ini_maxvel,
 				emcmotCommand->acc, emcmotCommand->ini_maxjerk,
@@ -651,7 +669,7 @@ static void process_inputs(void)
 		abort_and_switchback();
 		SET_MOTION_ERROR_FLAG(1);
 	    } else {
-		emcmotStatus->id = MOTION_PAUSED_RETURN_MOVE;
+//		emcmotStatus->id = MOTION_PAUSED_RETURN_MOVE;
 		SET_MOTION_ERROR_FLAG(0);
 		rtapi_print_msg(RTAPI_MSG_DBG, "return move to x=%f y=%f z=%f vel=%f added\n",
 				emcmotStatus->pause_carte_pos.tran.x,emcmotStatus->pause_carte_pos.tran.y,
@@ -679,7 +697,7 @@ static void process_inputs(void)
 		*emcmot_hal_data->pause_jog_vel : emcmotCommand->ini_maxvel;
 
 	    rtapi_print_msg(RTAPI_MSG_DBG, "insert jog move\n");
-	    tpSetId(emcmotQueue, MOTION_PAUSED_JOG_MOVE);
+	    tpSetId(emcmotQueue, emcmotStatus->id);
 	    if (-1 == tpAddLine(emcmotQueue, emcmotStatus->pause_offset_carte_pos, TC_LINEAR,
 				emcmotStatus->current_vel , emcmotCommand->ini_maxvel,
 				emcmotCommand->acc, emcmotCommand->ini_maxjerk,
@@ -691,7 +709,7 @@ static void process_inputs(void)
 		abort_and_switchback();
 		SET_MOTION_ERROR_FLAG(1);
 	    } else {
-		emcmotStatus->id = MOTION_PAUSED_JOG_MOVE;
+//		emcmotStatus->id = MOTION_PAUSED_JOG_MOVE;
 		SET_MOTION_ERROR_FLAG(0);
 	    }
 	    *emcmot_hal_data->pause_state = PS_JOGGING;
@@ -733,7 +751,7 @@ static void process_inputs(void)
 	    rtapi_print_msg(RTAPI_MSG_DBG, "return move complete\n");
 	    // since resuming still active, next cycle will switch
 	    // back to primary q and resume
-	     *emcmot_hal_data->pause_state = PS_PAUSED;
+            *emcmot_hal_data->pause_state = PS_PAUSED;
 	}
 	break;
     }
@@ -1221,7 +1239,7 @@ static void handle_usbmot_sync(void)
     }
 
 //    if ((emcmotStatus->depth == 0) && (*(emcmot_hal_data->machine_is_moving) == 0))
-        if ((emcmotStatus->depth == 0))
+    if ((emcmotStatus->depth == 0))
     {   // ACK when no more EMCMOT motion commands, and machine is STOPPING
         emcmotStatus->update_pos_ack = *emcmot_hal_data->update_pos_req;
     }
@@ -2347,7 +2365,9 @@ static void update_status(void)
     } else {
 	// pretend we're doing something so task keeps
 	// waiting for motion
-	emcmotStatus->depth = 1;
+//	emcmotStatus->depth = 1;
+        emcmotStatus->depth = tpQueueDepth(emcmotQueue);
+
     }
     emcmotStatus->tp_reverse_input = *(emcmot_hal_data->tp_reverse_input);
     emcmotStatus->pause_state = *(emcmot_hal_data->pause_state);
