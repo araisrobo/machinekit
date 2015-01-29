@@ -736,6 +736,8 @@ STATIC int tpInitBlendArcFromPrev(TP_STRUCT const * const tp, TC_STRUCT const * 
             acc,
             0,
             tp->cycleTime);
+    // TODO: confirm if we should calculate JERK for BLENDER
+    blend_tc->jerk = prev_line_tc->jerk;
 
     // Skip syncdio setup since this blend extends the previous line
     blend_tc->syncdio = prev_line_tc->syncdio; //enqueue the list of DIOs that need toggling
