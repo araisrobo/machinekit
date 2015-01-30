@@ -497,6 +497,7 @@ int tcInit(TC_STRUCT * const tc,
 
     tc->active_depth = 1;
 
+    tc->lookahead_target = 0.0;
     tc->progress = 0.0;
     tc->accel_state = ACCEL_S3;
     tc->feed_override = 0.0;
@@ -517,15 +518,15 @@ int tcSetupMotion(TC_STRUCT * const tc,
         double cycle_time)
 {
 
-    tc->jerk = ini_maxjerk * cycle_time * cycle_time * cycle_time;
+    tc->jerk = ini_maxjerk * cycle_time * cycle_time * cycle_time;      // unit: dt^3
 
-    tc->maxaccel = acc * cycle_time * cycle_time;
+    tc->maxaccel = acc * cycle_time * cycle_time;                       // unit: dt^2
 
-    tc->maxvel = ini_maxvel * cycle_time;
+    tc->maxvel = ini_maxvel * cycle_time;                               // unit: dt
 
-    tc->reqvel = vel;
+    tc->reqvel = vel;                                                   // unit: sec
     // Initial guess at target velocity is just the requested velocity
-    tc->target_vel = vel;
+    tc->target_vel = vel;                                               // unit: sec
 
     return TP_ERR_OK;
 }

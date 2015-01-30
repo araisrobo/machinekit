@@ -110,6 +110,7 @@ enum state_type {
 typedef struct {
     double cycle_time;
     //Position stuff
+    double lookahead_target;// lookahead length
     double target;          // actual segment length
     double progress;        // where are we in the segment?  0..target
     double nominal_length;

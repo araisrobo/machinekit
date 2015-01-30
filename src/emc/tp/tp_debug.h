@@ -19,7 +19,11 @@
 #ifdef TP_DEBUG
 //Kludge because I didn't know any better at the time
 //FIXME replace these with better names?
-#define tp_debug_print(...) rtapi_print(__VA_ARGS__)
+#define tp_debug_print(fmt, args...)                                    \
+    do {                                                                \
+        /*rtapi_print("%s: (%s:%d) ", __FILE__, __FUNCTION__, __LINE__);*/ \
+        rtapi_print(fmt, ##args);                                       \
+    } while (0)
 #else
 #define tp_debug_print(...) 
 #endif
@@ -33,7 +37,12 @@
 
 /** "TC" debug info for inspecting trajectory planner output at each timestep */
 #ifdef TC_DEBUG
-#define tc_debug_print(...) rtapi_print(__VA_ARGS__)
+#define tc_debug_print(fmt, args...)                                    \
+    do {                                                                \
+        /* rtapi_print("%s: (%s:%d) ", __FILE__, __FUNCTION__, __LINE__ );*/ \
+        rtapi_print(fmt, ##args);                                       \
+    } while (0)
+
 #else
 #define tc_debug_print(...) 
 #endif

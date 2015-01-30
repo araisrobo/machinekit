@@ -64,14 +64,14 @@ STATIC int tpComputeBlendVelocity(
         double * const blend_vel);
 
 STATIC int tpCheckEndCondition(
-        TP_STRUCT const * const tp,
+        TP_STRUCT * const tp,
         TC_STRUCT * const tc,
-        TC_STRUCT const * const nexttc);
+        TC_STRUCT * const nexttc);
 
 STATIC int tpUpdateCycle(
         TP_STRUCT * const tp,
         TC_STRUCT * const tc,
-        TC_STRUCT const * const nexttc);
+        TC_STRUCT * const nexttc);
 
 STATIC int tpRunOptimization(
         TP_STRUCT * const tp);
@@ -261,7 +261,7 @@ STATIC inline double tpGetMaxTargetVel(
     }
 
     // Clip maximum velocity by the segment's own maximum velocity
-    return fmin(v_max_target, tc->maxvel);
+    return fmin(v_max_target, tc->maxvel/tc->cycle_time);
 }
 
 
@@ -710,8 +710,8 @@ STATIC inline int tpCalculateUnitCartAngle(PmCartesian const * const u1, PmCarte
  * segments together, however.
  */
 STATIC int tpInitBlendArcFromPrev(TP_STRUCT const * const tp, TC_STRUCT const * const prev_line_tc,
-        TC_STRUCT* const blend_tc, double vel, double ini_maxvel, double acc) {
-
+        TC_STRUCT* const blend_tc, double vel, double ini_maxvel, double acc)
+{
 
 #ifdef TP_SHOW_BLENDS
     int canon_motion_type = EMC_MOTION_TYPE_ARC;
@@ -1490,12 +1490,12 @@ STATIC int tpComputeOptimalVelocity(TP_STRUCT const * const tp, TC_STRUCT * cons
 
 
 /**
- * Do "rising tide" optimization to find allowable final velocities for each queued segment.
- * Walk along the queue from the back to the front. Based on the "current"
- * segment's final velocity, calculate the previous segment's maximum allowable
- * final velocity. The depth we walk along the queue is controlled by the
- * TP_LOOKAHEAD_DEPTH constant for now. The process safetly aborts early due to
- * a short queue or other conflicts.
+ * Do "rising tide" optimization to update lookahead_target length for each
+ * queued segment.Walk along the queue from the back to the front. Based on the
+ * "current" segment's target, calculate the previous segment's lookahead_target.
+ * The depth we walk along the queue is controlled by the TP_LOOKAHEAD_DEPTH
+ * constant for now. The process safetly aborts early due to a short queue or
+ * other conflicts.
  */
 STATIC int tpRunOptimization(TP_STRUCT * const tp) {
     // Pointers to the "current", previous, and 2nd previous trajectory
@@ -1507,9 +1507,6 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
 
     int ind, x;
     int len = tcqLen(&tp->queue);
-    //TODO make lookahead depth configurable from the INI file
-
-    int hit_peaks = 0;
 
     /* Starting at the 2nd to last element in the queue, work backwards towards
      * the front. We can't do anything with the very last element because its
@@ -1527,10 +1524,6 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
             tp_debug_print(" Reached end of queue in optimization\n");
             return TP_ERR_OK;
         }
-        if (!tc->finalized) {
-            tp_debug_print("Segment %d, type %d not finalized, continuing\n",tc->id,tc->motion_type);
-            continue;
-        }
 
         // stop optimizing if we hit a non-tangent segment (final velocity
         // stays zero)
@@ -1539,37 +1532,37 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
             return TP_ERR_OK;
         }
 
-        //Abort if a segment is already in progress, so that we don't step on
-        //split cycle calculation
-        if (prev1_tc->progress>0) {
-            tp_debug_print("segment %d already started, progress is %f!\n",
-                    ind-1, prev1_tc->progress);
-            return TP_ERR_OK;
-        }
+//        //Abort if a segment is already in progress, so that we don't step on
+//        //split cycle calculation
+//        if (prev1_tc->progress>0) {
+//            tp_debug_print("segment %d already started, progress is %f!\n",
+//                    ind-1, prev1_tc->progress);
+//            return TP_ERR_OK;
+//        }
+        prev1_tc->lookahead_target = tc->target + tc->lookahead_target;
+        tp_info_print("  current term = %u, type = %u, id = %u, accel_mode = %d target(%f) lookahead(%f)\n",
+                tc->term_cond, tc->motion_type, tc->id, tc->accel_mode, tc->target, tc->lookahead_target);
+        tp_info_print("  prev term = %u, type = %u, id = %u, accel_mode = %d target(%f) lookahead(%f)\n",
+                prev1_tc->term_cond, prev1_tc->motion_type, prev1_tc->id, prev1_tc->accel_mode, tc->target, tc->lookahead_target);
 
-        tp_info_print("  current term = %u, type = %u, id = %u, accel_mode = %d\n",
-                tc->term_cond, tc->motion_type, tc->id, tc->accel_mode);
-        tp_info_print("  prev term = %u, type = %u, id = %u, accel_mode = %d\n",
-                prev1_tc->term_cond, prev1_tc->motion_type, prev1_tc->id, prev1_tc->accel_mode);
+//        if (tc->atspeed) {
+//            //Assume worst case that we have a stop at this point. This may cause a
+//            //slight hiccup, but the alternative is a sudden hard stop.
+//            tp_debug_print("Found atspeed at id %d\n",tc->id);
+//            tc->finalvel = 0.0;
+//        }
 
-        if (tc->atspeed) {
-            //Assume worst case that we have a stop at this point. This may cause a
-            //slight hiccup, but the alternative is a sudden hard stop.
-            tp_debug_print("Found atspeed at id %d\n",tc->id);
-            tc->finalvel = 0.0;
-        }
-
-        tpComputeOptimalVelocity(tp, tc, prev1_tc);
-
-        tc->active_depth = x - 2 - hit_peaks;
-#ifdef TP_OPTIMIZATION_LAZY
-        if (tc->optimization_state == TC_OPTIM_AT_MAX) {
-            hit_peaks++;
-        }
-        if (hit_peaks > TP_OPTIMIZATION_CUTOFF) {
-            return TP_ERR_OK;
-        }
-#endif
+//        tpComputeOptimalVelocity(tp, tc, prev1_tc);
+//
+//        tc->active_depth = x - 2 - hit_peaks;
+//#ifdef TP_OPTIMIZATION_LAZY
+//        if (tc->optimization_state == TC_OPTIM_AT_MAX) {
+//            hit_peaks++;
+//        }
+//        if (hit_peaks > TP_OPTIMIZATION_CUTOFF) {
+//            return TP_ERR_OK;
+//        }
+//#endif
 
     }
     tp_debug_print("Reached optimization depth limit\n");
@@ -1627,8 +1620,8 @@ STATIC int tpSetupTangent(TP_STRUCT const * const tp,
     double phi = PM_PI - 2.0 * theta;
     tp_debug_print("phi = %f\n", phi);
 
-    double v_reachable = fmax(tpGetMaxTargetVel(tp, tc),
-            tpGetMaxTargetVel(tp, prev_tc));
+    double v_reachable = fmax(tpGetMaxTargetVel(tp, tc), tpGetMaxTargetVel(tp, prev_tc));
+
     double acc_limit;
     //TODO move this to setup
     tpGetMachineAccelLimit(&acc_limit);
@@ -1827,7 +1820,7 @@ int tpAddCircle(TP_STRUCT * const tp,
     }
 
     tp_info_print("== AddCircle ==\n");
-    tp_debug_print("ini_maxvel = %f\n",ini_maxvel);
+    tp_debug_print("ini_maxvel(%f) tcqLen(%d)\n", ini_maxvel, tcqLen(&tp->queue));
 
     TC_STRUCT tc = {0};
 
@@ -1872,7 +1865,7 @@ int tpAddCircle(TP_STRUCT * const tp,
         tpHandleBlendArc(tp, &tc);
     }
     tcCheckLastParabolic(&tc, prev_tc);
-    tcFinalizeLength(prev_tc);
+    tcFinalizeLength(prev_tc);  // FIXME: is tcFinalizeLength() necessary?
     tcFlagEarlyStop(prev_tc, &tc);
 
     int retval = tpAddSegmentToQueue(tp, &tc, true);
@@ -2191,7 +2184,6 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
 {
 
     double t, t1, vel, acc, v1, dist, req_vel;
-//    double t, t1, vel, v1, dist, req_vel;
 
     static double ts, ti;
     static double k, s6_a, s6_v, s6_p, error_d, prev_s, prev_v;
@@ -2201,7 +2193,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
     int immediate_state;
     double tc_target;
 
-    tc_target = tc->target;
+    tc_target = tc->target + tc->lookahead_target;
 
     immediate_state = 0;
     do {
@@ -3362,7 +3354,7 @@ STATIC int tpDoParabolicBlending(TP_STRUCT * const tp, TC_STRUCT * const tc,
  * Handles the majority of updates on a single segment for the current cycle.
  */
 STATIC int tpUpdateCycle(TP_STRUCT * const tp,
-        TC_STRUCT * const tc, TC_STRUCT const * const nexttc) {
+        TC_STRUCT * const tc, TC_STRUCT * const nexttc) {
 
     //placeholders for position for this update
     EmcPose before;
@@ -3375,24 +3367,8 @@ STATIC int tpUpdateCycle(TP_STRUCT * const tp,
         tc->vel_at_blend_start = tc->currentvel;
     }
 
-    // Run cycle update with stored cycle time
-//    int res_accel = 1;
-//    double acc, vel_desired;
-    
-    // If the slowdown is not too great, use velocity ramping instead of trapezoidal velocity
-    // Also, don't ramp up for parabolic blends
-//    if (tc->accel_mode && tc->term_cond == TC_TERM_COND_TANGENT) {
-//        res_accel = tpCalculateRampAccel(tp, tc, nexttc, &acc, &vel_desired);
-//    }
-
-    // Check the return in case the ramp calculation failed, fall back to trapezoidal
-//    if (res_accel != TP_ERR_OK) {
-//        tpCalculateTrapezoidalAccel(tp, tc, nexttc, &acc, &vel_desired);
-//    }
+    // Run cycle update with cycle time
     tcRunCycle(tp, tc);
-//
-//    tcUpdateDistFromAccel(tc, acc, vel_desired);
-//    tpDebugCycleInfo(tp, tc, nexttc, acc);
 
     //Check if we're near the end of the cycle and set appropriate changes
     tpCheckEndCondition(tp, tc, nexttc);
@@ -3457,17 +3433,41 @@ STATIC inline int tcSetSplitCycle(TC_STRUCT * const tc, double split_time,
  * it handles the transition to the next segment.
  */
 STATIC int tpCheckEndCondition(
-        TP_STRUCT const * const tp,
+        TP_STRUCT * const tp,
         TC_STRUCT * const tc,
-        TC_STRUCT const * const nexttc)
+        TC_STRUCT * const nexttc)
 {
     //Assume no split time unless we find otherwise
     tc->cycle_time = tp->cycleTime;
+
+    assert(tc->remove != 1);
 
     //Initial guess at dt for next round
     double dx = tc->target - tc->progress;
     tc_debug_print("tpCheckEndCondition: dx = %e\n",dx);
 
+    if (dx <= TP_POS_EPSILON) {
+        tc->progress = tc->target;
+        tc->remove = 1;
+        if (tc->term_cond == TC_TERM_COND_TANGENT) {
+            // BLEND with NEXT-TC
+            if (nexttc) {
+                assert (nexttc->active == 0);
+                nexttc->active          = 1;
+                nexttc->currentvel      = tc->currentvel;
+                nexttc->cur_accel       = tc->cur_accel;
+                nexttc->accel_state     = tc->accel_state;
+                nexttc->progress        = tc->progress - tc->target;
+                tp->motionType          = nexttc->canon_motion_type;
+                // FIXME: need algorighm for flushing a bounch of small segments
+                assert (nexttc->progress < nexttc->target);
+            }
+        }
+        return TP_ERR_OK;
+    } else {
+        return TP_ERR_NO_ACTION;
+    }
+#if 0
     if (dx <= TP_POS_EPSILON) {
         //If the segment is close to the target position, then we assume that it's done.
         tp_debug_print("close to target, dx = %.12f\n",dx);
@@ -3556,7 +3556,10 @@ STATIC int tpCheckEndCondition(
     } else {
         tc_debug_print(" dt = %f, not at end yet\n",dt);
     }
+
     return TP_ERR_OK;
+#endif
+
 }
 
 
@@ -3768,11 +3771,11 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
     }
 
     // Update the current tc
-    if (tc->splitting) {
-        tpHandleSplitCycle(tp, tc, nexttc);
-    } else {
+//    if (tc->splitting) {
+//        tpHandleSplitCycle(tp, tc, nexttc);
+//    } else {
         tpHandleRegularCycle(tp, tc, nexttc);
-    }
+//    }
     emcmotStatus->motion_type = tc->motion_type;
     emcmotStatus->motionState = tc->accel_state;
 
