@@ -27,14 +27,13 @@ e.set_mode(linuxcnc.MODE_MANUAL)
 e.set_state(linuxcnc.STATE_ESTOP_RESET)
 e.set_state(linuxcnc.STATE_ON)
 e.do_home(-1)
-sleep(1)
+sleep(3)
 e.set_mode(linuxcnc.MODE_AUTO)
 if len(sys.argv)>1:
     e.open_program(sys.argv[1])
     e.run_full_program()
     sleep(2)
     e.wait_on_program()
-
 else:
     print "No G code specified, setup complete"
 

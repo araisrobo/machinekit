@@ -1,12 +1,14 @@
 G20 G90 G64
 
 G0 X0 Y0 Z0
+;first square:
 G1 X1 F1000
 Y1
 X0
 Y0
-X1
-Y1
-X0
-Y0
+;second square:
+;X1
+;Y1
+;X0
+;Y0
 M2
