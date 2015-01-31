@@ -376,6 +376,7 @@ static void process_probe_inputs(void)
                 int32_t joint_num;
                 emcmot_joint_t *joint;
                 double joint_pos[EMCMOT_MAX_JOINTS] = {0,};
+                int32_t tmp_id;
 
                 emcmotStatus->probeTripped = 1; // interp_internal.cc: Interp::set_probe_data() #[5070]
                 /* update probed pos */
@@ -385,7 +386,9 @@ static void process_probe_inputs(void)
                     joint_pos[joint_num] =  joint->probed_pos - (joint->backlash_filt + joint->motor_offset);// + joint->blender_offset);
                 }
                 kinematicsForward(joint_pos, &emcmotStatus->probedPos, &fflags, &iflags);
+                tmp_id = tpGetExecId(emcmotQueue);
                 tpAbort(emcmotQueue);
+                tpSetId(emcmotQueue, tmp_id);
             }
             *emcmot_hal_data->trigger_result = 0;
         }
