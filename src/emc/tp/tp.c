@@ -3937,7 +3937,8 @@ int tpIsPaused(TP_STRUCT * tp)
         tp_debug_print("IsPaused: still slowing");
         return 0;
     }
-    return (tp->pausing && (!tc->synchronized || tp->velocity_mode) );
+
+    return (tp->pausing && (!tc->synchronized || tp->velocity_mode) && (*emcmot_hal_data->update_pos_req == 0));
     // alternate way of expressing - not sure:
     // return (tp->pausing && (tp->feed_override == 0.0));
 }

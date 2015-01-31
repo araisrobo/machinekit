@@ -599,6 +599,12 @@ static void process_inputs(void)
 	// on alternate queue, all motion stopped
 	// position is the initial pause position, so ok to resume
 
+        if (!EQUAL_EMC_POSE(emcmotStatus->pause_carte_pos, emcmotStatus->carte_pos_cmd)) {
+            // position changed
+            *emcmot_hal_data->pause_state = PS_PAUSED_IN_OFFSET;
+            break;
+        }
+
 	if (emcmotStatus->resuming) {
 	    // a resume was signalled.
 
@@ -1239,7 +1245,8 @@ static void handle_usbmot_sync(void)
     }
 
 //    if ((emcmotStatus->depth == 0) && (*(emcmot_hal_data->machine_is_moving) == 0))
-    if ((emcmotStatus->depth == 0))
+    if ((emcmotStatus->depth == 0) ||
+        ((emcmotStatus->pause_state == PS_PAUSING) && (emcmotStatus->current_vel <= TP_VEL_EPSILON)))
     {   // ACK when no more EMCMOT motion commands, and machine is STOPPING
         emcmotStatus->update_pos_ack = *emcmot_hal_data->update_pos_req;
     }
@@ -1250,7 +1257,6 @@ static void handle_usbmot_sync(void)
         emcmotStatus->update_pos_ack = 0;
     }
 
-    emcmotStatus->update_current_pos_flag = 0;  // prevent emcTaskPlanSynch() at emcTask.cc
     if (emcmotStatus->update_pos_ack != 0)
     {
         int joint_num;
@@ -1299,7 +1305,6 @@ static void handle_usbmot_sync(void)
         kinematicsForward(positions, &emcmotStatus->carte_pos_cmd, &fflags, &iflags);
         /* preset traj planner to current position */
         tpSetPos(emcmotQueue, &emcmotStatus->carte_pos_cmd); // for EMCMOT_MOTION_COORD mode
-        emcmotStatus->update_current_pos_flag = 1; // force emcTaskPlanSynch() at emcTask.cc
     }
 
 //    // if spindle position get updated by spindle.comp
@@ -1633,7 +1638,7 @@ static void get_pos_cmds(long period)
 	    /* run coordinated trajectory planning cycle */
 	    tpRunCycle(emcmotQueue, period);
 
-	    /* gt new commanded traj pos */
+	    /* get new commanded traj pos */
 	    tpGetPos(emcmotQueue, &emcmotStatus->carte_pos_cmd);
 
 	    /* OUTPUT KINEMATICS - convert to joints in local array */
