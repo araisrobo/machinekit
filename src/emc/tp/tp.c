@@ -2977,7 +2977,6 @@ STATIC void tpHandleEmptyQueue(TP_STRUCT * const tp,
     tp->done = 1;
     tp->depth = tp->activeDepth = 0;
     tp->aborting = 0;
-    tp->execId = 0;
     tp->motionType = 0;
     tpResume(tp);
     // when not executing a move, use the current enable flags
@@ -3056,7 +3055,6 @@ STATIC int tpHandleAbort(TP_STRUCT * const tp, TC_STRUCT * const tc,
         tp->done = 1;
         tp->depth = tp->activeDepth = 0;
         tp->aborting = 0;
-        tp->execId = 0;
         tp->motionType = 0;
         tp->synchronized = 0;
         tp->spindle.waiting_for_index = MOTION_INVALID_ID;
