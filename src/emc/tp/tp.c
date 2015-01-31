@@ -362,8 +362,8 @@ int tpCreate(TP_STRUCT * const tp, int _queueSize, TC_STRUCT * const tcSpace)
     if (!dptrace) {
         dptrace = fopen("tp.log", "w");
         /* prepare header for gnuplot */
-        DPS ("%11s%6s%15s%15s%15s%15s%15s%15s%15s\n",
-                "#dt", "state", "req_vel", "cur_accel", "cur_vel", "progress%", "progress", "dist_to_go", "tc->jerk");
+        DPS ("%11s%5s%6s%15s%15s%15s%15s%15s%15s%15s%15s\n",
+                "#dt", "id", "state", "req_vel", "cur_accel", "cur_vel", "progress%", "progress", "dist_to_go", "lookahead", "tc->jerk");
         _dt = 0;
     }
 #endif
@@ -1349,7 +1349,13 @@ STATIC int tpSetupSyncedIO(TP_STRUCT * const tp, TC_STRUCT * const tc) {
  * Adds a rigid tap cycle to the motion queue.
  */
 int tpAddRigidTap(TP_STRUCT * const tp, EmcPose end, double vel, double ini_maxvel,
-        double acc, unsigned char enables) {
+        double acc, unsigned char enables)
+{
+//    if (ini_maxjerk == 0) {
+//        rtapi_print_msg(RTAPI_MSG_WARN, "jerk is not provided or jerk is 0\n");
+//        ini_maxjerk = 1e99; //!< force JERK to unlimited
+//    }
+
     if (tpErrorCheck(tp)) {
         return TP_ERR_FAIL;
     }
@@ -1425,10 +1431,10 @@ STATIC blend_type_t tpCheckBlendArcType(TP_STRUCT const * const tp,
         return BLEND_NONE;
     }
 
-    if (tc->finalized || prev_tc->finalized) {
-        tp_debug_print("Can't create blend when segment lengths are finalized\n");
-        return BLEND_NONE;
-    }
+//    if (tc->finalized || prev_tc->finalized) {
+//        tp_debug_print("Can't create blend when segment lengths are finalized\n");
+//        return BLEND_NONE;
+//    }
 
     tp_debug_print("Motion types: prev_tc = %u, tc = %u\n",
             prev_tc->motion_type,tc->motion_type);
@@ -1723,11 +1729,12 @@ STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc) {
  * currently-active accel and vel settings from the tp struct.
  */
 int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double vel, double
-        ini_maxvel, double acc, double ini_maxjerk, unsigned char enables, char atspeed, int indexrotary) {
+        ini_maxvel, double acc, double ini_maxjerk, unsigned char enables, char atspeed, int indexrotary)
+{
 
     if (ini_maxjerk == 0) {
-        rtapi_print_msg(RTAPI_MSG_ERR, "jerk is not provided or jerk is 0\n");
-        assert(ini_maxjerk > 0);
+        rtapi_print_msg(RTAPI_MSG_WARN, "jerk is not provided or jerk is 0\n");
+        ini_maxjerk = 1e99; //!< force JERK to unlimited
     }
     if (tpErrorCheck(tp) < 0) {
         return TP_ERR_FAIL;
@@ -1811,8 +1818,8 @@ int tpAddCircle(TP_STRUCT * const tp,
         char atspeed)
 {
     if (ini_maxjerk == 0) {
-        rtapi_print_msg(RTAPI_MSG_ERR, "jerk is not provided or jerk is 0\n");
-        assert(ini_maxjerk > 0);
+        rtapi_print_msg(RTAPI_MSG_WARN, "jerk is not provided or jerk is 0\n");
+        ini_maxjerk = 1e99; //!< force JERK to unlimited
     }
 
     if (tpErrorCheck(tp)<0) {
@@ -2188,12 +2195,18 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
     static double ts, ti;
     static double k, s6_a, s6_v, s6_p, error_d, prev_s, prev_v;
     static double c1, c2, c3, c4, c5, c6;
+    static double prev_tc_target;
 
     double pi = 3.14159265359;
     int immediate_state;
     double tc_target;
 
     tc_target = tc->target + tc->lookahead_target;
+    if ((prev_tc_target != tc_target) && (tc->accel_state == ACCEL_S7)) {
+        /* re-evaluate ACCEL_S7 condition if lookahead_target changed */
+        tc->accel_state = ACCEL_S4;
+    }
+    prev_tc_target = tc_target;
 
     immediate_state = 0;
     do {
@@ -2441,11 +2454,6 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             // check if dist would be greater than tc_target at next cycle
             if (tc_target < (dist - vel)) {
                 tc->accel_state = ACCEL_S4;
-                DP("to ACCEL_S4 tc_target < (dist - vel)\n");
-                // blending at largest velocity for G64 w/o P<tolerance>
-                if (!tc->tolerance) {
-                    tc->tolerance = tc->target - tc->progress; // tc->distance_to_go
-                }
                 break;
             }
 
@@ -2459,7 +2467,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                 break;
             } else if ((tc->currentvel - 1.5 * tc->jerk) > req_vel) {
                 tc->accel_state = ACCEL_S4;
-                DP("to ACCEL_S4 (tc->currentvel - 1.5 * tc->jerk) > req_vel\n");
+                DP("to ACCEL_S4 (tc->currentvel(%f) - 1.5 * tc->jerk) > req_vel(%f)\n", tc->currentvel, req_vel);
                 break;
             }
             tc->currentvel = req_vel;
@@ -2540,7 +2548,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                 req_vel = tc->maxvel;
             }
             if ((tc->currentvel + tc->cur_accel * t + 0.5 * tc->jerk * t * t) <= req_vel) {
-                if(tc->progress/tc->target < 0.9){
+                if ((tc->progress/tc_target) < 0.9) {
                     tc->accel_state = ACCEL_S6;
                     DPS("S4: hit velocity rule; move to S6\n");
                 }
@@ -2552,7 +2560,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                     s6_p = tc->progress;
                     ts = floor((2*s6_v)/s6_a);
                     k = s6_a*pi/(4*s6_v);
-                    error_d = tc->target - tc->progress - s6_v * s6_v / s6_a * (1-4/(pi*pi));
+                    error_d = tc_target - tc->progress - s6_v * s6_v / s6_a * (1-4/(pi*pi));
                     prev_s = 0;
                     prev_v = s6_v;
                     c1 = -s6_a/4;
@@ -2565,8 +2573,8 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                     DPS("S4: hit distance rule; move to S7\n");
                     break;
                 }
-
             }
+            DPS("S4: FIXME: why should we stay in S4? cur_vel(%f) req_vel(%f)\n", tc->currentvel, req_vel);
 
 //            // check if dist would be greater than tc_target at next cycle
 //            printf ("tc_target(%f) dist(%f) vel(%f) t(%f) t1(%f)\n", tc_target, dist, vel, t, t1);
@@ -2677,7 +2685,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                 req_vel = tc->maxvel;
             }
             if ((tc->currentvel + tc->cur_accel * t + 0.5 * tc->jerk * t * t) <= req_vel) {
-                if(tc->progress/tc->target < 0.9){
+                if(tc->progress/tc_target < 0.9){
                     tc->accel_state = ACCEL_S6;
                     DPS("S5 move to S6\n");
                 }
@@ -2689,7 +2697,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                     s6_p = tc->progress;
                     ts = floor((2*s6_v)/s6_a);
                     k = s6_a*pi/(4*s6_v);
-                    error_d = tc->target - tc->progress - s6_v * s6_v / s6_a * (1-4/(pi*pi));
+                    error_d = tc_target - tc->progress - s6_v * s6_v / s6_a * (1-4/(pi*pi));
                     prev_s = 0;
                     prev_v = s6_v;
                     c1 = -s6_a/4;
@@ -2737,8 +2745,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
 
         case ACCEL_S7:
             // decel to target position based on Jofey's algorithm
-
-            if(ti <= ts){
+            if (ti <= ts) {
                 dist = c1*ti*ti + c2*ti + c3*cos(c4*ti) + c5*cos(c6*ti-0.5*pi) - c3;
                 tc->currentvel = dist - prev_s;
                 tc->cur_accel = tc->currentvel - prev_v;
@@ -2746,8 +2753,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                 prev_v = tc->currentvel;
                 tc->progress = s6_p + dist;
                 ti = ti + 1;
-            }
-            else {
+            } else {
                 tc->currentvel = 0;
                 tc->cur_accel = 0;
                 tc->progress = tc->target;
@@ -2794,11 +2800,10 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
 //        }
 //    }
 
-
-    DPS("%11u%6d%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",
-            _dt, tc->accel_state, tc->reqvel * tc->feed_override * tc->cycle_time,
+    DPS("%11u%5d%6d%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",
+            _dt, tc->id, tc->accel_state, tc->reqvel * tc->feed_override * tc->cycle_time,
             tc->cur_accel, tc->currentvel, tc->progress/tc->target, tc->progress,
-            (tc->target - tc->progress), tc->jerk);
+            (tc->target - tc->progress), tc_target, tc->jerk);
 //    DP("%6d%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",
 //            tc->accel_state, tc->reqvel * tc->feed_override * tc->cycle_time,
 //            tc->cur_accel, tc->currentvel, tc->progress/tc->target, tc->progress,
