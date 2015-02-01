@@ -130,7 +130,7 @@ static double taskExecDelayTimeout = 0.0;
 static char resume_startup_code[LINELEN];
 static int resume_startup_id;
 static bool resume_startup_en;
-static double resume_x, resume_y;
+static double resume_x, resume_y, resume_z;
 static bool wait_resume_startup;
 
 // emcTaskIssueCommand issues command immediately
@@ -603,7 +603,9 @@ interpret_again:
 			    emcTaskPlanClearWait();
 
 			    if ((wait_resume_startup == true) && (emcTaskPlanLevel() == 0)) {
-                                emcTaskPlanSetCurPos(&resume_x, &resume_y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
+                                //FIXME: force resume_z at safe-height 10mm
+                                resume_z = emcStatus->motion.traj.actualPosition.tran.z + 10;
+                                emcTaskPlanSetCurPos(&resume_x, &resume_y, &resume_z, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
                                 wait_resume_startup = false;
 			    }
 
@@ -2811,12 +2813,7 @@ static int emcTaskExecute(void)
 	            /* (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) */
 	            if (emcStatus->task.interpState == EMC_TASK_INTERP_WAITING) {
 	                emcTaskCommand = history_queue.update_current();
-	                if (-1 == history_queue.move_last()) {
-	                    /**
-	                     * to flush the 1st emcTaskCommand of the head of history_queue
-	                     */
-	                    emcTaskCommand = 0;
-	                }
+	                history_queue.move_last();
 	            }
 	        }
 
