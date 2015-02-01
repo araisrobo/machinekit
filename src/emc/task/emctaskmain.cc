@@ -3072,17 +3072,18 @@ static int emcTaskExecute(void)
         STEPPING_CHECK();
         /* waiting for TCQ to finish pending motion */
         if ((emcStatus->motion.traj.queue == 0) &&
-                (emcStatus->motion.status == RCS_DONE) &&
-                (emcStatus->motion.traj.inpos == true) &&
-                (emcStatus->task.task_paused == 0))
+            (emcStatus->motion.status == RCS_DONE) &&
+            (emcStatus->motion.traj.inpos == true) &&
+            (emcStatus->task.task_paused == 0) &&
+            (emcStatus->motion.traj.pause_state == PS_RUNNING))
         {
             if (emcStatus->motion.traj.next_tp_reversed == TP_FORWARD)
             {
-                emcTaskPlanClearWait();
+                interp_list.clear();
                 emcBypassFlags();
+                emcTaskPlanClearWait();
                 strcpy(emcStatus->task.file, cur_file);
                 emcTaskPlanClose();
-                interp_list.clear();
                 history_queue.clear();
                 retval = emcTaskPlanOpen(emcStatus->task.file);
                 if (retval > INTERP_MIN_ERROR) {

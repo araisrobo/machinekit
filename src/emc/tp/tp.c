@@ -2972,7 +2972,6 @@ STATIC void tpHandleEmptyQueue(TP_STRUCT * const tp,
     tp->done = 1;
     tp->depth = tp->activeDepth = 0;
     tp->aborting = 0;
-    tp->execId = 0;
     tp->motionType = 0;
     tpResume(tp);
     // when not executing a move, use the current enable flags
@@ -3051,7 +3050,6 @@ STATIC int tpHandleAbort(TP_STRUCT * const tp, TC_STRUCT * const tc,
         tp->done = 1;
         tp->depth = tp->activeDepth = 0;
         tp->aborting = 0;
-        tp->execId = 0;
         tp->motionType = 0;
         tp->synchronized = 0;
         tp->spindle.waiting_for_index = MOTION_INVALID_ID;
@@ -3934,7 +3932,8 @@ int tpIsPaused(TP_STRUCT * tp)
         tp_debug_print("IsPaused: still slowing");
         return 0;
     }
-    return (tp->pausing && (!tc->synchronized || tp->velocity_mode) );
+
+    return (tp->pausing && (!tc->synchronized || tp->velocity_mode) && (*emcmot_hal_data->update_pos_req == 0));
     // alternate way of expressing - not sure:
     // return (tp->pausing && (tp->feed_override == 0.0));
 }

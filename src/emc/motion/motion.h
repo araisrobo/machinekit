@@ -646,7 +646,6 @@ Suggestion: Split this in to an Error and a Status flag register..
         int sync_pos_cmd;
         uint32_t update_pos_ack;    /* for RCMD_FSM inside RISC */
         uint32_t update_pos_req;    /* for RCMD_FSM inside RISC */
-        int update_current_pos_flag;
 
         unsigned char head;	/* flag count for mutex detect */
 	/* these three are updated only when a new command is handled */
