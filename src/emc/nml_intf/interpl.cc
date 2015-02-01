@@ -241,6 +241,33 @@ NMLmsg *NML_INTERP_LIST::update_current()
      */
     ret = (NMLmsg *) ((char *) node_ptr->command.commandbuf);
 
+    if (emc_debug & EMC_DEBUG_INTERP_LIST) {
+        rcs_print
+        ("%s (%s:%d) NMLtype(%s): list_size=%d, line_number=%d call_level(%d) remap_level(%d)\n",
+                __FILE__, __FUNCTION__, __LINE__,
+                emc_symbol_lookup((int)ret->type),
+                linked_list_ptr->list_size, line_number, call_level, remap_level);
+
+        if (ret->type == EMC_TRAJ_LINEAR_MOVE_TYPE)
+        {
+            EMC_TRAJ_LINEAR_MOVE *emcTrajLinearMoveMsg;
+            emcTrajLinearMoveMsg = (EMC_TRAJ_LINEAR_MOVE *) ret;
+            rcs_print ("%s (%s:%d) LINEAR_MOVE begin_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajLinearMoveMsg->begin.tran.x, emcTrajLinearMoveMsg->begin.tran.y, emcTrajLinearMoveMsg->begin.tran.z);
+            rcs_print ("%s (%s:%d) LINEAR_MOVE end_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajLinearMoveMsg->end.tran.x, emcTrajLinearMoveMsg->end.tran.y, emcTrajLinearMoveMsg->end.tran.z);
+        }
+        else if (ret->type == EMC_TRAJ_CIRCULAR_MOVE_TYPE)
+        {
+            EMC_TRAJ_CIRCULAR_MOVE *emcTrajCircularMoveMsg;
+            emcTrajCircularMoveMsg = (EMC_TRAJ_CIRCULAR_MOVE *) ret;
+            rcs_print ("%s (%s:%d) CIRCULAR_MOVE begin_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajCircularMoveMsg->begin.tran.x, emcTrajCircularMoveMsg->begin.tran.y, emcTrajCircularMoveMsg->begin.tran.z);
+            rcs_print ("%s (%s:%d) CIRCULAR_MOVE end_xyz(%f, %f, %f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    emcTrajCircularMoveMsg->end.tran.x, emcTrajCircularMoveMsg->end.tran.y, emcTrajCircularMoveMsg->end.tran.z);
+        }
+    }
+
     return ret;
 }
 
