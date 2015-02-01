@@ -2804,13 +2804,8 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             _dt, tc->id, tc->accel_state, tc->reqvel * tc->feed_override * tc->cycle_time,
             tc->cur_accel, tc->currentvel, tc->progress/tc->target, tc->progress,
             (tc->target - tc->progress), tc_target, tc->jerk);
-//    DP("%6d%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",
-//            tc->accel_state, tc->reqvel * tc->feed_override * tc->cycle_time,
-//            tc->cur_accel, tc->currentvel, tc->progress/tc->target, tc->progress,
-//            (tc->target - tc->progress), tc->jerk);
+
     tc->distance_to_go = tc->target - tc->progress;
-    //TODO: this assert will be triggered with rockman.ini:
-    //      assert (tc->currentvel >= 0);
 }
 
 
