@@ -1951,7 +1951,7 @@ static void update_freq(void *arg, long period)
                     (JCMD_BASE | JCMD_SYNC_CMD), 4 * num_joints, data);
         }
 
-        DPS("       0x%08X%15.7f%15.7f%15.7f",
+        DPS("%17d%17.7f%17.7f%17.7f",
                 integer_pos_cmd,
                 (stepgen->prev_pos_cmd),
                 *stepgen->pos_fb,
