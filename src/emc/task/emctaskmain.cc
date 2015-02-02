@@ -603,9 +603,9 @@ interpret_again:
 			    emcTaskPlanClearWait();
 
 			    if ((wait_resume_startup == true) && (emcTaskPlanLevel() == 0)) {
-                                //FIXME: force resume_z at safe-height 10mm
-                                resume_z = emcStatus->motion.traj.actualPosition.tran.z + 10;
-                                emcTaskPlanSetCurPos(&resume_x, &resume_y, &resume_z, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
+//                                //FIXME: force resume_z at safe-height 10mm
+//                                resume_z = emcStatus->motion.traj.actualPosition.tran.z + 10;
+                                emcTaskPlanSetCurPos(&resume_x, &resume_y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
                                 wait_resume_startup = false;
 			    }
 
@@ -682,7 +682,7 @@ interpret_again:
 
                                 if ((toplevel_line_number + 1 == programStartLine) && (emcTaskPlanLevel() == 0))
                                 {
-				    FINISH();   // to call flush_segments(), emccanon.cc
+                                    FINISH();   // to call flush_segments(), emccanon.cc
 				    /* FINISH() might generate some line segments; move them to history_queue */
 				    if (0 != checkInterpList(&interp_list, emcStatus)) {
 				        // problem with actions, so do same as we did for a bad read from emcTaskPlanRead() above
@@ -710,7 +710,14 @@ interpret_again:
                                                                emcStatus->motion.traj.actualPosition.v,
                                                                emcStatus->motion.traj.actualPosition.w);
                                         emcTaskPlanSynch();
-                                        emcTaskPlanExecute(resume_startup_code, toplevel_line_number);
+                                        execRetval = emcTaskPlanExecute(resume_startup_code, toplevel_line_number);
+                                        if (execRetval == INTERP_EXECUTE_FINISH) {
+                                            // INTERP_EXECUTE_FINISH signifies
+                                            // that no more reading should be done until everything
+                                            // outstanding is completed
+                                            emcTaskPlanSetWait();
+                                            emcTaskQueueCommand(&taskPlanSynchCmd);
+                                        }
                                         wait_resume_startup = true;
                                         resume_startup_en = false;
                                         resume_startup_id = toplevel_line_number;
