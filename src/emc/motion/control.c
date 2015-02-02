@@ -377,7 +377,6 @@ static void process_probe_inputs(void)
                 emcmot_joint_t *joint;
                 double joint_pos[EMCMOT_MAX_JOINTS] = {0,};
 
-                emcmotStatus->probeTripped = 1; // interp_internal.cc: Interp::set_probe_data() #[5070]
                 /* update probed pos */
                 for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++)
                 {
@@ -386,6 +385,11 @@ static void process_probe_inputs(void)
                 }
                 kinematicsForward(joint_pos, &emcmotStatus->probedPos, &fflags, &iflags);
                 tpAbort(emcmotQueue);
+                emcmotStatus->probeTripped = 1; // interp_internal.cc: Interp::set_probe_data() #[5070]
+            }
+            else if (tcqLen(&(emcmotQueue->queue)) == 0)
+            {
+                emcmotStatus->probing = 0;
             }
             *emcmot_hal_data->trigger_result = 0;
         }
