@@ -398,7 +398,8 @@ check_stuff ( "before command_handler()" );
 #ifdef USB_MOTION_ENABLE
     emcmotStatus->wait_risc = 0;
     if ((emcmotStatus->probing == 1) &&
-        (emcmotConfig->usbmotEnable))
+        (emcmotConfig->usbmotEnable) &&
+        emcmotCommand->command == EMCMOT_END_PROBE)
     {
         // prevent execute EMCMOT_END_PROBE for G38.x
         emcmotStatus->wait_risc = 1;
