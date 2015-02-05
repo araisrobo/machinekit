@@ -634,6 +634,7 @@ interpret_again:
 			} else {
 			    // got a good line
 			    // record the line number and command
+                            FINISH();   // to call flush_segments(), emccanon.cc
 			    emcStatus->task.readLine = emcTaskPlanLine();
 			    toplevel_line_number = emcTaskPlanToplevelLine();
 
