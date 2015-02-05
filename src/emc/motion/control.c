@@ -1254,17 +1254,6 @@ static void handle_usbmot_sync(void)
         return;
     }
 
-    emcmotStatus->update_pos_req = 0;
-    if (*emcmot_hal_data->update_pos_req) {
-        update_pos_req_timeout = USB_TIMEOUT;
-    } else if (update_pos_req_timeout > 0) {
-        update_pos_req_timeout --;
-        if (update_pos_req_timeout == 0) {
-            emcmotStatus->update_pos_req = 1;
-        }
-    }
-
-    emcmotStatus->update_pos_req = *emcmot_hal_data->update_pos_req;
     if ((emcmotStatus->depth == 0) ||
         ((emcmotStatus->pause_state == PS_PAUSING) && (emcmotStatus->current_vel <= TP_VEL_EPSILON)))
     {   // ACK when no more EMCMOT motion commands, and machine is STOPPING
@@ -1275,6 +1264,21 @@ static void handle_usbmot_sync(void)
         // ((emcmotStatus->motion_state == EMCMOT_MOTION_COORD)
         //   and there are pending TP commands)
         emcmotStatus->update_pos_ack = 0;
+    }
+
+    /**
+     * Report update_pos_req status after rising edge of update_pos_ack
+     * It is referenced by readahead_reading of emctaskmain.cc
+     * To prevent reading NGC file while RISC is synchronizing positions.
+     */
+    if (*emcmot_hal_data->update_pos_ack) {
+        update_pos_req_timeout = USB_TIMEOUT;
+    }
+    if (update_pos_req_timeout > 0) {
+        update_pos_req_timeout --;
+        emcmotStatus->update_pos_req = 1; //!< to block readahead_reading()
+    } else {
+        emcmotStatus->update_pos_req = 0;
     }
 
     if (emcmotStatus->update_pos_ack != 0)
