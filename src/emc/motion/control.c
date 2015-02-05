@@ -1235,7 +1235,9 @@ static void set_operating_mode(void)
     }
 }
 
+#define USB_TIMEOUT 100
 static int update_current_pos = 0;
+static int update_pos_req_timeout = 0;
 static void handle_usbmot_sync(void)
 {
     if (*emcmot_hal_data->req_cmd_sync == 1) {
@@ -1252,7 +1254,16 @@ static void handle_usbmot_sync(void)
         return;
     }
 
-//    if ((emcmotStatus->depth == 0) && (*(emcmot_hal_data->machine_is_moving) == 0))
+    emcmotStatus->update_pos_req = 0;
+    if (*emcmot_hal_data->update_pos_req) {
+        update_pos_req_timeout = USB_TIMEOUT;
+    } else if (update_pos_req_timeout > 0) {
+        update_pos_req_timeout --;
+        if (update_pos_req_timeout == 0) {
+            emcmotStatus->update_pos_req = 1;
+        }
+    }
+
     emcmotStatus->update_pos_req = *emcmot_hal_data->update_pos_req;
     if ((emcmotStatus->depth == 0) ||
         ((emcmotStatus->pause_state == PS_PAUSING) && (emcmotStatus->current_vel <= TP_VEL_EPSILON)))
