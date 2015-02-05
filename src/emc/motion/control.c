@@ -384,8 +384,12 @@ static void process_probe_inputs(void)
                     joint_pos[joint_num] =  joint->probed_pos - (joint->backlash_filt + joint->motor_offset);// + joint->blender_offset);
                 }
                 kinematicsForward(joint_pos, &emcmotStatus->probedPos, &fflags, &iflags);
-                tpAbort(emcmotQueue);
                 emcmotStatus->probeTripped = 1; // interp_internal.cc: Interp::set_probe_data() #[5070]
+            }
+            else if (emcmotStatus->probeTripped)
+            {
+                tpAbort(emcmotQueue);
+                emcmotStatus->probing = 0;
             }
             else if (tcqLen(&(emcmotQueue->queue)) == 0)
             {
@@ -1249,6 +1253,7 @@ static void handle_usbmot_sync(void)
     }
 
 //    if ((emcmotStatus->depth == 0) && (*(emcmot_hal_data->machine_is_moving) == 0))
+    emcmotStatus->update_pos_req = *emcmot_hal_data->update_pos_req;
     if ((emcmotStatus->depth == 0) ||
         ((emcmotStatus->pause_state == PS_PAUSING) && (emcmotStatus->current_vel <= TP_VEL_EPSILON)))
     {   // ACK when no more EMCMOT motion commands, and machine is STOPPING

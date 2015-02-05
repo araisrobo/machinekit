@@ -1239,6 +1239,10 @@ int emcTrajUpdate(EMC_TRAJ_STAT * stat)
     stat->probing = emcmotStatus.probing;
     stat->probe_tripped = emcmotStatus.probeTripped;
     
+#ifdef USB_MOTION_ENABLE
+    stat->update_pos_req = emcmotStatus.update_pos_req;   // update position request from RISC
+#endif
+
     if (emcmotStatus.motionFlag & EMCMOT_MOTION_COORD_BIT)
         enables = emcmotStatus.enables_queued;
     else

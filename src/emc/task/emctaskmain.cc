@@ -599,16 +599,19 @@ interpret_again:
 			// delay reading of next line until all is done
 			if (interp_list.len() == 0 &&
 			    emcTaskCommand == 0 &&
-			    emcStatus->task.execState == EMC_TASK_EXEC_DONE) {
+			    emcStatus->task.execState == EMC_TASK_EXEC_DONE
+#ifdef USB_MOTION_ENABLE
+			    && (emcStatus->motion.traj.update_pos_req == 0)
+#endif
+			)
+			{
 			    emcTaskPlanClearWait();
-
-			    if ((wait_resume_startup == true) && (emcTaskPlanLevel() == 0)) {
+                            if ((wait_resume_startup == true) && (emcTaskPlanLevel() == 0)) {
 //                                //FIXME: force resume_z at safe-height 10mm
 //                                resume_z = emcStatus->motion.traj.actualPosition.tran.z + 10;
                                 emcTaskPlanSetCurPos(&resume_x, &resume_y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
                                 wait_resume_startup = false;
 			    }
-
 			 }
 		    } else {
 			readRetval = emcTaskPlanRead();
@@ -652,9 +655,10 @@ interpret_again:
 				// that no more reading should be done until
 				// everything
 				// outstanding is completed
-				emcTaskPlanSetWait();
+                                FINISH();   // to call flush_segments(), emccanon.cc
+                                emcTaskPlanSetWait();
 				// and resynch interp WM
-				emcTaskQueueCommand(&taskPlanSynchCmd);
+				 emcTaskQueueCommand(&taskPlanSynchCmd);
 			    } else if (execRetval != 0) {
 				// end of file
 				emcStatus->task.interpState =
@@ -715,6 +719,7 @@ interpret_again:
                                             // INTERP_EXECUTE_FINISH signifies
                                             // that no more reading should be done until everything
                                             // outstanding is completed
+                                            FINISH();   // to call flush_segments(), emccanon.cc
                                             emcTaskPlanSetWait();
                                             emcTaskQueueCommand(&taskPlanSynchCmd);
                                         }

@@ -2364,6 +2364,9 @@ void EMC_TRAJ_STAT::update(CMS * cms)
     cms->update(probeval);
     cms->update(kinematics_type);
     cms->update(motion_type);
+#ifdef USB_MOTION_ENABLE
+    cms->update(update_pos_req);         // update position request from RISC
+#endif
 
 }
 

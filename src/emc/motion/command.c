@@ -394,12 +394,15 @@ void emcmotCommandHandler(void *arg, long period)
     emcmot_comp_entry_t *comp_entry;
     char issue_atspeed = 0;
     
+    // int oldlevel;
+    // oldlevel = rtapi_set_msg_level(RTAPI_MSG_ALL); // uncomment for DEBUG
+
 check_stuff ( "before command_handler()" );
 #ifdef USB_MOTION_ENABLE
     emcmotStatus->wait_risc = 0;
     if ((emcmotStatus->probing == 1) &&
         (emcmotConfig->usbmotEnable) &&
-        emcmotCommand->command == EMCMOT_END_PROBE)
+        (emcmotCommand->command == EMCMOT_END_PROBE))
     {
         // prevent execute EMCMOT_END_PROBE for G38.x
         emcmotStatus->wait_risc = 1;
@@ -1822,6 +1825,8 @@ check_stuff ( "before command_handler()" );
     }
     /* end of: if-new-command */
 check_stuff ( "after command_handler()" );
+    
+    // rtapi_set_msg_level(oldlevel); // uncomment for DEBUG
 
     return;
 }

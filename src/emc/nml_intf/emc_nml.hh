@@ -1012,11 +1012,14 @@ class EMC_TRAJ_STAT:public EMC_TRAJ_STAT_MSG {
     double maxJerk;		// system jerk
 
     EmcPose probedPosition;	// last position where probe was tripped.
-    bool probe_tripped;		// Has the probe been tripped since the last
-    // clear.
-    bool probing;		// Are we currently looking for a probe
-    // signal.
+    bool probe_tripped;		// Has the probe been tripped since the last clear.
+    bool probing;		// Are we currently looking for a probe signal.
     int probeval;		// Current value of probe input.
+
+#ifdef USB_MOTION_ENABLE
+    bool update_pos_req;        // update position request from RISC
+#endif
+
     int kinematics_type;	// identity=1,serial=2,parallel=3,custom=4
     int motion_type;
     double distance_to_go;         // in current move

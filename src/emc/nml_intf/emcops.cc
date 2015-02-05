@@ -80,6 +80,10 @@ EMC_TRAJ_STAT_MSG(EMC_TRAJ_STAT_TYPE, sizeof(EMC_TRAJ_STAT))
     probing = OFF;
     probeval = 0;
     
+#ifdef USB_MOTION_ENABLE
+    update_pos_req = OFF;       // update position request from RISC
+#endif
+
     ZERO_EMC_POSE(dtg);
     distance_to_go = 0.0;
     prim_progress = 0.0;
