@@ -160,7 +160,8 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
             if self.stat.axis_mask & (1<<i) == 0: continue
             live_axis_count += 1
         self.num_joints = int(inifile.find("TRAJ", "JOINTS") or live_axis_count)
-
+        self.highlight_mode = 'line'
+        self.highlight_mode = inifile.find("DISPLAY", "HIGHLIGHT_MODE")
     def activate(self):
         glcontext = gtk.gtkgl.widget_get_gl_context(self)
         gldrawable = gtk.gtkgl.widget_get_gl_drawable(self)

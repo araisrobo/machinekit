@@ -60,6 +60,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.blocks = []; self.blocks_append = self.blocks.append
         self.block_pos = []
         self.block_feed = 0
+        self.highlight_mode = 'line'
         self.choice = None
         self.feedrate = 1
         self.lo = (0,) * 9
@@ -460,6 +461,7 @@ class GlCanonDraw:
         glLoadIdentity()
 
     def select(self, x, y):
+        selected_line = 0
         if self.canon is None: return
         pmatrix = glGetDoublev(GL_PROJECTION_MATRIX)
         glMatrixMode(GL_PROJECTION)
@@ -490,13 +492,18 @@ class GlCanonDraw:
         if buffer:
             min_depth, max_depth, names = min(buffer)
             self.set_highlight_line(names[0])
+            if self.canon.highlight_mode is 'block':
+                selected_line = self.canon.selected_block
+            else:
+                selected_line = int(names[0])
         else:
             self.set_highlight_line(None)
+            selected_line = None
 
         glMatrixMode(GL_PROJECTION)
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
-
+        return selected_line
     def dlist(self, name, n=1, gen=lambda n: None):
         if name not in self._dlists:
             base = glGenLists(n)
