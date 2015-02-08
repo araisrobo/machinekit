@@ -1149,13 +1149,14 @@ int rtapi_app_main(void)
         /* config encoder scale parameter */
         enc_scale   = atof(enc_scale_str[n]);
         assert (enc_scale > 0);
-        immediate_data = (uint32_t)(enc_scale * FIXED_POINT_SCALE);
+        immediate_data = (int32_t)(enc_scale * FIXED_POINT_SCALE);
         write_mot_param (n, (ENC_SCALE), immediate_data);
         while(wou_flush(&w_param) == -1);
 
         /* unit_pulse_scale per servo_period */
-        immediate_data = (uint32_t)(FIXED_POINT_SCALE * pos_scale * dt);
-        rtapi_print_msg(RTAPI_MSG_DBG, "j[%d] scale(0x%08X)\n", n, immediate_data);
+        immediate_data = (int32_t)(FIXED_POINT_SCALE * pos_scale * dt);
+        rtapi_print_msg(RTAPI_MSG_DBG,
+            "j[%d] pos_scale(%f) scale(0x%08X)\n", n, pos_scale, immediate_data);
         assert(immediate_data != 0);
         write_mot_param (n, (SCALE), immediate_data);
         while(wou_flush(&w_param) == -1);
