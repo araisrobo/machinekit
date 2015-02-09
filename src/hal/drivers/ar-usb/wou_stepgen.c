@@ -1749,7 +1749,6 @@ static void update_freq(void *arg, long period)
             /* in HAL, 若任何一軸的 *stepgen->enable 訊號忘了接，就會造成這個 assertion */
             assert (i == n); // confirm the JCMD_SYNC_CMD is packed with all joints
             i += 1;
-            wou_flush(&w_param);
             wou_pos_cmd = 0;
             sync_cmd = SYNC_JNT | DIR_P | (POS_MASK & wou_pos_cmd);
 
