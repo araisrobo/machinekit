@@ -739,6 +739,11 @@ static int export_joint(int num, joint_hal_t * addr)
 	return retval;
     }
     retval =
+        hal_pin_float_newf(HAL_IN, &(addr->blender_offset), mot_comp_id, "axis.%d.blender-offset", num);
+    if (retval != 0) {
+        return retval;
+    }
+    retval =
 	hal_pin_float_newf(HAL_IN, &(addr->motor_pos_fb), mot_comp_id, "axis.%d.motor-pos-fb", num);
     if (retval != 0) {
 	return retval;
@@ -1079,7 +1084,8 @@ static int init_comm_buffers(void)
 	joint->backlash_corr = 0.0;
 	joint->backlash_filt = 0.0;
 	joint->backlash_vel = 0.0;
-	joint->motor_pos_cmd = 0.0;
+        joint->blender_offset = 0.0;
+        joint->motor_pos_cmd = 0.0;
 	joint->motor_pos_fb = 0.0;
 	joint->pos_fb = 0.0;
 	joint->ferror = 0.0;

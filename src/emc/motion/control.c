@@ -381,7 +381,7 @@ static void process_probe_inputs(void)
                 for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++)
                 {
                     joint = &joints[joint_num];
-                    joint_pos[joint_num] =  joint->probed_pos - (joint->backlash_filt + joint->motor_offset);// + joint->blender_offset);
+                    joint_pos[joint_num] = joint->probed_pos - (joint->backlash_filt + joint->motor_offset + joint->blender_offset);
                 }
                 kinematicsForward(joint_pos, &emcmotStatus->probedPos, &fflags, &iflags);
                 emcmotStatus->probeTripped = 1; // interp_internal.cc: Interp::set_probe_data() #[5070]
@@ -800,6 +800,7 @@ static void process_inputs(void)
         joint->pos_fb = joint->motor_pos_fb -
                 (joint->backlash_filt + joint->motor_offset);
         joint->risc_pos_cmd = *(joint_data->risc_pos_cmd);
+        joint->blender_offset = *(joint_data->blender_offset);
 	/* calculate pos_fb */
 	if (( joint->home_state == HOME_INDEX_SEARCH_WAIT ) &&
 	    ( joint->index_enable == 0 )) {
@@ -1291,7 +1292,7 @@ static void handle_usbmot_sync(void)
             /* point to joint struct */
             joint = &joints[joint_num];
             /* copy risc_pos_cmd feedback */
-            joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset;// - joint->blender_offset;
+            joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset - joint->blender_offset;
             joint->coarse_pos = joint->pos_cmd;
             joint->free_tp.curr_pos = joint->pos_cmd;
             joint->free_tp.pos_cmd = joint->pos_cmd;
@@ -2287,7 +2288,7 @@ static void output_to_hal(void)
 	joint = &joints[joint_num];
 	/* apply backlash and motor offset to output */
 	joint->motor_pos_cmd =
-	    joint->pos_cmd + joint->backlash_filt + joint->motor_offset;
+	    joint->pos_cmd + joint->backlash_filt + joint->motor_offset + joint->blender_offset;
 	/* point to HAL data */
 	joint_data = &(emcmot_hal_data->joint[joint_num]);
 	/* write to HAL pins */

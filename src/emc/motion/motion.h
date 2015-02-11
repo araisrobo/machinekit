@@ -574,7 +574,8 @@ Suggestion: Split this in to an Error and a Status flag register..
 	   not!) */
 	double big_vel;		/* used for "debouncing" velocity */
 
-        double      probed_pos;
+	double blender_offset; /* offset created by realtime component, blender.comp */
+        double probed_pos;
     } emcmot_joint_t;
 
 /* This structure contains only the "status" data associated with

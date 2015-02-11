@@ -83,6 +83,7 @@ typedef struct {
     hal_bit_t *jog_vel_mode;	/* RPI: true for "velocity mode" jogwheel */
     hal_float_t *probed_pos;
     hal_bit_t *usb_ferror_flag;
+    hal_float_t *blender_offset;
 
 } joint_hal_t;
 
