@@ -335,9 +335,15 @@ check_stuff ( "after check_for_faults()" );
 check_stuff ( "after set_operating_mode()" );
     handle_jogwheels();
 check_stuff ( "after handle_jogwheels()" );
+if (emcmotConfig->usbmotEnable) {
+    do_usb_homing_sequence();
+check_stuff ( "after do_homing_sequence()" );
+    do_usb_homing();
+} else {
     do_homing_sequence();
 check_stuff ( "after do_homing_sequence()" );
     do_homing();
+}
 check_stuff ( "after do_homing()" );
     get_pos_cmds(period);
 check_stuff ( "after get_pos_cmds()" );
@@ -797,6 +803,7 @@ static void process_inputs(void)
 	/* copy data from HAL to joint structure */
 	joint->index_enable = *(joint_data->index_enable);
 	joint->motor_pos_fb = *(joint_data->motor_pos_fb);
+        joint->index_pos = *(joint_data->index_pos_pin);  // absolute switch position
         joint->pos_fb = joint->motor_pos_fb -
                 (joint->backlash_filt + joint->motor_offset);
         joint->risc_pos_cmd = *(joint_data->risc_pos_cmd);
@@ -870,6 +877,7 @@ static void process_inputs(void)
 	} else {
 	    SET_JOINT_HOME_SWITCH_FLAG(joint, 0);
 	}
+        joint->home_sw_id = *(joint_data->home_sw_id);  //!< for usb_homing.c
         joint->probed_pos = *(joint_data->probed_pos);
 
 	/* end of read and process joint inputs loop */
@@ -2322,6 +2330,12 @@ static void output_to_hal(void)
 	*(joint_data->f_errored) = GET_JOINT_FERROR_FLAG(joint);
 	*(joint_data->faulted) = GET_JOINT_FAULT_FLAG(joint);
 	*(joint_data->home_state) = joint->home_state;
+        
+        /* for usb_homing.c */
+        *(joint_data->risc_probe_vel) = joint->risc_probe_vel;
+        *(joint_data->risc_probe_dist) = joint->risc_probe_dist;
+        *(joint_data->risc_probe_pin) = joint->risc_probe_pin;
+        *(joint_data->risc_probe_type) = joint->risc_probe_type;
     }
     *(emcmot_hal_data->update_pos_ack) = emcmotStatus->update_pos_ack;
 

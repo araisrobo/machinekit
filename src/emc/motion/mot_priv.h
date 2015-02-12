@@ -82,6 +82,15 @@ typedef struct {
     hal_float_t *jog_scale;	/* RPI: distance to jog on each count */
     hal_bit_t *jog_vel_mode;	/* RPI: true for "velocity mode" jogwheel */
     hal_float_t *probed_pos;
+    
+    /* for usb_homing.c */
+    hal_float_t *risc_probe_vel;	/* OUT */
+    hal_float_t *risc_probe_dist;       /* OUT */
+    hal_s32_t   *risc_probe_pin;	/* OUT */
+    hal_s32_t   *risc_probe_type;	/* OUT */
+    hal_s32_t   *home_sw_id;		/* IN */ 
+    hal_float_t *index_pos_pin; /* RPI: motor index position (absolute motor position count) */
+
     hal_bit_t *usb_ferror_flag;
 
 } joint_hal_t;
@@ -326,6 +335,8 @@ extern int emcmotGetRotaryIsUnlocked(int axis);
 /* homing is no longer in control.c, make functions public */
 extern void do_homing_sequence(void);
 extern void do_homing(void);
+extern void do_usb_homing_sequence(void);
+extern void do_usb_homing(void);
 
 /* loops through the active joints and checks if any are not homed */
 extern int checkAllHomed(void);

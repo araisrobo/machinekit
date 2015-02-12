@@ -380,7 +380,6 @@ typedef struct {
 
     hal_bit_t   *teleop_mode;
     hal_bit_t   *coord_mode;
-    hal_bit_t   *homing;
 
     uint32_t	prev_machine_ctrl;	// num_joints is not included
     hal_bit_t	*machine_on;
@@ -1365,6 +1364,7 @@ static void update_freq(void *arg, long period)
     uint16_t sync_cmd;
     int32_t wou_pos_cmd, integer_pos_cmd;
     uint8_t data[MAX_DSIZE];    // data[]: for wou_cmd()
+    int     homing;
     uint32_t sync_out_data;
     uint32_t tmp;
     int32_t immediate_data = 0;
@@ -1460,12 +1460,19 @@ static void update_freq(void *arg, long period)
      *                                  HOMING  (4)
      *                  // [    0]  MACHINE_ON
      **/
+    
+    stepgen = arg;
+    homing = 0;
+    for (n = 0; n < num_joints; n++) {
+        homing |= *stepgen->homing;
+        stepgen++; /* move on to next channel */
+    }
 
     assert(abs(*machine_control->jog_vel_scale) < 8);
     tmp = (*machine_control->jog_vel_scale << 28)
           | (*machine_control->jog_sel << 8)
           | (*machine_control->motion_state << 4)
-          | (*machine_control->homing << 3)
+          | ( /* *machine_control-> */ homing << 3)
           | (*machine_control->coord_mode << 2)
           | (*machine_control->teleop_mode << 1)
           | (*machine_control->machine_on);
@@ -1489,10 +1496,10 @@ static void update_freq(void *arg, long period)
 
     if (*machine_control->update_pos_ack)
     {
-        uint32_t dbuf[2];
+        int32_t dbuf[2];
         dbuf[0] = RCMD_UPDATE_POS_ACK;
         dbuf[1] = *machine_control->rcmd_seq_num_req;
-        send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), dbuf, 2);
+        send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *)dbuf, 2);
         // Reset update_pos_req after sending a RCMD_UPDATE_POS_ACK packet
         *machine_control->update_pos_req = 0;
     }
@@ -1624,16 +1631,16 @@ static void update_freq(void *arg, long period)
 
     if((*machine_control->pso_req == 1))
     {	// PSO
-    	uint32_t dbuf[3];
+    	int32_t dbuf[3];
     	double delta_pos;
     	dbuf[0] = RCMD_PSO;
     	delta_pos = *machine_control->pso_pos - stepgen[*machine_control->pso_joint].prev_pos_cmd; // delta PSO position, unit: pulse
-    	dbuf[1] = (int32_t)(delta_pos * (stepgen[*machine_control->pso_joint].pos_scale));
+    	dbuf[1] = (delta_pos * (stepgen[*machine_control->pso_joint].pos_scale));
     	dbuf[2] = ((*machine_control->pso_ticks & 0xFFFF) << 16) |	 // dbuf[2][31:16]
     			(0x1 << 15) | 			 							 // force pso_en to 1
     			((*machine_control->pso_mode & 0x3 ) << 12) |		 // dbuf[2][15:12]
     			((*machine_control->pso_joint & 0xF ) << 8);		 // dbuf[2][11: 8]
-    	send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), dbuf, 3);
+    	send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *)dbuf, 3);
 //    	printf("wou_stepgen.c: pso_req(%d) pso_ticks(%d) pso_mode(%d) pso_joint(%d) \n",
 //    			*machine_control->pso_req, *machine_control->pso_ticks,
 //    			*machine_control->pso_mode, *machine_control->pso_joint);
@@ -1665,12 +1672,12 @@ static void update_freq(void *arg, long period)
         }
         if(*stepgen->jog_vel != stepgen->prev_jog_vel)
         {
-        	uint32_t dbuf[3];
+        	int32_t dbuf[3];
         	dbuf[0] = RCMD_REMOTE_JOG;
             // jog-switch-positive
             dbuf[1] = n & 0xF ;
             dbuf[2] = *stepgen->jog_vel * stepgen->pos_scale * dt * FIXED_POINT_SCALE;       // fixed-point 16.16
-        	send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), dbuf, 3);
+        	send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *)dbuf, 3);
         	stepgen->prev_jog_vel =  *stepgen->jog_vel;
         }
         if (*stepgen->bypass_lsp != stepgen->prev_bypass_lsp)
@@ -1805,21 +1812,21 @@ static void update_freq(void *arg, long period)
 
         if(*stepgen->risc_probe_vel == 0)
             stepgen->risc_probing = 0;
-
+        
         if((*stepgen->homing) &&
            (*stepgen->risc_probe_vel != 0) &&
            (stepgen->risc_probing == 0) &&
            (*machine_control->rcmd_state == RCMD_IDLE))
         {
             // do RISC_PROBE
-            uint32_t dbuf[4];
+            int32_t dbuf[4];
             dbuf[0] = RCMD_RISC_PROBE;
             dbuf[1] = n |   // joint_num
                         (*stepgen->risc_probe_type << 8) |
                         (*stepgen->risc_probe_pin << 16);
             dbuf[2] = *stepgen->risc_probe_vel * stepgen->pos_scale * dt * FIXED_POINT_SCALE;       // fixed-point 16.16
             dbuf[3] = *stepgen->risc_probe_dist * stepgen->pos_scale;                               // distance in pulse
-            send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), dbuf, 4);
+            send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *)dbuf, 4);
             assert(*stepgen->risc_probe_pin < 64);
             assert(dbuf[2] != 0);
             stepgen->risc_probing = 1;
@@ -1829,7 +1836,7 @@ static void update_freq(void *arg, long period)
         if((*machine_control->probing != machine_control->prev_probing))
         {
             // HOST_PROBING G38.X
-            uint32_t dbuf[4];
+            int32_t dbuf[4];
             dbuf[0] = RCMD_HOST_PROBE;
             dbuf[1] = (*machine_control->trigger_level & 0x3FFF) |
                         ((*machine_control->trigger_din & 0xFF) << 14) |
@@ -1842,7 +1849,7 @@ static void update_freq(void *arg, long period)
 //            		*machine_control->trigger_level, *machine_control->trigger_din,
 //            		*machine_control->trigger_ain, *machine_control->trigger_type,
 //            		*machine_control->trigger_cond, *machine_control->probing);
-            send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), dbuf, 2);
+            send_sync_cmd ((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *)dbuf, 2);
             machine_control->prev_probing = *machine_control->probing;
         }
 
@@ -2443,11 +2450,6 @@ static int export_machine_control(machine_control_t * machine_control)
             "wou.motion.coord-mode");
     if (retval != 0) { return retval; }
     *(machine_control->coord_mode) = 0;
-
-    retval = hal_pin_bit_newf(HAL_IN, &(machine_control->homing), comp_id,
-            "wou.motion.homing");
-    if (retval != 0) { return retval; }
-    *(machine_control->homing) = 0;
 
     // for RISC_CMD REQ and ACK
     retval = hal_pin_bit_newf(HAL_OUT, &(machine_control->update_pos_req), comp_id,

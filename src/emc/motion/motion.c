@@ -691,7 +691,8 @@ static int init_hal_io(void)
 	/* FIXME - struct members are in a state of flux - make sure to
 	   update this - most won't need initing anyway */
 	*(joint_data->amp_enable) = 0;
-	*(joint_data->home_state) = 0;
+	*(joint_data->home_state) = HOME_IDLE;
+        *(joint_data->home_sw_id) = -1; //!< for usb_homing.c        
 	/* We'll init the index model to EXT_ENCODER_INDEX_MODEL_RAW for now,
 	   because it is always supported. */
     }
@@ -896,6 +897,34 @@ static int export_joint(int num, joint_hal_t * addr)
     if (retval != 0) {
         return retval;
     }
+    
+    /* for usb_homing.c */
+    retval = hal_pin_float_newf(HAL_OUT, &(addr->risc_probe_vel), mot_comp_id, "axis.%d.risc-probe-vel", num);
+    if (retval != 0) {
+        return retval;
+    }
+    retval = hal_pin_float_newf(HAL_OUT, &(addr->risc_probe_dist), mot_comp_id, "axis.%d.risc-probe-dist", num);
+    if (retval != 0) {
+        return retval;
+    }
+    retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_probe_pin), mot_comp_id, "axis.%d.risc-probe-pin", num);
+    if (retval != 0) {
+        return retval;
+    }
+    retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_probe_type), mot_comp_id, "axis.%d.risc-probe-type", num);
+    if (retval != 0) {
+        return retval;
+    }
+    retval = hal_pin_s32_newf(HAL_IN, &(addr->home_sw_id), mot_comp_id, "axis.%d.home-sw-id", num);
+    if (retval != 0) {
+        return retval;
+    }
+    retval = hal_pin_float_newf(HAL_IN, &(addr->index_pos_pin), mot_comp_id, "axis.%d.index-pos", num);
+    if (retval != 0) {
+        return retval;
+    }
+
+    /* for usb_motion */
     retval = hal_pin_bit_newf(HAL_IN, &(addr->usb_ferror_flag), mot_comp_id, "axis.%d.usb-ferror-flag", num);
     if (retval != 0) {
         return retval;
@@ -1086,12 +1115,18 @@ static int init_comm_buffers(void)
 	joint->ferror_limit = joint->min_ferror;
 	joint->ferror_high_mark = 0.0;
 
+        /* init usb_homing info */
+        joint->risc_probe_vel = 0;
+        joint->risc_probe_dist = 0;
+        joint->risc_probe_pin = -1;
+        joint->risc_probe_type = -1;
+
 	/* init internal info */
 	cubicInit(&(joint->cubic));
 
 	/* init misc other stuff in joint structure */
 	joint->big_vel = 10.0 * joint->vel_limit;
-	joint->home_state = 0;
+	joint->home_state = HOME_IDLE;
 
 	/* init joint flags (reduntant, since flag = 0 */
 
