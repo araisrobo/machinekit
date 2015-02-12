@@ -92,6 +92,7 @@ typedef struct {
     hal_float_t *index_pos_pin; /* RPI: motor index position (absolute motor position count) */
 
     hal_bit_t *usb_ferror_flag;
+    hal_float_t *blender_offset;
 
 } joint_hal_t;
 

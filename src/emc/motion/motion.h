@@ -591,6 +591,7 @@ Suggestion: Split this in to an Error and a Status flag register..
         int     id;                     /* joint-id */
         double  index_pos;     	 	/* motor index position in absolute motor pulse counts */
 
+	double  blender_offset;         /* offset created by realtime component, blender.comp */
     } emcmot_joint_t;
 
 /* This structure contains only the "status" data associated with
