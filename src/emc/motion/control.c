@@ -1877,17 +1877,20 @@ static void get_pos_cmds(long period)
 	joint = &joints[joint_num];
 	/* skip inactive or unhomed axes */
 	if (GET_JOINT_ACTIVE_FLAG(joint) && GET_JOINT_HOMED_FLAG(joint)) {
-	    /* check for soft limits */
-	    if (joint->pos_cmd > joint->max_pos_limit) {
-		onlimit = 1;
-                if (!emcmotStatus->on_soft_limit)
-                    reportError(_("Exceeded positive soft limit on joint %d"), joint_num);
-	    }
-	    if (joint->pos_cmd < joint->min_pos_limit) {
-		onlimit = 1;
-                if (!emcmotStatus->on_soft_limit)
-                    reportError(_("Exceeded negative soft limit on joint %d"), joint_num);
-	    }
+	    /* bypass soft limit checking if both max and min pos_limit are 0 */ 
+            if ((joint->max_pos_limit != 0) || (joint->min_pos_limit != 0)) {
+                /* check for soft limits */
+                if (joint->pos_cmd > joint->max_pos_limit) {
+                    onlimit = 1;
+                    if (!emcmotStatus->on_soft_limit)
+                        reportError(_("Exceeded positive soft limit on joint %d"), joint_num);
+                }
+                if (joint->pos_cmd < joint->min_pos_limit) {
+                    onlimit = 1;
+                    if (!emcmotStatus->on_soft_limit)
+                        reportError(_("Exceeded negative soft limit on joint %d"), joint_num);
+                }
+            }
 	}
     }
     if ( onlimit ) {
