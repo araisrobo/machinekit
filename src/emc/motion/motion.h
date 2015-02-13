@@ -485,6 +485,9 @@ Suggestion: Split this in to an Error and a Status flag register..
 #define HOME_USE_INDEX		2
 #define HOME_IS_SHARED		4
 #define HOME_UNLOCK_FIRST       8
+/* flags for usb_homing */
+#define HOME_GANTRY_MASTER      0x10    // gantry_master(1) gantry_slave(0)
+#define HOME_GANTRY_JOINT       0x20    // gantry_master/gantry_slave:(1), others:(0)
 
 /* flags for enabling spindle scaling, feed scaling,
    adaptive feed, and feed hold */
@@ -573,9 +576,22 @@ Suggestion: Split this in to an Error and a Status flag register..
 	/* stuff moved from the other structs that might be needed (or might
 	   not!) */
 	double big_vel;		/* used for "debouncing" velocity */
+        
+        double  probed_pos;
+        
+        /**
+         * for usb_homing.c
+         **/
+        home_state_t prev_home_state;   /* state machine for homing */
+        double  risc_probe_vel; 	/* velocity for RISC probing */
+        double  risc_probe_dist;
+        int     risc_probe_pin;
+        int     risc_probe_type;
+        int     home_sw_id;
+        int     id;                     /* joint-id */
+        double  index_pos;     	 	/* motor index position in absolute motor pulse counts */
 
-	double blender_offset; /* offset created by realtime component, blender.comp */
-        double probed_pos;
+	double  blender_offset;         /* offset created by realtime component, blender.comp */
     } emcmot_joint_t;
 
 /* This structure contains only the "status" data associated with
