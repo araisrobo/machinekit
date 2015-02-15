@@ -24,6 +24,8 @@ import linuxcnc
 import array
 import gcode
 
+from numpy import linalg as LA
+
 def minmax(*args):
     return min(*args), max(*args)
 
@@ -46,9 +48,9 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.traverse = []; self.traverse_append = self.traverse.append
         # feed list - [line number, [start position], [end position], feedrate, [tlo x, tlo y, tlo z]]
         self.feed = []; self.feed_append = self.feed.append
-        # feed info list - [line number, [start position], [end position]]
+        # feed info list - [line number, [start position], [end position], length]
         self.feed_info = []; self.feed_info_append = self.feed_info.append
-        # all_traverse list - [line number , [start position], [end position], feedrate]
+        # all_traverse list - [line number , [start position], [end position], feedrate, length]
         self.all_traverse = []; self.all_traverse_append = self.all_traverse.append
         # arcfeed list - [line number, [start position], [end position], feedrate, [tlo x, tlo y, tlo z]]
         self.arcfeed = []; self.arcfeed_append = self.arcfeed.append
@@ -200,9 +202,19 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
     def straight_traverse(self, x,y,z, a,b,c, u, v, w):
         if self.suppress > 0: return
         l = self.rotate_and_translate(x,y,z,a,b,c,u,v,w)
+        # calculate length
+        length_vector = []
+        length = 0.0
+        for i in range (0, (len(l)-1)):
+            length_vector.append(l[i] - self.lo[i])
+        length = LA.norm(length_vector)
+        
         if not self.first_move:
                 self.traverse_append((self.lineno, self.lo, l, [self.xo, self.yo, self.zo]))
-        self.all_traverse_append([self.lineno, self.lo, l, self.feedrate])
+        
+        self.traverse_append((self.lineno, self.lo, l, [self.xo, self.yo, self.zo]))
+        self.all_traverse_append([self.lineno, self.lo, l, self.feedrate, length])
+        self.path.append(('travers', self.lineno, self.lo, l, self.feedrate, length))
         self.lo = l
 
     def rigid_tap(self, x, y, z):
@@ -231,18 +243,36 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         feedrate = self.feedrate
         to = [self.xo, self.yo, self.zo]
         append = self.arcfeed_append
+        # calculate length
+        length_vector = []
+        length = 0.0
+        
         for l in segs:
             append((lineno, lo, l, feedrate, to))
+            for i in range (0, (len(l)-1)):
+                length_vector.append(l[i] - self.lo[i])
+            length = LA.norm(length_vector)
             lo = l
         self.lo = lo
+        self.arc_info_append([lineno,[0.0],0,0,length,0])
+        self.path.append(('arc', lineno,[0.0],0,[0],length))
 
     def straight_feed(self, x,y,z, a,b,c, u, v, w):
         if self.suppress > 0: return
         self.first_move = False
         l = self.rotate_and_translate(x,y,z,a,b,c,u,v,w)
         self.feed_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo]))
+        
+        # calculate length
+        length_vector = []
+        length = 0.0
+        for i in range (0, (len(l)-1)):
+            length_vector.append(l[i] - self.lo[i])
+        length = LA.norm(length_vector)
+        
         self.lo = l
-        self.feed_info_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo]))
+        self.feed_info_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo], length))
+        self.path.append(('feed', self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo], length))
 
     straight_probe = straight_feed
 
@@ -264,7 +294,6 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.blocks_append((self.lineno, self.block_pos,self.block_feed))
         self.block_pos = []
         self.pierce += 1
-        self.path.append(('M5', self.lineno))    
 
     def get_last_pos_of_prog(self):
         if len(self.all_traverse) > 0: 

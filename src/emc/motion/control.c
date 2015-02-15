@@ -335,9 +335,15 @@ check_stuff ( "after check_for_faults()" );
 check_stuff ( "after set_operating_mode()" );
     handle_jogwheels();
 check_stuff ( "after handle_jogwheels()" );
+if (emcmotConfig->usbmotEnable) {
+    do_usb_homing_sequence();
+check_stuff ( "after do_homing_sequence()" );
+    do_usb_homing();
+} else {
     do_homing_sequence();
 check_stuff ( "after do_homing_sequence()" );
     do_homing();
+}
 check_stuff ( "after do_homing()" );
     get_pos_cmds(period);
 check_stuff ( "after get_pos_cmds()" );
@@ -381,7 +387,7 @@ static void process_probe_inputs(void)
                 for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++)
                 {
                     joint = &joints[joint_num];
-                    joint_pos[joint_num] =  joint->probed_pos - (joint->backlash_filt + joint->motor_offset);// + joint->blender_offset);
+                    joint_pos[joint_num] = joint->probed_pos - (joint->backlash_filt + joint->motor_offset + joint->blender_offset);
                 }
                 kinematicsForward(joint_pos, &emcmotStatus->probedPos, &fflags, &iflags);
                 emcmotStatus->probeTripped = 1; // interp_internal.cc: Interp::set_probe_data() #[5070]
@@ -797,9 +803,11 @@ static void process_inputs(void)
 	/* copy data from HAL to joint structure */
 	joint->index_enable = *(joint_data->index_enable);
 	joint->motor_pos_fb = *(joint_data->motor_pos_fb);
+        joint->index_pos = *(joint_data->index_pos_pin);  // absolute switch position
         joint->pos_fb = joint->motor_pos_fb -
                 (joint->backlash_filt + joint->motor_offset);
         joint->risc_pos_cmd = *(joint_data->risc_pos_cmd);
+        joint->blender_offset = *(joint_data->blender_offset);
 	/* calculate pos_fb */
 	if (( joint->home_state == HOME_INDEX_SEARCH_WAIT ) &&
 	    ( joint->index_enable == 0 )) {
@@ -870,6 +878,7 @@ static void process_inputs(void)
 	} else {
 	    SET_JOINT_HOME_SWITCH_FLAG(joint, 0);
 	}
+        joint->home_sw_id = *(joint_data->home_sw_id);  //!< for usb_homing.c
         joint->probed_pos = *(joint_data->probed_pos);
 
 	/* end of read and process joint inputs loop */
@@ -1291,7 +1300,7 @@ static void handle_usbmot_sync(void)
             /* point to joint struct */
             joint = &joints[joint_num];
             /* copy risc_pos_cmd feedback */
-            joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset;// - joint->blender_offset;
+            joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset - joint->blender_offset;
             joint->coarse_pos = joint->pos_cmd;
             joint->free_tp.curr_pos = joint->pos_cmd;
             joint->free_tp.pos_cmd = joint->pos_cmd;
@@ -1868,17 +1877,20 @@ static void get_pos_cmds(long period)
 	joint = &joints[joint_num];
 	/* skip inactive or unhomed axes */
 	if (GET_JOINT_ACTIVE_FLAG(joint) && GET_JOINT_HOMED_FLAG(joint)) {
-	    /* check for soft limits */
-	    if (joint->pos_cmd > joint->max_pos_limit) {
-		onlimit = 1;
-                if (!emcmotStatus->on_soft_limit)
-                    reportError(_("Exceeded positive soft limit on joint %d"), joint_num);
-	    }
-	    if (joint->pos_cmd < joint->min_pos_limit) {
-		onlimit = 1;
-                if (!emcmotStatus->on_soft_limit)
-                    reportError(_("Exceeded negative soft limit on joint %d"), joint_num);
-	    }
+	    /* bypass soft limit checking if both max and min pos_limit are 0 */ 
+            if ((joint->max_pos_limit != 0) || (joint->min_pos_limit != 0)) {
+                /* check for soft limits */
+                if (joint->pos_cmd > joint->max_pos_limit) {
+                    onlimit = 1;
+                    if (!emcmotStatus->on_soft_limit)
+                        reportError(_("Exceeded positive soft limit on joint %d"), joint_num);
+                }
+                if (joint->pos_cmd < joint->min_pos_limit) {
+                    onlimit = 1;
+                    if (!emcmotStatus->on_soft_limit)
+                        reportError(_("Exceeded negative soft limit on joint %d"), joint_num);
+                }
+            }
 	}
     }
     if ( onlimit ) {
@@ -2287,7 +2299,7 @@ static void output_to_hal(void)
 	joint = &joints[joint_num];
 	/* apply backlash and motor offset to output */
 	joint->motor_pos_cmd =
-	    joint->pos_cmd + joint->backlash_filt + joint->motor_offset;
+	    joint->pos_cmd + joint->backlash_filt + joint->motor_offset + joint->blender_offset;
 	/* point to HAL data */
 	joint_data = &(emcmot_hal_data->joint[joint_num]);
 	/* write to HAL pins */
@@ -2322,6 +2334,12 @@ static void output_to_hal(void)
 	*(joint_data->f_errored) = GET_JOINT_FERROR_FLAG(joint);
 	*(joint_data->faulted) = GET_JOINT_FAULT_FLAG(joint);
 	*(joint_data->home_state) = joint->home_state;
+        
+        /* for usb_homing.c */
+        *(joint_data->risc_probe_vel) = joint->risc_probe_vel;
+        *(joint_data->risc_probe_dist) = joint->risc_probe_dist;
+        *(joint_data->risc_probe_pin) = joint->risc_probe_pin;
+        *(joint_data->risc_probe_type) = joint->risc_probe_type;
     }
     *(emcmot_hal_data->update_pos_ack) = emcmotStatus->update_pos_ack;
 
