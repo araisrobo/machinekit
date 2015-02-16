@@ -241,19 +241,24 @@ int inRange(EmcPose pos, int id, char *move_type)
 	    /* if joint is not active, don't even look at its limits */
 	    continue;
 	}
-	if (joint_pos[joint_num] > joint->max_pos_limit) {
-            in_range = 0;
-	    if (move_type != NULL)
-		reportError(_("%s move on line %d would exceed joint %d's positive limit"),
-			    move_type, id, joint_num);
-        }
 
-        if (joint_pos[joint_num] < joint->min_pos_limit) {
-	    in_range = 0;
-	    if (move_type != NULL)
-		reportError(_("%s move on line %d would exceed joint %d's negative limit"),
-			    move_type, id, joint_num);
-	}
+        /* bypass soft limit checking if both max and min pos_limit are 0 */ 
+        if ((joint->max_pos_limit != 0) || (joint->min_pos_limit != 0)) {
+
+	    if (joint_pos[joint_num] > joint->max_pos_limit) {
+                in_range = 0;
+	        if (move_type != NULL)
+	    	reportError(_("%s move on line %d would exceed joint %d's positive limit"),
+	    		    move_type, id, joint_num);
+            }
+
+            if (joint_pos[joint_num] < joint->min_pos_limit) {
+	        in_range = 0;
+	        if (move_type != NULL)
+	    	reportError(_("%s move on line %d would exceed joint %d's negative limit"),
+	    		    move_type, id, joint_num);
+	    }
+        }
     }
     return in_range;
 }

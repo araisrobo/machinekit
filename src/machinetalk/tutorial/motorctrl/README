@@ -39,7 +39,7 @@ Beware - this is the old glade version (I think version must be < 3.0.8)
 to see the websockets/JSON proxy in action:
 ===========================================
 
-- connect from a web browser to http://<ip address>:8080/index.html
+- connect from a web browser to http://<ip address>:4711/index.html
 
   this should show a choice of group, remote component and logging demo
 
@@ -59,7 +59,7 @@ the machinekit http service automatically - in Safari you'll find it under the '
 
 - to do a similar websocket log connection from a python script, run
 
-  python websockets-client.py "ws://<ip address>:8080/?connect=machinekit://log&type=sub&subscribe=log&policy=json"
+  python websockets-client.py "ws://<ip address>:4711/?connect=machinekit://log&type=sub&subscribe=log&policy=json"
 
 
 You might have to install the websocket-client from pypi for this to work (https://pypi.python.org/pypi/websocket-client/), e.g.
