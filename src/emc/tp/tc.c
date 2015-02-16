@@ -169,6 +169,7 @@ int pmCircleTangentVector(PmCircle const * const circle,
 
     //Normalize final output vector
     pmCartUnit(&uTan, out);
+
     return 0;
 }
 
@@ -398,14 +399,17 @@ int tcFindBlendTolerance(TC_STRUCT const * const prev_tc,
         TC_STRUCT const * const tc, double * const T_blend, double * const nominal_tolerance)
 {
     const double tolerance_ratio = 0.25;
+    double denom_for_reqvel = tc->reqvel * tc->cycle_time * tc->reqvel * tc->cycle_time / tc->maxaccel;
     double T1 = prev_tc->tolerance;
     double T2 = tc->tolerance;
     //Detect zero tolerance = no tolerance and force to reasonable maximum
     if (T1 == 0) {
-        T1 = prev_tc->nominal_length * tolerance_ratio;
+//        T1 = prev_tc->nominal_length * tolerance_ratio;
+        T1 = denom_for_reqvel;
     }
     if (T2 == 0) {
-        T2 = tc->nominal_length * tolerance_ratio;
+//        T2 = tc->nominal_length * tolerance_ratio;
+        T2 = denom_for_reqvel;
     }
     *nominal_tolerance = fmin(T1,T2);
     //Blend tolerance is the limit of what we can reach by blending alone,
