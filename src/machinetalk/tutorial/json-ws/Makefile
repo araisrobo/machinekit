@@ -9,7 +9,9 @@ clean:
 
 CXXFLAGS := -std=c++0x -g -fPIC -Wall		\
 	-I../protobuf 		\
-	-I../../../../include \
+	-I../../../../include   \
+	-I../../webtalk		\
+	-I../../../rtapi	\
 	$(PROTOBUF_CFLAGS) 	\
 	$(CZMQ_CFLAGS) 		\
 	$(JANSSON_CFLAGS)	\
