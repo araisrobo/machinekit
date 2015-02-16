@@ -140,6 +140,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
     def next_line(self, st):
         self.state = st
         self.lineno = self.state.sequence_number
+        self.call_level = self.state.call_level
 
     def draw_lines(self, lines, for_selection, j=0, geometry=None):
         return linuxcnc.draw_lines(geometry or self.geometry, lines, for_selection)
@@ -214,7 +215,8 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         
         self.traverse_append((self.lineno, self.lo, l, [self.xo, self.yo, self.zo]))
         self.all_traverse_append([self.lineno, self.lo, l, self.feedrate, length])
-        self.path.append(('travers', self.lineno, self.lo, l, self.feedrate, length))
+#         if (self.call_level == 0):
+#             self.path.append(('travers', self.lineno, self.lo, l, self.feedrate, length))
         self.lo = l
 
     def rigid_tap(self, x, y, z):
@@ -246,16 +248,21 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         # calculate length
         length_vector = []
         length = 0.0
-        
+
         for l in segs:
             append((lineno, lo, l, feedrate, to))
+            # calculate the length from lo to l
             for i in range (0, (len(l)-1)):
-                length_vector.append(l[i] - self.lo[i])
-            length = LA.norm(length_vector)
+                length_vector.append(l[i] - lo[i])
+            length = length + LA.norm(length_vector)
+            length_vector = []
             lo = l
+        # print "arc length is", length  
+        
         self.lo = lo
         self.arc_info_append([lineno,[0.0],0,0,length,0])
-        self.path.append(('arc', lineno,[0.0],0,[0],length))
+        if (self.call_level == 0):
+            self.path.append(('arc', lineno,[0.0],0,[0],length))
 
     def straight_feed(self, x,y,z, a,b,c, u, v, w):
         if self.suppress > 0: return
@@ -272,7 +279,8 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         
         self.lo = l
         self.feed_info_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo], length))
-        self.path.append(('feed', self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo], length))
+        if (self.call_level == 0):
+            self.path.append(('feed', self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo], length))
 
     straight_probe = straight_feed
 
