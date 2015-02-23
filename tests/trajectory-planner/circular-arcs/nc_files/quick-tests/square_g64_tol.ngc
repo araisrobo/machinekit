@@ -1,0 +1,10 @@
+; test G64 line-line blending with tolerance constrain
+G21 G90 G64 P0.1
+
+F2500
+G1 X0 Y0 Z0
+G1 X25 
+Y25
+X0
+Y0
+M2
