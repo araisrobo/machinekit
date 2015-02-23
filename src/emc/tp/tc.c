@@ -399,24 +399,22 @@ int tcFindBlendTolerance(TC_STRUCT const * const prev_tc,
         TC_STRUCT const * const tc, double * const T_blend, double * const nominal_tolerance)
 {
     const double tolerance_ratio = 0.25;
-    double denom_for_reqvel = tc->reqvel * tc->cycle_time * tc->reqvel * tc->cycle_time / tc->maxaccel;
     double T1 = prev_tc->tolerance;
     double T2 = tc->tolerance;
     //Detect zero tolerance = no tolerance and force to reasonable maximum
     if (T1 == 0) {
-//        T1 = prev_tc->nominal_length * tolerance_ratio;
-        T1 = denom_for_reqvel;
+        /* calculate MAX arc radius based on request-velocity of prev_tc */
+        T1 = prev_tc->reqvel * prev_tc->cycle_time * prev_tc->reqvel * prev_tc->cycle_time / prev_tc->maxaccel;
     }
     if (T2 == 0) {
-//        T2 = tc->nominal_length * tolerance_ratio;
-        T2 = denom_for_reqvel;
+        /* calculate MAX arc radius based on request-velocity of tc */
+        T2 = tc->reqvel * tc->cycle_time * tc->reqvel * tc->cycle_time / tc->maxaccel;
     }
     *nominal_tolerance = fmin(T1,T2);
     //Blend tolerance is the limit of what we can reach by blending alone,
     //consuming half a segment or less (parabolic equivalent)
-    double blend_tolerance = fmin(fmin(*nominal_tolerance, 
-                prev_tc->nominal_length * tolerance_ratio),
-            tc->nominal_length * tolerance_ratio);
+    double blend_tolerance = fmin(fmin(*nominal_tolerance, prev_tc->nominal_length * tolerance_ratio),
+                                  tc->nominal_length * tolerance_ratio);
     *T_blend = blend_tolerance;
     return 0;
 }
@@ -521,6 +519,11 @@ int tcSetupMotion(TC_STRUCT * const tc,
         double ini_maxjerk,
         double cycle_time)
 {
+
+    if (ini_maxjerk == 0) {
+        rtapi_print_msg(RTAPI_MSG_WARN, "jerk is not provided or jerk is 0\n");
+        ini_maxjerk = 1e99; //!< force JERK to unlimited
+    }
 
     tc->jerk = ini_maxjerk * cycle_time * cycle_time * cycle_time;      // unit: dt^3
 
