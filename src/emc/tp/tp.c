@@ -734,7 +734,7 @@ STATIC int tpInitBlendArcFromPrev(TP_STRUCT const * const tp, TC_STRUCT const * 
             vel,
             ini_maxvel,
             acc,
-            0,
+            0,  //!< will update blend_tc->jrek at next step
             tp->cycleTime);
     // TODO: confirm if we should calculate JERK for BLENDER
     blend_tc->jerk = prev_line_tc->jerk;
@@ -1351,11 +1351,6 @@ STATIC int tpSetupSyncedIO(TP_STRUCT * const tp, TC_STRUCT * const tc) {
 int tpAddRigidTap(TP_STRUCT * const tp, EmcPose end, double vel, double ini_maxvel,
         double acc, unsigned char enables)
 {
-//    if (ini_maxjerk == 0) {
-//        rtapi_print_msg(RTAPI_MSG_WARN, "jerk is not provided or jerk is 0\n");
-//        ini_maxjerk = 1e99; //!< force JERK to unlimited
-//    }
-
     if (tpErrorCheck(tp)) {
         return TP_ERR_FAIL;
     }
@@ -1431,11 +1426,6 @@ STATIC blend_type_t tpCheckBlendArcType(TP_STRUCT const * const tp,
         return BLEND_NONE;
     }
 
-//    if (tc->finalized || prev_tc->finalized) {
-//        tp_debug_print("Can't create blend when segment lengths are finalized\n");
-//        return BLEND_NONE;
-//    }
-
     tp_debug_print("Motion types: prev_tc = %u, tc = %u\n",
             prev_tc->motion_type,tc->motion_type);
     //If not linear blends, we can't easily compute an arc
@@ -1451,49 +1441,6 @@ STATIC blend_type_t tpCheckBlendArcType(TP_STRUCT const * const tp,
         return BLEND_NONE;
     }
 }
-
-
-/**
- * Based on the nth and (n-1)th segment, find a safe final velocity for the (n-1)th segment.
- * This function also caps the target velocity if velocity ramping is enabled. If we
- * don't do this, then the linear segments (with higher tangential
- * acceleration) will speed up and slow down to reach their target velocity,
- * creating "humps" in the velocity profile.
- */
-STATIC int tpComputeOptimalVelocity(TP_STRUCT const * const tp, TC_STRUCT * const tc, TC_STRUCT * const prev1_tc) {
-    //Calculate the maximum starting velocity vs_back of segment tc, given the
-    //trajectory parameters
-    double acc_this = tpGetScaledAccel(tp, tc);
-
-    // Find the reachable velocity of tc, moving backwards in time
-    double vs_back = pmSqrt(pmSq(tc->finalvel) + 2.0 * acc_this * tc->target);
-    // Find the reachable velocity of prev1_tc, moving forwards in time
-
-    double vf_limit_this = tc->maxvel;
-    //Limit the PREVIOUS velocity by how much we can overshoot into
-    double vf_limit_prev = prev1_tc->maxvel;
-    double vf_limit = fmin(vf_limit_this, vf_limit_prev);
-
-    if (vs_back >= vf_limit ) {
-        //If we've hit the requested velocity, then prev_tc is definitely a "peak"
-        vs_back = vf_limit;
-        prev1_tc->optimization_state = TC_OPTIM_AT_MAX;
-        tp_debug_print("found peak due to v_limit\n");
-    }
-
-    //Limit tc's target velocity to avoid creating "humps" in the velocity profile
-    prev1_tc->finalvel = vs_back;
-
-    //Reduce max velocity to match sample rate
-    double sample_maxvel = tc->target / (tp->cycleTime * TP_MIN_SEGMENT_CYCLES);
-    tc->maxvel = fmin(tc->maxvel, sample_maxvel);
-
-    tp_info_print(" prev1_tc-> fv = %f, tc->fv = %f, capped target = %f\n",
-            prev1_tc->finalvel, tc->finalvel, tc->target_vel);
-
-    return TP_ERR_OK;
-}
-
 
 /**
  * Do "rising tide" optimization to update lookahead_target length for each
@@ -1534,29 +1481,25 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
         // stop optimizing if we hit a non-tangent segment (final velocity
         // stays zero)
         if (prev1_tc->term_cond != TC_TERM_COND_TANGENT) {
+            prev1_tc->lookahead_target = 0;
             tp_debug_print("Found non-tangent segment, stopping optimization\n");
             return TP_ERR_OK;
         }
 
-//        //Abort if a segment is already in progress, so that we don't step on
-//        //split cycle calculation
-//        if (prev1_tc->progress>0) {
-//            tp_debug_print("segment %d already started, progress is %f!\n",
-//                    ind-1, prev1_tc->progress);
-//            return TP_ERR_OK;
-//        }
-        prev1_tc->lookahead_target = tc->target + tc->lookahead_target;
-        tp_info_print("  current term = %u, type = %u, id = %u, accel_mode = %d target(%f) lookahead(%f)\n",
-                tc->term_cond, tc->motion_type, tc->id, tc->accel_mode, tc->target, tc->lookahead_target);
-        tp_info_print("  prev term = %u, type = %u, id = %u, accel_mode = %d target(%f) lookahead(%f)\n",
-                prev1_tc->term_cond, prev1_tc->motion_type, prev1_tc->id, prev1_tc->accel_mode, tc->target, tc->lookahead_target);
+        // for circular motion, its maxvel is limited by tangential velocity
+        if (((tc->motion_type == TC_CIRCULAR) || (tc->motion_type == TC_SPHERICAL)) &&
+            ((emcmotStatus->net_feed_scale * tc->reqvel * tc->cycle_time) > tc->maxvel))
+        {   // sharp arc that is not allowed for requested-velocity
+            prev1_tc->lookahead_target = tc->target;
+            tp_debug_print("Found sharp arc, stopping optimization\n");
+            return TP_ERR_OK;
+        }
 
-//        if (tc->atspeed) {
-//            //Assume worst case that we have a stop at this point. This may cause a
-//            //slight hiccup, but the alternative is a sudden hard stop.
-//            tp_debug_print("Found atspeed at id %d\n",tc->id);
-//            tc->finalvel = 0.0;
-//        }
+        prev1_tc->lookahead_target = tc->target + tc->lookahead_target;
+        tp_info_print("  current term = %u, motion_type = %u, id = %u, accel_mode = %d target(%f) lookahead(%f)\n",
+                tc->term_cond, tc->motion_type, tc->id, tc->accel_mode, tc->target, tc->lookahead_target);
+        tp_info_print("  prev term = %u, motion_type = %u, id = %u, accel_mode = %d target(%f) lookahead(%f)\n",
+                prev1_tc->term_cond, prev1_tc->motion_type, prev1_tc->id, prev1_tc->accel_mode, tc->target, tc->lookahead_target);
 
 //        tpComputeOptimalVelocity(tp, tc, prev1_tc);
 //
@@ -1731,11 +1674,6 @@ STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc) {
 int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double vel, double
         ini_maxvel, double acc, double ini_maxjerk, unsigned char enables, char atspeed, int indexrotary)
 {
-
-    if (ini_maxjerk == 0) {
-        rtapi_print_msg(RTAPI_MSG_WARN, "jerk is not provided or jerk is 0\n");
-        ini_maxjerk = 1e99; //!< force JERK to unlimited
-    }
     if (tpErrorCheck(tp) < 0) {
         return TP_ERR_FAIL;
     }
@@ -1817,11 +1755,6 @@ int tpAddCircle(TP_STRUCT * const tp,
         unsigned char enables,
         char atspeed)
 {
-    if (ini_maxjerk == 0) {
-        rtapi_print_msg(RTAPI_MSG_WARN, "jerk is not provided or jerk is 0\n");
-        ini_maxjerk = 1e99; //!< force JERK to unlimited
-    }
-
     if (tpErrorCheck(tp)<0) {
         return TP_ERR_FAIL;
     }
