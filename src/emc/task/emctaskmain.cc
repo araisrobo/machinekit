@@ -3102,7 +3102,7 @@ static int emcTaskExecute(void)
                 emcOperatorError(0, _("can't open %s"), open_msg->file);
                 retval = -1;
             }
-            r/* update Z position as current Z */
+            /* update Z position as current Z */
             emcTaskPlanGetCurPos(&x, &y, &z, &a, &b, &c, &u, &v, &w);  //!< save Interpreter's internal positions
             emcTaskPlanRestoreCurPos();
             emcTaskPlanSetCurPos(NULL, NULL, &z, NULL, NULL, NULL, NULL, NULL, NULL);   //!< restore Interpreter's internal positions from saved ones
