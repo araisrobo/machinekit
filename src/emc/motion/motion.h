@@ -550,7 +550,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double ferror;		/* following error */
 	double ferror_limit;	/* limit depends on speed */
 	double ferror_high_mark;	/* max following error */
-        simple_tp_t free_tp;        /* planner for free mode motion */
 	double free_pos_cmd;	/* position command for free mode TP */
 	double free_vel_lim;	/* velocity limit for free mode TP */
 	int free_tp_enable;	/* if zero, joint stops ASAP */
@@ -660,7 +659,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 
     typedef struct emcmot_status_t {
         uint32_t wait_risc;
-        int sync_pos_cmd;
         uint32_t update_pos_ack;    /* for RCMD_FSM inside RISC */
         uint32_t update_pos_req;    /* for RCMD_FSM inside RISC */
 
