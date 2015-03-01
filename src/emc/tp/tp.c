@@ -3378,6 +3378,12 @@ STATIC int tpCheckEndCondition(
     tc_debug_print("tpCheckEndCondition: dx = %e\n",dx);
 
     if (dx <= TP_POS_EPSILON) {
+        if (emcmotStatus->probing && *(emcmot_hal_data->rtp_running))
+        {
+            // G38.X: 等待 RISC 處理完所有 TP 命令才結束
+            return TP_ERR_NO_ACTION;
+        }
+
         tc->progress = tc->target;
         tc->remove = 1;
         if (tc->term_cond == TC_TERM_COND_TANGENT) {
