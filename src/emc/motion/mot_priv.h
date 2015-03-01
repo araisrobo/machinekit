@@ -99,11 +99,16 @@ typedef struct {
 /* machine data */
 
 typedef struct {
-    hal_bit_t *req_cmd_sync;
     /* signal for RISC_CMD REQ and ACK */
     hal_bit_t *update_pos_req;
     hal_bit_t *update_pos_ack;
     hal_u32_t *rcmd_state;
+
+    hal_bit_t *usb_busy;
+    hal_bit_t *rtp_running;
+    hal_bit_t *mpg_scale_x1;    /* is MPG scale at x1 mode? */
+    hal_bit_t *mpg_scale_x10;    /* is MPG scale at x10 mode? */
+    hal_bit_t *mpg_scale_x100;    /* is MPG scale at x100 mode? */
 
     hal_bit_t *probe_input;	/* RPI: probe switch input */
     hal_bit_t *probing;

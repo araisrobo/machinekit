@@ -337,16 +337,23 @@ check_stuff ( "after set_operating_mode()" );
 check_stuff ( "after handle_jogwheels()" );
 if (emcmotConfig->usbmotEnable) {
     do_usb_homing_sequence();
-check_stuff ( "after do_homing_sequence()" );
+check_stuff ( "after do_usb_homing_sequence()" );
     do_usb_homing();
+check_stuff ( "after do_usb_homing()" );
+    if (*(emcmot_hal_data->usb_busy) == 0) {
+        //TODO: for CSS: get_spindle_cmds (servo_period);
+        get_pos_cmds (period);
+check_stuff ( "after get_pos_cmds()" );
+    }
 } else {
     do_homing_sequence();
 check_stuff ( "after do_homing_sequence()" );
     do_homing();
-}
 check_stuff ( "after do_homing()" );
     get_pos_cmds(period);
 check_stuff ( "after get_pos_cmds()" );
+}
+
     compute_screw_comp();
 check_stuff ( "after compute_screw_comp()" );
     output_to_hal();
@@ -1245,18 +1252,9 @@ static void set_operating_mode(void)
 }
 
 #define USB_TIMEOUT 100
-static int update_current_pos = 0;
 static int update_pos_req_timeout = 0;
 static void handle_usbmot_sync(void)
 {
-    if (*emcmot_hal_data->req_cmd_sync == 1) {
-        emcmotStatus->sync_pos_cmd = 1;
-        update_current_pos = 1;
-        assert(0);
-    } else {
-        emcmotStatus->sync_pos_cmd = 0;
-    }
-
     /* must not be homing */
     if (emcmotStatus->homing_active) {
         // let usb_homing.c control the "update_pos_req" and "rcmd_seq_num_ack"
@@ -1302,8 +1300,7 @@ static void handle_usbmot_sync(void)
             /* copy risc_pos_cmd feedback */
             joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset - joint->blender_offset;
             joint->coarse_pos = joint->pos_cmd;
-            joint->free_tp.curr_pos = joint->pos_cmd;
-            joint->free_tp.pos_cmd = joint->pos_cmd;
+            joint->free_pos_cmd = joint->pos_cmd;
             /* to reset cubic parameters */
             joint->cubic.needNextPoint=1;
             joint->cubic.filled=0;
