@@ -391,6 +391,7 @@ extern int emcAxisSetHomingParams(int axis, double home, double offset, double h
 extern int emcAxisSetMaxVelocity(int axis, double vel);
 extern int emcAxisSetMaxAcceleration(int axis, double acc);
 extern int emcAxisSetMaxJerk(int axis, double jerk);
+extern int emcAxisSetSyncId(int axis, int sync_id);
 
 extern int emcAxisInit(int axis);
 extern int emcAxisHalt(int axis);
