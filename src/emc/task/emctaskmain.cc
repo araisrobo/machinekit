@@ -672,7 +672,7 @@ interpret_again:
 
 			    // throw the results away if we're supposed to read through it
 			    assert (emcStatus->task.readLine > 0);
-			    assert (toplevel_line_number > 0);
+//			    assert (toplevel_line_number > 0);
 			    assert(programStartLine >= 0);
 
 			    if (toplevel_line_number < programStartLine) {
