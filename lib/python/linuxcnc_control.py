@@ -170,14 +170,6 @@ class LinuxcncControl:
         self.c.wait_complete(self.timeout)
         return self.check_rcs_error()
 
-#     def do_pause(self):
-#         '''Pause current running program'''
-#         print "before self.running()"
-#         if self.running():
-#             print "before AUTO_PAUSE"
-#             self.c.auto(linuxcnc.AUTO_PAUSE)
-#             self.c.wait_complete(self.timeout)
-
     def do_pause(self, line=0):
         '''Pause current running program'''
         while (self.running() == True): # do s.poll() inside running()
@@ -186,7 +178,7 @@ class LinuxcncControl:
                 self.c.wait_complete(self.timeout)
                 return
             sleep(0.1)
-            print "cur_id(%d) wait for line(%d)\n" % (self.s.id, line) 
+            # print "cur_id(%d) wait for line(%d)\n" % (self.s.id, line) 
         
         
     def do_resume(self):
