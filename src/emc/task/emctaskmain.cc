@@ -672,9 +672,8 @@ interpret_again:
 
 			    // throw the results away if we're supposed to read through it
 			    assert (emcStatus->task.readLine > 0);
-//			    assert (toplevel_line_number > 0);
+			    assert (toplevel_line_number > 0);
 			    assert(programStartLine >= 0);
-
 			    if (toplevel_line_number < programStartLine) {
 				// we're stepping over lines, so check them for limits, etc. and clear then out
                                 /* checkInterpList() flushes nodes from interp_list and moves motion nodes to history_queue */
