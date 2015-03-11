@@ -314,7 +314,7 @@ typedef struct {
 
 typedef struct {
     // Analog input: 0~4.096VDC, up to 16 channel
-    hal_s32_t *in[16];
+    hal_float_t *in[16];
     hal_s32_t *out[4];
     hal_s32_t prev_out[4];
 } analog_t;
@@ -2008,7 +2008,7 @@ static int export_analog(analog_t * addr)
 
     // export Analog IN
     for (i = 0; i < 16; i++) {
-        retval = hal_pin_s32_newf(HAL_OUT, &(addr->in[i]), comp_id,
+        retval = hal_pin_float_newf(HAL_OUT, &(addr->in[i]), comp_id,
                 "wou.analog.in.%02d", i);
         if (retval != 0) {
             return retval;
