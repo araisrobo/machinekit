@@ -3239,7 +3239,8 @@ if (IS_USER_MCODE(block,settings,10) && ONCE_M(10)) {
     if (USER_DEFINED_FUNCTION[index - 100] == 0) {
       CHKS(1, NCE_UNKNOWN_M_CODE_USED,index);
     }
-    enqueue_M_USER_COMMAND(index,block->p_number,block->q_number);
+    enqueue_M_USER_COMMAND(index,block->p_number,block->q_number,block->r_number,
+            block->s_number,block->j_number,block->k_number, block->l_number);
   }
   return INTERP_OK;
 }
