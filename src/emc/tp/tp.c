@@ -1621,10 +1621,6 @@ STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc) {
         tp_debug_print(" queue empty\n");
         return TP_ERR_FAIL;
     }
-    if (prev_tc->progress > 0.0) {
-        tp_debug_print(" prev_tc progress = %f, aborting arc\n", prev_tc->progress);
-        return TP_ERR_FAIL;
-    }
 
     if (TP_ERR_OK == tpSetupTangent(tp, prev_tc, tc)) {
         //Marked segment as tangent
@@ -2295,7 +2291,6 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             if (vel > req_vel) {
                 tc->currentvel = req_vel;
                 tc->accel_state = ACCEL_S3;
-                DP("to ACCEL_S3 vel > req_vel\n");
                 break;
             }
 
@@ -2303,7 +2298,6 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             acc = tc->cur_accel - tc->jerk;
             if (acc <= 0) {
                 tc->accel_state = ACCEL_S3;
-                DP("to ACCEL_S3 acc <= 0\n");
                 break;
             }
 
@@ -2339,7 +2333,6 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
 
             if (tc_target < dist) {
                 tc->accel_state = ACCEL_S3;
-                DP("to ACCEL_S3 tc_target < dist\n");
                 break;
             }
 
@@ -2400,7 +2393,6 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                 break;
             } else if ((tc->currentvel - 1.5 * tc->jerk) > req_vel) {
                 tc->accel_state = ACCEL_S4;
-                DP("to ACCEL_S4 (tc->currentvel(%f) - 1.5 * tc->jerk) > req_vel(%f)\n", tc->currentvel, req_vel);
                 break;
             }
             tc->currentvel = req_vel;
@@ -2465,7 +2457,6 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
 
             if (tc_target < (dist - (tc->currentvel + 1.5 * tc->cur_accel - 2.1666667 * tc->jerk))) {
                 tc->accel_state = ACCEL_S4;
-                DPS("should stay in S4 and keep decel\n");
                 break;
             }
 
@@ -2483,7 +2474,6 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             if ((tc->currentvel + tc->cur_accel * t + 0.5 * tc->jerk * t * t) <= req_vel) {
                 if ((tc->progress/tc_target) < 0.9) {
                     tc->accel_state = ACCEL_S6;
-                    DPS("S4: hit velocity rule; move to S6\n");
                 }
                 else
                 {
@@ -2503,11 +2493,9 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                     c5 = -(error_d*s6_a)/(8*k*s6_v);
                     c6 = 4*k;
                     ti = 1;
-                    DPS("S4: hit distance rule; move to S7\n");
                     break;
                 }
             }
-            DPS("S4: FIXME: why should we stay in S4? cur_vel(%f) req_vel(%f)\n", tc->currentvel, req_vel);
 
 //            // check if dist would be greater than tc_target at next cycle
 //            printf ("tc_target(%f) dist(%f) vel(%f) t(%f) t1(%f)\n", tc_target, dist, vel, t, t1);
