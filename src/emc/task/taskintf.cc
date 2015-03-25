@@ -274,6 +274,17 @@ int emcAxisSetHomingParams(int axis, double home, double offset, double home_fin
     if (locking_indexer) {
         emcmotCommand.flags |= HOME_UNLOCK_FIRST;
     }
+    
+    if (axis_sync_id[axis] >= 0) {
+        if (axis < axis_sync_id[axis]) {
+            // the axis with lower SYNC_ID is GANTRY_MASTER
+            emcmotCommand.flags |= HOME_GANTRY_MASTER;
+            emcmotCommand.flags |= HOME_GANTRY_JOINT;
+        } else {
+            // the axis with greater SYNC_ID is GANTRY_SLAVE
+            emcmotCommand.flags |= HOME_GANTRY_JOINT;
+        }
+    }
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
@@ -326,6 +337,32 @@ int emcAxisSetMaxJerk(int axis, double jerk)
     emcmotCommand.axis = axis;
     emcmotCommand.acc = jerk;
     return usrmotWriteEmcmotCommand(&emcmotCommand);
+}
+
+int emcAxisSetSyncId(int axis, int sync_id)
+{
+    if (axis < 0 || axis >= EMC_AXIS_MAX) {
+        rcs_print_error("%s (%s:%d) Invalid axis(%d)\n", __FILE__, __FUNCTION__, __LINE__,
+                        axis);
+        return -1;
+    }
+    if ((sync_id == axis) || (sync_id >= EMC_AXIS_MAX)) {
+        rcs_print_error("%s (%s:%d) Invalid sync_id(%d) for axis(%d)\n", __FILE__, __FUNCTION__, __LINE__,
+                        sync_id, axis);
+        return -1;
+    }
+
+    if (sync_id < 0) {
+        /* invalid sync_id, disable synchronized motion for this axis */
+        axis_sync_en[axis] = 0;
+        axis_sync_id[axis] = -1;
+    } else {
+        /* enable and specify synchronized axis */
+        axis_sync_en[axis] = 1;
+        axis_sync_id[axis] = sync_id;
+    }
+
+    return 0;
 }
 
 /* This function checks to see if any axis or the traj has
@@ -394,6 +431,14 @@ int emcAxisAbort(int axis)
     if (axis < 0 || axis >= EMCMOT_MAX_JOINTS) {
 	return 0;
     }
+
+    if (axis_sync_en[axis] && (emcmotStatus.motion_state == EMCMOT_MOTION_FREE)) {
+        // synchronize jog for gantry joint
+        emcmotCommand.command = EMCMOT_AXIS_ABORT;
+        emcmotCommand.axis = axis_sync_id[axis];
+        usrmotWriteEmcmotCommand(&emcmotCommand);
+    }
+
     emcmotCommand.command = EMCMOT_AXIS_ABORT;
     emcmotCommand.axis = axis;
 
@@ -497,6 +542,14 @@ int emcAxisJog(int axis, double vel)
 	vel = -axis_max_velocity[axis];
     }
 
+    if (axis_sync_en[axis] && (emcmotStatus.motion_state == EMCMOT_MOTION_FREE)) {
+        // synchronize jog for gantry joint
+        emcmotCommand.command = EMCMOT_JOG_CONT;
+        emcmotCommand.axis = axis_sync_id[axis];
+        emcmotCommand.vel = vel;
+        usrmotWriteEmcmotCommand(&emcmotCommand);
+    }
+
     emcmotCommand.command = EMCMOT_JOG_CONT;
     emcmotCommand.axis = axis;
     emcmotCommand.vel = vel;
@@ -514,6 +567,15 @@ int emcAxisIncrJog(int axis, double incr, double vel)
 	vel = axis_max_velocity[axis];
     } else if (vel < -axis_max_velocity[axis]) {
 	vel = -axis_max_velocity[axis];
+    }
+    
+    if (axis_sync_en[axis] && (emcmotStatus.motion_state == EMCMOT_MOTION_FREE)) {
+        // synchronize jog for gantry joint
+        emcmotCommand.command = EMCMOT_JOG_INCR;
+        emcmotCommand.axis = axis_sync_id[axis];
+        emcmotCommand.vel = vel;
+        emcmotCommand.offset = incr;
+        usrmotWriteEmcmotCommand(&emcmotCommand);
     }
 
     emcmotCommand.command = EMCMOT_JOG_INCR;
@@ -534,6 +596,15 @@ int emcAxisAbsJog(int axis, double pos, double vel)
 	vel = axis_max_velocity[axis];
     } else if (vel < -axis_max_velocity[axis]) {
 	vel = -axis_max_velocity[axis];
+    }
+
+    if (axis_sync_en[axis] && (emcmotStatus.motion_state == EMCMOT_MOTION_FREE)) {
+        // synchronize jog for gantry joint
+        emcmotCommand.command = EMCMOT_JOG_ABS;
+        emcmotCommand.axis = axis_sync_id[axis];
+        emcmotCommand.vel = vel;
+        emcmotCommand.offset = pos;
+        usrmotWriteEmcmotCommand(&emcmotCommand);
     }
 
     emcmotCommand.command = EMCMOT_JOG_ABS;
@@ -1326,7 +1397,6 @@ int emcMotionInit()
 	    r1 = -1;		// at least one is busted
 	}
     }
-
 
     r3 = emcPositionLoad();
 

@@ -515,7 +515,7 @@ check_stuff ( "before command_handler()" );
 		/* do nothing in coord mode */
 	    } else {
 		/* validate joint */
-		if (joint == 0) {
+		if (joint == NULL) {
 		    break;
 		}
 		/* tell joint planner to stop */

@@ -51,6 +51,7 @@ typedef struct {
     double settings[ACTIVE_SETTINGS];
     int gcodes[ACTIVE_G_CODES];
     int mcodes[ACTIVE_M_CODES];
+    int call_level;
 } LineCode;
 
 static PyObject *LineCode_gcodes(LineCode *l) {
@@ -68,6 +69,7 @@ static PyGetSetDef LineCodeGetSet[] = {
 
 static PyMemberDef LineCodeMembers[] = {
     {(char*)"sequence_number", T_INT, offsetof(LineCode, gcodes[0]), READONLY},
+    {(char*)"call_level", T_INT, offsetof(LineCode, call_level), READONLY},
 
     {(char*)"feed_rate", T_DOUBLE, offsetof(LineCode, settings[1]), READONLY},
     {(char*)"speed", T_DOUBLE, offsetof(LineCode, settings[2]), READONLY},
@@ -161,6 +163,7 @@ static void maybe_new_line(int sequence_number) {
     interp_new.active_g_codes(new_line_code->gcodes);
     interp_new.active_m_codes(new_line_code->mcodes);
     new_line_code->gcodes[0] = sequence_number;
+    new_line_code->call_level = interp_new.call_level();
     last_sequence_number = sequence_number;
     PyObject *result = 
         callmethod(callback, "next_line", "O", new_line_code);
@@ -567,12 +570,13 @@ int GET_EXTERNAL_DIGITAL_INPUT(int index, int def) { return def; }
 double GET_EXTERNAL_ANALOG_INPUT(int index, double def) { return def; }
 int WAIT(int index, int input_type, int wait_type, double timeout, int line) { return 0;}
 
-static void user_defined_function(int num, double arg1, double arg2) {
+static void user_defined_function(int num, double arg1, double arg2, double arg3,
+                                  double arg4, double arg5, double arg6, double arg7) {
     if(interp_error) return;
     maybe_new_line();
     PyObject *result =
         callmethod(callback, "user_defined_function",
-                            "idd", num, arg1, arg2);
+                            "idd", num, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
     if(result == NULL) interp_error++;
     Py_XDECREF(result);
 }

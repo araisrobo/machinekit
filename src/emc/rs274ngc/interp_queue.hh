@@ -70,6 +70,11 @@ struct mcommand {
     int    index;
     double p_number;
     double q_number;
+    double r_number;
+    double s_number;
+    double j_number;
+    double k_number;
+    double l_number;
 };
 
 struct orient_spindle {
@@ -132,7 +137,9 @@ void enqueue_ARC_FEED(setup_pointer settings, int l,
                       double end3,
                       double a, double b, double c,
                       double u, double v, double w);
-void enqueue_M_USER_COMMAND(int index,double p_number,double q_number);
+void enqueue_M_USER_COMMAND(int index,double p_number,double q_number,
+                            double r_number, double s_number, double j_number,
+                            double k_number, double l_number);
 void enqueue_START_CHANGE(void);
 void enqueue_ORIENT_SPINDLE(double orientation, int mode);
 void enqueue_WAIT_ORIENT_SPINDLE_COMPLETE(double timeout);

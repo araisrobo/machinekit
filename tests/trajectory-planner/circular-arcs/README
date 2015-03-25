@@ -1,0 +1,3 @@
+./build-debug.sh            # re-compile tp*.c with tp_debug*() enabled
+./test-jerk.sh              # launch linuxcnc and run .ngc code
+gnuplot -p analysis.gnu     # analyze s-curve profile from configs/tp.log

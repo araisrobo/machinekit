@@ -486,8 +486,8 @@ Suggestion: Split this in to an Error and a Status flag register..
 #define HOME_IS_SHARED		4
 #define HOME_UNLOCK_FIRST       8
 /* flags for usb_homing */
-#define HOME_GANTRY_MASTER      0x10    // gantry_master(1) gantry_slave(0)
-#define HOME_GANTRY_JOINT       0x20    // gantry_master/gantry_slave:(1), others:(0)
+#define HOME_GANTRY_MASTER      0x10    // home_flag[4] for gantry_master(1), gantry_slave(0)
+#define HOME_GANTRY_JOINT       0x20    // home_flag[5] for gantry_master/gantry_slave:(1), others:(0)
 
 /* flags for enabling spindle scaling, feed scaling,
    adaptive feed, and feed hold */
@@ -550,7 +550,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double ferror;		/* following error */
 	double ferror_limit;	/* limit depends on speed */
 	double ferror_high_mark;	/* max following error */
-        simple_tp_t free_tp;        /* planner for free mode motion */
 	double free_pos_cmd;	/* position command for free mode TP */
 	double free_vel_lim;	/* velocity limit for free mode TP */
 	int free_tp_enable;	/* if zero, joint stops ASAP */
@@ -660,7 +659,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 
     typedef struct emcmot_status_t {
         uint32_t wait_risc;
-        int sync_pos_cmd;
         uint32_t update_pos_ack;    /* for RCMD_FSM inside RISC */
         uint32_t update_pos_req;    /* for RCMD_FSM inside RISC */
 

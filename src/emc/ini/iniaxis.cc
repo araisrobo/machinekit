@@ -103,6 +103,7 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
     double maxAcceleration;
     double maxJerk;
     double ferror;
+    int sync_id;
 
     // compose string to match, axis = 0 -> AXIS_0, etc.
     sprintf(axisString, "AXIS_%d", axis);
@@ -220,6 +221,10 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
         locking_indexer = false;
         axisIniFile->Find(&locking_indexer, "LOCKING_INDEXER", axisString);
 
+        sync_id = -1;  // default to non-gantry-type-axis
+        axisIniFile->Find(&sync_id, "SYNC_ID", axisString);
+        emcAxisSetSyncId(axis, sync_id); //!< the axis with lower ID is GANTRY_MASTER
+
         // issue NML message to set all params
         if (0 != emcAxisSetHomingParams(axis, home, offset, home_final_vel, search_vel,
                                         latch_vel, (int)use_index, (int)ignore_limits,
@@ -279,7 +284,6 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
             }
         }
     }
-
 
     catch(EmcIniFile::Exception &e){
         e.Print();

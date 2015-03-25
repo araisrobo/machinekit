@@ -57,7 +57,8 @@ static char user_defined_fmt[MAX_M_DIRS][EMC_SYSTEM_CMD_LEN]; // ex: "dirname/M1
 // index to directory for each user defined function:
 static int user_defined_function_dirindex[USER_DEFINED_FUNCTION_NUM];
 
-static void user_defined_add_m_code(int num, double arg1, double arg2)
+static void user_defined_add_m_code(int num, double arg1, double arg2, double arg3,
+                                double arg4, double arg5, double arg6, double arg7)
 {
     // num      is the m_code number, typically 00-99 corresponding to M100-M199
     char fmt[EMC_SYSTEM_CMD_LEN];
@@ -67,8 +68,8 @@ static void user_defined_add_m_code(int num, double arg1, double arg2)
     //otherwise they would mix badly
     FINISH();
     strcpy(fmt, user_defined_fmt[user_defined_function_dirindex[num]]);
-    strcat(fmt, " %f %f");
-    snprintf(system_cmd.string, sizeof(system_cmd.string), fmt, num, arg1, arg2);
+    strcat(fmt, " %f %f %f %f %f %f %f");
+    snprintf(system_cmd.string, sizeof(system_cmd.string), fmt, num, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
     interp_list.append(system_cmd);
 }
 
