@@ -779,8 +779,12 @@ static void mdi_execute_hook(void)
 	// delay reading of next line until all is done
 	if (interp_list.len() == 0 &&
 	    emcTaskCommand == 0 &&
-	    emcStatus->task.execState ==
-	    EMC_TASK_EXEC_DONE) {
+	    emcStatus->task.execState == EMC_TASK_EXEC_DONE
+#ifdef USB_MOTION_ENABLE
+            && (emcStatus->motion.traj.update_pos_req == 0)
+#endif
+        )
+        {
 	    emcTaskPlanClearWait(); 
 	    mdi_execute_wait = 0;
 	    mdi_execute_hook();
@@ -794,6 +798,9 @@ static void mdi_execute_hook(void)
         && (mdi_execute_queue.len() > 0)
         && (interp_list.len() == 0)
         && (emcTaskCommand == NULL)
+#ifdef USB_MOTION_ENABLE
+        && (emcStatus->motion.traj.update_pos_req == 0)
+#endif
     ) {
 	interp_list.append(mdi_execute_queue.get());
 	return;
@@ -1505,6 +1512,9 @@ static int emcTaskPlan(void)
                     (mdi_execute_queue.len() == 0)
                     && (interp_list.len() == 0)
                     && (emcTaskCommand == NULL)
+#ifdef USB_MOTION_ENABLE
+                    && (emcStatus->motion.traj.update_pos_req == 0)
+#endif
                 ) {
                     retval = emcTaskIssueCommand(emcCommand);
                 } else {
@@ -2315,7 +2325,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 		if (mdi_execute_level == level) {
 		    mdi_execute_level = -1;
 		} else if (level > 0) {
-		    // Still insude call. Need another execute(0) call
+		    // Still inside call. Need another execute(0) call
 		    // but only if we didnt encounter an error
 		    if (execRetval == INTERP_ERROR) {
 			mdi_execute_next = 0;
