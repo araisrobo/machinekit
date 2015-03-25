@@ -642,7 +642,6 @@ int emcTaskPlanExecute(const char *command)
 
 int emcTaskPlanExecute(const char *command, int line_number)
 {
-    rcs_print ("%s (%s:%d) cmd(%s) line_number(%d)\n", __FILE__, __FUNCTION__, __LINE__, command, line_number);
     int retval = interp.execute(command, line_number);
     if (retval > INTERP_MIN_ERROR) {
 	print_interp_error(retval);
@@ -652,6 +651,7 @@ int emcTaskPlanExecute(const char *command, int line_number)
     }
 
     if (emc_debug & EMC_DEBUG_INTERP) {
+        rcs_print ("%s (%s:%d) cmd(%s) line_number(%d)\n", __FILE__, __FUNCTION__, __LINE__, command, line_number);
         rcs_print("emcTaskPlanExecute(%s) returned %d\n", command, retval);
     }
 
