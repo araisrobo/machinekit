@@ -79,6 +79,7 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
     canon_error = [None, None]
 
     def __init__(self, inifile):
+        gobject.GObject.__init__(self)
 
         display_mode = ( gtk.gdkgl.MODE_RGB | gtk.gdkgl.MODE_DEPTH |
                          gtk.gdkgl.MODE_DOUBLE )
@@ -130,6 +131,11 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
         self.maxlat = 90
 
         self.highlight_line = None
+        self.material_buttom_left = (0.0,0.0)
+        self.material_buttom_right = (0.0,0.0)
+        self.material_top_left = (0.0,0.0)
+        self.material_top_right = (0.0,0.0)
+        self.draw_material_state = False
         self.program_alpha = False
         self.use_joints_mode = False
         self.use_commanded = True
@@ -255,7 +261,13 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
         self._current_file = filename
         try:
             random = int(self.inifile.find("EMCIO", "RANDOM_TOOLCHANGER") or 0)
-            canon = StatCanon(self.colors, self.get_geometry(),self.lathe_option, s, random)
+            if self.canon == None:
+                canon = StatCanon(self.colors, self.get_geometry(),self.lathe_option, s, random)
+                self.canon = canon
+            else:
+                canon = self.canon
+                canon.__init__(self.colors, self.get_geometry(), self.lathe_option, s, random)
+#             canon.set_highlight_mode(self.highlight_mode)
             parameter = self.inifile.find("RS274NGC", "PARAMETER_FILE")
             temp_parameter = os.path.join(td, os.path.basename(parameter or "linuxcnc.var"))
             if parameter:
