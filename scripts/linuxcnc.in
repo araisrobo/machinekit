@@ -790,6 +790,10 @@ case $EMCDISPLAY in
     echo "DUMMY DISPLAY MODULE, press <ENTER> to continue."
     read foo;
   ;;
+  daemon)
+    # daemon display just leave
+    exit 0
+  ;;
   keystick)
     if ! program_available keystick ; then
 	echo "Can't execute DISPLAY program $EMCDISPLAY $EMCDISPLAYARGS $EXTRA_ARGS"
