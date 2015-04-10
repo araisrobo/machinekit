@@ -96,6 +96,8 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.g5x_offset_u = 0.0
         self.g5x_offset_v = 0.0
         self.g5x_offset_w = 0.0
+        self.diff = [0.0, 0.0, 0.0, 0.0]
+        self.prev_diff = [0.0, 0.0, 0.0, 0.0]
         self.is_foam = is_foam
         self.foam_z = 0
         self.foam_w = 1.5
@@ -215,8 +217,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         
         self.traverse_append((self.lineno, self.lo, l, [self.xo, self.yo, self.zo]))
         self.all_traverse_append([self.lineno, self.lo, l, self.feedrate, length])
-#         if (self.call_level == 0):
-#             self.path.append(('travers', self.lineno, self.lo, l, self.feedrate, length))
+
         self.lo = l
 
     def rigid_tap(self, x, y, z):
@@ -334,6 +335,15 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
             feedrate = last_traverse[3]
             return last_traverse[2][:3], feedrate
 
+    def set_highlight_mode(self, mode=None):
+        if mode is None:
+            self.highlight_mode = 'line'
+            return
+        mode = mode.lower()
+        if mode == "block":
+            self.highlight_mode = 'block'
+        else:
+            self.highlight_mode = 'line'
             
     def highlight(self, lineno, geometry):
         glLineWidth(3)
@@ -474,6 +484,7 @@ class GlCanonDraw:
         self.select_buffer_size = 100
         self.cached_tool = -1
         self.initialised = 0
+        self.fix_tool_size = False  # set to True to disable tool_size scaling
 
     def realize(self):
         self.hershey = hershey.Hershey()
@@ -1114,6 +1125,38 @@ class GlCanonDraw:
                 glCallList(alist)
             glPopMatrix()
 
+        try:
+            if self.draw_material():
+                pos_2, pos_3, pos_0, pos_1 = self.get_material_dimension()
+                # if pos_2 is not None and pos_3 is not None and pos_0 is\
+                #  not None and pos_1 is not None:
+                if pos_2 is None:
+#                     print "PLATEVIEW: trying to draw but position doesn't assigned"
+#                     print 'pos2 is None'
+                    pass
+                else:
+#                     print 'PLATEVIEW: drawing gl for plateview'
+#                     print 'x0(%f) y0(%f)' % (pos_0[0], pos_0[1])
+#                     print 'x1(%f) y1(%f)' % (pos_1[0], pos_1[1])
+#                     print 'x2(%f) y2(%f)' % (pos_2[0], pos_2[1])
+#                     print 'x3(%f) y3(%f)' % (pos_3[0], pos_3[1])
+                    glDisable(GL_DEPTH_TEST)
+                    glEnable(GL_BLEND)
+                    glLineWidth(10)
+                    glColor3f(0.4,0.4,0.2)
+                    # glColor3f(0.5,1.0,0.2)
+                    glBegin(GL_QUADS)
+                    glVertex3f(pos_2[0], pos_2[1],0)
+                    glVertex3f(pos_3[0], pos_3[1],0)
+                    glVertex3f(pos_0[0], pos_0[1],0)
+                    glVertex3f(pos_1[0], pos_1[1],0)
+
+                    glEnd()
+                    glEnable(GL_DEPTH_TEST)
+                    glDisable(GL_BLEND)
+        except:
+            pass
+
         if self.get_show_limits():
             glLineWidth(1)
             glColor3f(1.0,0.0,0.0)
@@ -1329,10 +1372,16 @@ class GlCanonDraw:
             if self.is_lathe():
                 glRotatef(90, 0, 1, 0)
             else:
-                dia = current_tool.diameter
+                if self.fix_tool_size == True:
+                    # self.distance: the distance to your eye (unit: mm)
+                    dia = 4 * math.sqrt((self.distance / 10))
+                    if (self.get_show_metric() == False):
+                        dia = dia/25.4
+                else:
+                    dia = current_tool.diameter 
                 r = self.to_internal_linear_unit(dia) / 2.
                 q = gluNewQuadric()
-                glEnable(GL_LIGHTING)
+#                 glEnable(GL_LIGHTING)
                 gluCylinder(q, r, r, 8*r, 32, 1)
                 glPushMatrix()
                 glRotatef(180, 1, 0, 0)
@@ -1340,7 +1389,7 @@ class GlCanonDraw:
                 glPopMatrix()
                 glTranslatef(0,0,8*r)
                 gluDisk(q, 0, r, 32, 1)
-                glDisable(GL_LIGHTING)
+#                 glDisable(GL_LIGHTING)
                 gluDeleteQuadric(q)
         glEndList()
 
