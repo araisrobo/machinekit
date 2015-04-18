@@ -1,0 +1,110 @@
+# home: home switch status from FPGA
+#homing_is_buggy_for_sCurve: net home_j0     joint.0.home-sw-in      <=  wou.gpio.in.01
+#homing_is_buggy_for_sCurve: net home_j1     joint.1.home-sw-in      <=  wou.gpio.in.02
+#homing_is_buggy_for_sCurve: # net home_j2       joint.2.home-sw-in    <=  wou.gpio.in.04
+#homing_is_buggy_for_sCurve: # net home_j3       joint.3.home-sw-in    <=  wou.gpio.in.05
+
+# net din_07_not  joint.0.pos-lim-sw-in   <=  wou.gpio.in.07.not
+# net din_08_not  joint.0.neg-lim-sw-in   <=  wou.gpio.in.08.not
+# net din_09_not  joint.1.pos-lim-sw-in   <=  wou.gpio.in.09.not
+# net din_10_not  joint.1.neg-lim-sw-in   <=  wou.gpio.in.10.not
+# # net lsp_j2      joint.2.pos-lim-sw-in   <=  wou.gpio.in.11.not
+# # net lsn_j2      joint.2.neg-lim-sw-in   <=  wou.gpio.in.12.not
+# # net lsp_j3      joint.3.pos-lim-sw-in   <=  wou.gpio.in.13.not
+# # net lsn_j3      joint.3.neg-lim-sw-in   <=  wou.gpio.in.14.not
+
+# net j0_alm      axis.0.amp-fault-in    <=  wou.gpio.in.01.not
+# net j1_alm      axis.1.amp-fault-in    <=  wou.gpio.in.02.not
+# net j2_alm      axis.2.amp-fault-in    <=  wou.gpio.in.03.not
+# net j3_alm      axis.3.amp-fault-in    <=  wou.gpio.in.04.not
+
+# net m-plasma-on     motion.digital-out-17   => and2.0.in0 # mcode
+# net start-en                                => and2.0.in1
+# 
+# net plasma-on-1     and2.0.out              => or2.0.in1
+# net din_53                                  => or2.0.in0 # force-on
+# net plasma-is-on    or2.0.out               => wou.gpio.out.24
+net led_switch                              => wou.gpio.out.25
+
+net laser_analog    <= wou.analog.in.00 
+net torch_voltage   <= wou.analog.in.01 
+# net transfer-hi     => trans.up.in0 # upper bound transfer voltage
+# net torch_voltage   => trans.up.in1
+# net torch_voltage   => trans.lo.in0
+# net transfer-lo     => trans.lo.in1 # lower bound transfer voltage
+# net trans-upper-bit trans.up.out    =>  motion.digital-in-32
+# net trans-lower-bit trans.lo.out    =>  motion.digital-in-33
+
+net dout_00 wou.gpio.out.00 # for CL.SVO-ON
+net dout_01 wou.gpio.out.01 # for ALM_RST
+net dout_02 wou.gpio.out.02 # BRAKE
+net dout_03 wou.gpio.out.03
+net dout_08 wou.gpio.out.08 # <= motion.digital-out-08
+net dout_09 wou.gpio.out.09 # <= motion.digital-out-09
+net dout_10 wou.gpio.out.10 # <= motion.digital-out-10
+net dout_11 wou.gpio.out.11 # <= motion.digital-out-11
+net dout_12 wou.gpio.out.12 <= motion.digital-out-12 # reserved 
+net dout_13 wou.gpio.out.13 <= motion.digital-out-13 # reserved 
+net dout_14 wou.gpio.out.14 <= motion.digital-out-14 # reserved 
+net dout_15 wou.gpio.out.15 <= motion.digital-out-15 # reserved 
+net dout_16 wou.gpio.out.16 # reserved  # <= motion.digital-out-16 
+net dout_17 wou.gpio.out.17 # reserved  # <= motion.digital-out-17 
+net dout_18 wou.gpio.out.18 # reserved  # <= motion.digital-out-18 
+net dout_19 wou.gpio.out.19 # reserved  # <= motion.digital-out-19 
+net dout_20 wou.gpio.out.20 <= motion.digital-out-20 # reserved
+net dout_21 wou.gpio.out.21 <= motion.digital-out-21 # reserved
+net dout_22 wou.gpio.out.22 <= motion.digital-out-22 # reserved
+net dout_23 wou.gpio.out.23 <= motion.digital-out-23 # reserved
+
+net dout_26 wou.gpio.out.26 <= motion.digital-out-19 # PROBE-EN
+
+# debounced signals
+# net din_51                                  <=  wou.gpio.in.51  # D-PROBE 
+# net transfer-di     debounce.0.0.in         <=  wou.gpio.in.50  # PLASMA.TRANSFER
+# net transfer-dbc    debounce.0.0.out
+# net din_57_i        debounce.0.1.in         <=  wou.gpio.in.57  # key-down
+# net din_57          debounce.0.1.out
+# net din_54_i        debounce.0.2.in         <=  wou.gpio.in.54  # 
+# net din_54          debounce.0.2.out
+# net din_55_i        debounce.0.3.in         <=  wou.gpio.in.55  # 
+# net din_55          debounce.0.3.out
+# net din_52_i        debounce.0.4.in         <=  wou.gpio.in.52  # 
+# net din_52          debounce.0.4.out
+# net din_53_i        debounce.0.5.in         <=  wou.gpio.in.53  # 
+# net din_53          debounce.0.5.out
+# net din_56_i        debounce.0.6.in         <=  wou.gpio.in.56  # key-up
+# net din_56          debounce.0.6.out
+# net din_60_i        debounce.0.7.in         <=  wou.gpio.in.60  # key-north
+# net din_60          debounce.0.7.out
+# net din_61_i        debounce.0.8.in         <=  wou.gpio.in.61  # key-south
+# net din_61          debounce.0.8.out
+# net din_63_i        debounce.0.9.in         <=  wou.gpio.in.63  # key-STOP
+# net din_63          debounce.0.9.out
+# net din_62_i        debounce.0.10.in        <=  wou.gpio.in.62  # key-START
+# net din_62          debounce.0.10.out
+# net din_58_i        debounce.0.11.in        <=  wou.gpio.in.58  # key-east
+# net din_58          debounce.0.11.out
+# net din_59_i        debounce.0.12.in        <=  wou.gpio.in.59  # key-west
+# net din_59          debounce.0.12.out
+
+# For jog
+net din_66 	wou.gpio.in.66    => motion.digital-in-66
+net din_67 	wou.gpio.in.67    => motion.digital-in-67
+net din_68 	wou.gpio.in.68    => motion.digital-in-68
+net din_69 	wou.gpio.in.69    => motion.digital-in-69
+net din_70 	wou.gpio.in.70    => motion.digital-in-70
+# din_xx_not
+net din_07_not 	wou.gpio.in.07.not
+net din_08_not 	wou.gpio.in.08.not
+net din_09_not 	wou.gpio.in.09.not
+net din_10_not 	wou.gpio.in.10.not
+net din_11_not 	wou.gpio.in.11.not
+net din_12_not 	wou.gpio.in.12.not
+net din_13_not 	wou.gpio.in.13.not
+net din_14_not 	wou.gpio.in.14.not
+net din_15_not 	wou.gpio.in.15.not
+net din_16_not 	wou.gpio.in.16.not
+net din_17_not 	wou.gpio.in.17.not
+net din_18_not 	wou.gpio.in.18.not
+
+

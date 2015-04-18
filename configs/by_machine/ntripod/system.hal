@@ -1,0 +1,337 @@
+############################## Preload Component ################################################
+# loadrt sub2            names=sub2.gantry
+# loadrt blend           names=blend_y_vel
+# loadrt blender         names=blender
+# load 3 differentiators for accel signals
+# loadrt ddt count=3
+# load additional blocks
+# loadrt hypot count=2
+# Install debounce filters for transfer-signal
+# loadrt debounce cfg="16"
+# Set debounce time: number of servo-period
+# setp debounce.0.delay 125
+loadrt timedelay        names=son_delay
+setp son_delay.on-delay     2
+setp son_delay.off-delay    0
+
+############################## Kinematics & Motion Controller ####################################
+# Kinematics
+
+# loadrt alignmentkins
+loadrt [KINS]KINEMATICS
+
+##############################################################################
+# motion controller, get name and thread periods from ini file
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=80 num_aio=16 num_joints=[KINS]JOINTS
+loadrt [WOU](WISHBONE) pulse_type=[WOU]PULSE_TYPE enc_type=[WOU]ENC_TYPE enc_pol=[WOU]ENC_POL alr_id=[WOU]ALR_ID lsp_id=[WOU]LSP_ID lsn_id=[WOU]LSN_ID jsp_id=[WOU]JSP_ID jsn_id=[WOU]JSN_ID bits=[WOU](FPGA) bins=[WOU](RISC) servo_period_ns=[EMCMOT]SERVO_PERIOD alarm_en=[WOU]ALARM_EN max_vel_str=[AXIS_0]MAX_VELOCITY,[AXIS_1]MAX_VELOCITY,[AXIS_2]MAX_VELOCITY,[AXIS_3]MAX_VELOCITY,[AXIS_4]MAX_VELOCITY,[AXIS_5]MAX_VELOCITY max_accel_str=[AXIS_0]MAX_ACCELERATION,[AXIS_1]MAX_ACCELERATION,[AXIS_2]MAX_ACCELERATION,[AXIS_3]MAX_ACCELERATION,[AXIS_4]MAX_ACCELERATION,[AXIS_5]MAX_ACCELERATION max_jerk_str=[AXIS_0]MAX_JERK,[AXIS_1]MAX_JERK,[AXIS_2]MAX_JERK,[AXIS_3]MAX_JERK,[AXIS_4]MAX_JERK,[AXIS_5]MAX_JERK pos_scale_str=[AXIS_0]INPUT_SCALE,[AXIS_1]INPUT_SCALE,[AXIS_2]INPUT_SCALE,[AXIS_3]INPUT_SCALE,[AXIS_4]INPUT_SCALE,[AXIS_5]INPUT_SCALE enc_scale_str=[AXIS_0]ENC_SCALE,[AXIS_1]ENC_SCALE,[AXIS_2]ENC_SCALE,[AXIS_3]ENC_SCALE,[AXIS_4]ENC_SCALE,[AXIS_5]ENC_SCALE ferror_str=[AXIS_0]FERROR,[AXIS_1]FERROR,[AXIS_2]FERROR,[AXIS_3]FERROR,[AXIS_4]FERROR,[AXIS_5]FERROR j0_pid_str=[WOU](J0_PID) j1_pid_str=[WOU](J1_PID) j2_pid_str=[WOU](J2_PID) j3_pid_str=[WOU](J3_PID) j4_pid_str=[WOU](J4_PID) j5_pid_str=[WOU](J5_PID) j6_pid_str=[WOU](GANTRY_PID) j7_pid_str=[WOU](AHC_PID) ahc_ch_str=[WOU](AHC_CH) ahc_joint_str=[WOU](AHC_JNT) ahc_polarity=[WOU](AHC_POLARITY) alr_output_0=[WOU](ALR_OUTPUT_0) alr_output_1=[WOU](ALR_OUTPUT_1)
+
+addf son_delay          servo-thread
+# addf  sub2.gantry      servo-thread
+# addf  conv-s32-float.0 servo-thread
+# addf  conv-s32-float.1 servo-thread
+# addf  conv-s32-float.2 servo-thread
+# addf  conv-s32-float.3 servo-thread
+# addf  conv-s32-float.4 servo-thread
+# add motion controller functions to servo thread
+addf motion-command-handler servo-thread
+addf motion-controller servo-thread
+addf wou.stepgen.update-freq  servo-thread
+# addf sampler.0                servo-thread
+# link the differentiator functions into the code
+# addf    ddt.0           servo-thread
+# addf    ddt.1           servo-thread
+# addf    ddt.2           servo-thread
+# addf    hypot.0         servo-thread
+# addf    hypot.1         servo-thread
+# add integer comparator
+# addf    debounce.0      servo-thread
+
+setp wou.gantry-en          0
+# should AHC synchronized with S3 or ALWAYS-ON?
+setp wou.ahc.motion_s3      1
+# send the position commands thru differentiators to
+# generate velocity and accel signals
+# net Xvel-fb     => ddt.0.in hypot.0.in0
+# net Xacc        <= ddt.0.out 
+
+# setp blend_y_vel.select 0.5
+# net Yvel-fb     => blend_y_vel.in1
+# net YYvel-fb    => blend_y_vel.in2
+# net Yvel-fb-avg blend_y_vel.out => ddt.1.in hypot.0.in1
+# net Yacc        <= ddt.1.out 
+
+# net Zvel        => ddt.2.in hypot.1.in0
+# net Zacc        <= ddt.2.out 
+
+# # For blender.comp
+# net j3-blender-offset joint.3.blender-offset <= blender.offset-o       
+# setp blender.nu-of-cmd 1
+# setp blender.pos-cmd-id 0
+# net blending-o  <= blender.blending-o
+# net blender-pos-cmd     => blender.pos-cmd-0
+# net blender-vel-req     => blender.vel-req-0
+# net blender-en          => blender.enable
+# 
+# setp blender.max-vel      [AXIS_3]MAX_VELOCITY
+# setp blender.max-acc      [AXIS_3]MAX_ACCELERATION
+# setp blender.max-jerk     [AXIS_3]MAX_JERK        
+
+# Cartesian 2- and 3-axis velocities
+# net XYvel       hypot.0.out => hypot.1.in1
+# net XYZvel      <= hypot.1.out
+
+net motionState motion.motion-state => wou.motion-state
+net rev-input       => motion.tp-reverse-input
+
+# TODO: remove align-pos-cmd
+# net align-cmd wou.align-pos-cmd <=> motion.align-pos-cmd
+
+# TODO: why need those velicity info?
+# link velocity info
+net vel-sync-scale wou.motion.vel-sync-scale
+net requested-vel wou.motion.requested-vel <= motion.requested-vel
+# net feed-scale wou.motion.feed-scale <= motion.feed-scale
+net current-vel   wou.motion.current-vel <= motion.current-vel
+
+# setp wou.motion.spindle-joint-id [KINS]SPINDLE_AXIS_ID
+# setp motion.spindle-joint-id     [KINS]SPINDLE_AXIS_ID
+# create HAL signals for position commands from motion module
+# connect position commands from motion module to step generator
+net Xpos  axis.0.motor-pos-cmd => wou.stepgen.0.position-cmd
+net Ypos  axis.1.motor-pos-cmd => wou.stepgen.1.position-cmd
+net YYpos axis.2.motor-pos-cmd => wou.stepgen.2.position-cmd
+net Zpos  axis.3.motor-pos-cmd => wou.stepgen.3.position-cmd 
+net Wpos  axis.4.motor-pos-cmd => wou.stepgen.4.position-cmd
+net spindle-curr-pos-cmd        => wou.stepgen.5.position-cmd
+
+# loop position commands back to motion module feedback
+net Xpos-fb   wou.stepgen.0.position-fb => axis.0.motor-pos-fb
+net Ypos-fb   wou.stepgen.1.position-fb => axis.1.motor-pos-fb
+net YYpos-fb  wou.stepgen.2.position-fb => axis.2.motor-pos-fb
+net Zpos-fb   wou.stepgen.3.position-fb => axis.3.motor-pos-fb
+net Wpos-fb   wou.stepgen.4.position-fb => axis.4.motor-pos-fb
+net Spos-fb   wou.stepgen.5.position-fb => axis.5.motor-pos-fb
+
+net Xvel-fb   wou.stepgen.0.vel-fb
+net Yvel-fb   wou.stepgen.1.vel-fb
+net YYvel-fb  wou.stepgen.2.vel-fb
+net Zvel-fb   wou.stepgen.3.vel-fb
+
+# create signals for tool loading loopback
+net tool-prep-loop iocontrol.0.tool-prepare iocontrol.0.tool-prepared
+net tool-change-loop iocontrol.0.tool-change iocontrol.0.tool-changed
+
+# # FIXME: do we still support this sync-in?
+# # digital sync I/O signals
+# net sync_in_trigger     motion.sync-in-trigger =>  wou.sync.in.trigger
+# net sync_in_index       motion.sync-in-index =>  wou.sync.in.index
+# net sync_in_wait_type   motion.sync-in-wait-type =>  wou.sync.in.wait_type
+# net sync_in_timeout     motion.sync-in-timeout =>  wou.sync.in.timeout
+
+# estop loopback
+# net estop-loop iocontrol.0.user-enable-out iocontrol.0.emc-enable-in
+# let ESTOP switch control ESTOP behavior
+net din_00  => iocontrol.0.emc-enable-in
+
+# servo-on signal for AC Servo Motors
+net dout_00     <= axis.0.amp-enable-out
+# connect dout_02(BRAKE) to wou.machine-on signal: 
+#                       to earn a 2 sec RISC-ON delay after AC-SVO-ON
+net dout_00                         => son_delay.in
+net dout_02     son_delay.out       => wou.machine-on 
+
+# amp control
+net din_00                          => motion.enable
+net dout_00   axis.0.amp-enable-out => wou.stepgen.0.enable
+net dout_00                         => wou.stepgen.1.enable
+net dout_00                         => wou.stepgen.2.enable
+net dout_00                         => wou.stepgen.3.enable
+net dout_00                         => wou.stepgen.4.enable
+net dout_00                         => wou.stepgen.5.enable
+# net yyena   axis.2.amp-enable-out => wou.stepgen.2.enable
+# net zena    axis.3.amp-enable-out => wou.stepgen.3.enable
+# net j4ena   axis.4.amp-enable-out => wou.stepgen.4.enable
+# net j5ena   axis.5.amp-enable-out => wou.stepgen.5.enable
+
+setp wou.stepgen.0.steplen  [AXIS_0]STEPLEN
+setp wou.stepgen.1.steplen  [AXIS_1]STEPLEN
+setp wou.stepgen.2.steplen  [AXIS_2]STEPLEN
+setp wou.stepgen.3.steplen  [AXIS_3]STEPLEN
+setp wou.stepgen.4.steplen  [AXIS_4]STEPLEN
+setp wou.stepgen.5.steplen  [AXIS_5]STEPLEN
+
+# # connect signals from FPGA.
+# enc_pos: the encoder position read from FPGA.
+net enc_pos_j0    <= wou.stepgen.0.enc_pos  
+net enc_pos_j1    <= wou.stepgen.1.enc_pos  
+net enc_pos_j2    <= wou.stepgen.2.enc_pos  
+net enc_pos_j3    <= wou.stepgen.3.enc_pos  
+net enc-pos-j4 <=  wou.stepgen.4.enc_pos  
+net enc-pos-j5 <=  wou.stepgen.5.enc_pos  
+
+# set wou module scaling - get values from ini file
+setp wou.stepgen.0.position-scale [AXIS_0]INPUT_SCALE
+setp wou.stepgen.1.position-scale [AXIS_1]INPUT_SCALE
+setp wou.stepgen.2.position-scale [AXIS_2]INPUT_SCALE
+setp wou.stepgen.3.position-scale [AXIS_3]INPUT_SCALE
+setp wou.stepgen.4.position-scale [AXIS_4]INPUT_SCALE
+setp wou.stepgen.5.position-scale [AXIS_5]INPUT_SCALE
+
+# export ahc pins
+net ahc-state   => wou.ahc.state
+
+# set wou module velocity limits - get values from ini file
+setp wou.stepgen.0.maxvel [AXIS_0]MAX_VELOCITY
+setp wou.stepgen.1.maxvel [AXIS_1]MAX_VELOCITY
+setp wou.stepgen.2.maxvel [AXIS_2]MAX_VELOCITY
+setp wou.stepgen.3.maxvel [AXIS_3]MAX_VELOCITY
+setp wou.stepgen.4.maxvel [AXIS_4]MAX_VELOCITY
+setp wou.stepgen.5.maxvel [AXIS_5]MAX_VELOCITY
+
+# set wou module accel limits - get values from ini file
+setp wou.stepgen.0.maxaccel [AXIS_0]MAX_ACCELERATION
+setp wou.stepgen.1.maxaccel [AXIS_1]MAX_ACCELERATION
+setp wou.stepgen.2.maxaccel [AXIS_2]MAX_ACCELERATION
+setp wou.stepgen.3.maxaccel [AXIS_3]MAX_ACCELERATION
+setp wou.stepgen.4.maxaccel [AXIS_4]MAX_ACCELERATION
+setp wou.stepgen.5.maxaccel [AXIS_5]MAX_ACCELERATION
+
+# net j0_ferror_flag   wou.stepgen.0.ferror-flag => axis.0.usb-ferror-flag
+# net j1_ferror_flag   wou.stepgen.1.ferror-flag => axis.1.usb-ferror-flag
+# net j2_ferror_flag   wou.stepgen.2.ferror-flag => axis.2.usb-ferror-flag
+# net j3_ferror_flag   wou.stepgen.3.ferror-flag => axis.3.usb-ferror-flag
+# net j4_ferror_flag   wou.stepgen.4.ferror-flag => axis.4.usb-ferror-flag
+
+net x-probed-pos   wou.stepgen.0.probed-pos => axis.0.probed-pos
+net y-probed-pos   wou.stepgen.1.probed-pos => axis.1.probed-pos
+net yy-probed-pos  wou.stepgen.2.probed-pos => axis.2.probed-pos
+net z-probed-pos   wou.stepgen.3.probed-pos => axis.3.probed-pos
+net j4-probed-pos  wou.stepgen.4.probed-pos => axis.4.probed-pos
+net j5-probed-pos  wou.stepgen.5.probed-pos => axis.5.probed-pos
+
+net vx-cmd      => wou.stepgen.0.vel-cmd
+net vy-cmd      => wou.stepgen.1.vel-cmd
+net vz-cmd      => wou.stepgen.3.vel-cmd
+
+# SIM: setp joint.3.probed-pos -40
+
+net vel-sync wou.motion.vel-sync
+
+# for sync command for risc jogging
+# when program is not running or is not jogging (application should disable risc jogging as
+# well), make wou to sync pos-cmd and prev-pos-cmd
+# net ignore-host-cmd wou.ignore-host-cmd
+# net usb-busy wou.usb-busy => motion.usb-busy
+
+# # for laser distance measurement
+# setp    scale2.0.gain       0.09375
+# setp    scale2.0.base       800
+# setp    scale2.0.offset     100
+# net adc_7s      conv-s32-float.0.in     <=  wou.analog.in.07 => motion.analog-in-07
+# net adc_7f      scale2.0.in             <=  conv-s32-float.0.out
+# net laser_distance                      <=  scale2.0.out
+
+# net dnp motion.distance-not-probe
+# sets dnp 100
+# 
+# net distance-not-probe motion.dnp 
+
+# # loop position commands back to motion module feedback
+net J0-risc-pos-cmd wou.stepgen.0.risc-pos-cmd => axis.0.risc-pos-cmd
+net J1-risc-pos-cmd wou.stepgen.1.risc-pos-cmd => axis.1.risc-pos-cmd
+net J2-risc-pos-cmd wou.stepgen.2.risc-pos-cmd => axis.2.risc-pos-cmd
+net J3-risc-pos-cmd wou.stepgen.3.risc-pos-cmd => axis.3.risc-pos-cmd
+
+# # for usb-homing:
+setp axis.0.home-sw-id      [WOU]J0_HOME_SW_ID
+net [WOU]J0_HOME_SW_NET     axis.0.home-sw-in
+net j0-homing               axis.0.homing => wou.stepgen.0.homing
+net j0-risc-probe-vel       axis.0.risc-probe-vel => wou.stepgen.0.risc-probe-vel
+net j0-risc-probe-pin       axis.0.risc-probe-pin => wou.stepgen.0.risc-probe-pin
+net j0-risc-probe-type      axis.0.risc-probe-type => wou.stepgen.0.risc-probe-type
+# TODO: is risc-probe-dist necessary?
+net j0-risc-probe-dist      axis.0.risc-probe-dist => wou.stepgen.0.risc-probe-dist
+
+# RISC_CMD REQ and ACK
+net update-pos-req      wou.motion.update-pos-req   =>  motion.update-pos-req
+net update-pos-ack      wou.motion.update-pos-ack   <=  motion.update-pos-ack
+# net rcmd-seq-num-req    wou.motion.rcmd-seq-num-req =>  motion.rcmd-seq-num-req
+# net rcmd-seq-num-ack    wou.motion.rcmd-seq-num-ack <=  motion.rcmd-seq-num-ack
+net rcmd-state          wou.motion.rcmd-state       =>  motion.rcmd-state
+
+# trigger type 
+# 	0: or
+# 	1: analog only
+# 	2: digital only
+# 	3: and
+# cond(1): probe HIGH
+setp wou.trigger.din     51 
+setp wou.trigger.ain      2
+setp wou.trigger.type     2 
+setp wou.trigger.cond     1 
+setp wou.trigger.level  1000 
+setp motion.trigger.din     51 
+setp motion.trigger.ain      2 
+setp motion.trigger.type     2 
+setp motion.trigger.cond     1 
+setp motion.trigger.level  1000 
+
+net machine_is_on       halui.machine.is-on 
+net teleop_mode         wou.motion.teleop-mode <= motion.teleop-mode
+net coord_mode          wou.motion.coord-mode <= motion.coord-mode
+# net homing              wou.motion.homing <= motion.homing
+net probing             wou.motion.probing <= motion.probing
+net trigger_result      wou.trigger.result => motion.trigger-result
+
+# mapping wou.gpio to motion.synch_di[]
+net din_00	wou.gpio.in.00    => motion.digital-in-00
+net din_01 	wou.gpio.in.01    => motion.digital-in-01
+net din_02 	wou.gpio.in.02    => motion.digital-in-02
+net din_03 	wou.gpio.in.03    => motion.digital-in-03
+net din_04 	wou.gpio.in.04    => motion.digital-in-04
+net din_05 	wou.gpio.in.05    => motion.digital-in-05
+net din_06 	wou.gpio.in.06    => motion.digital-in-06
+net din_07 	wou.gpio.in.07    => motion.digital-in-07
+net din_08 	wou.gpio.in.08    => motion.digital-in-08
+net din_09 	wou.gpio.in.09    => motion.digital-in-09
+net din_10 	wou.gpio.in.10    => motion.digital-in-10
+net din_11 	wou.gpio.in.11    => motion.digital-in-11
+net din_12 	wou.gpio.in.12    => motion.digital-in-12
+net din_13 	wou.gpio.in.13    => motion.digital-in-13
+net din_14 	wou.gpio.in.14    => motion.digital-in-14
+net din_15 	wou.gpio.in.15    => motion.digital-in-15
+net din_16 	wou.gpio.in.16    => motion.digital-in-16
+net din_17 	wou.gpio.in.17    => motion.digital-in-17
+net din_18 	wou.gpio.in.18    => motion.digital-in-18
+net din_19 	wou.gpio.in.19    => motion.digital-in-19
+net din_32 	wou.gpio.in.32    => motion.digital-in-32
+net din_33 	wou.gpio.in.33    => motion.digital-in-33
+net din_34 	wou.gpio.in.34    => motion.digital-in-34
+net din_35 	wou.gpio.in.35    => motion.digital-in-35
+net din_36 	wou.gpio.in.36    => motion.digital-in-36
+net din_37 	wou.gpio.in.37    => motion.digital-in-37
+net din_38 	wou.gpio.in.38    => motion.digital-in-38
+net din_39 	wou.gpio.in.39    => motion.digital-in-39
+net din_40 	wou.gpio.in.40    => motion.digital-in-40
+net din_41 	wou.gpio.in.41    => motion.digital-in-41
+net din_42 	wou.gpio.in.42    => motion.digital-in-42
+net din_43 	wou.gpio.in.43    => motion.digital-in-43
+net din_44 	wou.gpio.in.44    => motion.digital-in-44
+net din_45 	wou.gpio.in.45    => motion.digital-in-45
+net din_46 	wou.gpio.in.46    => motion.digital-in-46
+net din_47 	wou.gpio.in.47    => motion.digital-in-47
+net din_51 	wou.gpio.in.51    => motion.digital-in-51
+
+net bp-tick     <= wou.bp-tick
+ 
+net ahc-doing   wou.ahc.doing 
+net ahc-level   wou.ahc.level 
+# remote-jog-vel
+# net j0-jog-vel  => wou.stepgen.0.jog-vel
+# net j0-jog-vel  => wou.stepgen.1.jog-vel
+# net j0-jog-vel  => wou.stepgen.2.jog-vel
+# net j3-jog-vel  => wou.stepgen.3.jog-vel
+
+# job-vel is mm/sec
+setp            wou.stepgen.0.jog-vel   1250
+
