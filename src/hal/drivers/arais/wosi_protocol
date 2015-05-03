@@ -1,13 +1,14 @@
-[WOU] WISHBONE Over USB Application Layer Protocol
+[WOSI] WISHBONE Over Serial Interface Application Layer Protocol
   + Refer to 802.3 MAC Frame (http://en.wikipedia.org/wiki/Ethernet)
   + take its Preamble and Start-of-Frame-Delimiter from 802.3 MAC Frame
   + take its 16-bit CRC
-  + The WOU messages is organized as the following sequence:
-            +---> [WOU_FRAME][WOU_FRAME][...] --->+
-    HOST <==>                                     <==> FPGA Tranceiver
-            +<--- [WOU_FRAME][WOU_FRAME][...] <---+
-  + drop a WOU_FRAME if it's CRC is incorrect
-  + adopt GO-BACK-N ARQ for WOU_FRAME
+  + The WOSI messages is organized as the following sequence:
+            +---> [WOSI_FRAME][WOSI_FRAME][...] --->+
+    HOST <==>                                       <==> FPGA Tranceiver
+            +<--- [WOSI_FRAME][WOSI_FRAME][...] <---+
+  + drop a WOSI_FRAME if it's CRC is incorrect
+  + adopt GO-BACK-N ARQ for WOSI_FRAME
+  + RX.WOSI_FRAME.MAILBOX has higher priority than all the other WOSI_FRAMEs
   + for JOINT command:
     - HOST send DIFFERENTIATE_JOINT_POSITION_COMMAND to FPGA.RISC
     - FPGA.RISC do close-loop control based on received position commands
@@ -22,70 +23,86 @@
     - HOST parse STATUS from fetchmail
     - STATUS includes joint-encoder-position, joint-velocity, analog-channel ... etc.
 
-WOU_FRAME Format
+WOSI_FRAME Format
 ===================
     PLOAD_SIZE_TX: 
-        + (host-to-target): 0x03 ~ 0xFF bytes for {WOUF_COMMAND, TID, PLOAD_SIZE_RX, WOU_PAYLOAD}
+        + (host-to-target): 0x03 ~ 0xFF bytes for {WOSIF_COMMAND, TID, PLOAD_SIZE_RX, WOSI_PAYLOAD}
         + (target-to-host): 0x02 ~ 0xFF bytes for Responsed payload (not include the size of CRC-16)
-    WOUF_COMMAND:
-        + 00, TYP_WOUF  : typical WOU_FRAME packet; need at least TID.
-        + 01, RST_TID   : reset Expected TID of receiver to 0
-        + 02, MAILBOX   : MAIL from OR32; need at least MAIL_TAG.
-        + 03, REALTIME  : real-time WOUF command. 
+    WOSIF_COMMAND:
+        + 00, TYP_WOSIF : typical WOSI_FRAME packet 
+        + 01, SYS_RST   : system reset that set Expected TID of receiver to 0
+        + 02, MAILBOX   : MAIL from RISC
+        + 03, REALTIME  : real-time WOSIF command
     TID:
         + Transaction ID for GO-BACK-N protocol
     PLOAD_SIZE_RX: 
-        + 0x02 ~ 0xFF bytes for Responsing WOU_FRAME
-        + initiated by WOU Read commands from this frame.
-        + there would be no PAYLOAD in response WOU_FRAME;
+        + 0x02 ~ 0xFF bytes for Responsing WOSI_FRAME
+        + initiated by WOSI Read commands from this frame.
+        + there would be no PAYLOAD in response WOSI_FRAME;
           in this case, the PLOAD_SIZE_RX should be 2 
-          {WOUF_COMMAND, TID/MAIL_TAG}.
-    WOU_PAYLOAD is composed of multiple WOU packets. 
-        + WOU_PAYLOAD{[WOU][WOU][WOU]...}
+          {WOSIF_COMMAND, TID/MAIL_TAG}.
+    WOSI_PAYLOAD is composed of multiple WOSI packets. 
+        + WOSI_PAYLOAD{[WOSI][WOSI][WOSI]...}
     CRC-16: 
-        + covers the PLOAD_SIZE_TX, PLOAD_SIZE_RX, and WOU_PAYLOAD.
+        + covers the PLOAD_SIZE_TX, PLOAD_SIZE_RX, and WOSI_PAYLOAD.
         + it's little endian
+    
+    Properties of WOSIF_COMMAND:
+        + 00, TYP_WOSIF: 
+            - typical WOSI_FRAME packet 
+            - a TX-REQ should get a RX-ACK for NEXT-TID
+        + 01, SYS_RST: 
+            - reset Expected TID of receiver to 0
+            - TX-REQ only; no RX-ACK for SYS_RST
+        + 02, MAILBOX: 
+            - MAIL from OR32; need at least MAIL_TAG.
+            - RX-ACK WOSI FRAME
+        + 03, REALTIME: 
+            - real-time WOSIF command. 
+            - the PAYLOAD of this WOSIF will get processed immediately
+            - no TID for both TX-REQ and RX-ACK of REALTIME WOSIF
+            - a TX-REQ should get a RX-ACK
 
-WOU Frame (TX)
-===================
+WOSI Frame (TX)
+===============================================================================
       0                   1                   2                   3
       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
      |Preamble (2 octets of 10101010)|SOFD (10101011)| PLOAD_SIZE_TX | HEADER
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ -------- 
-     |  WOUF_COMMAND |     TID       | PLOAD_SIZE_RX |               | 
+     | WOSIF_COMMAND |     TID       | PLOAD_SIZE_RX |               | 
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               |  
-     |                   WOU_PAYLOAD                                 |  
+     |                  WOSI_PAYLOAD                                 |  
      |               Byte[6] to Byte[6+PLOAD_SIZE_TX]                | PAYLOAD
      |                                                               |
      |                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
      |                               |        CRC-16                 |
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
 
-WOU Frame (RX) (for TYP_WOUF)
-=============================
+WOSI Frame (RX) (for TYP_WOSIF, 00)
+===============================================================================
       0                   1                   2                   3
       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
      |Preamble (2 octets of 10101010)|SOFD (10101011)| PLOAD_SIZE_TX | HEADER
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ -------- 
-     |  WOUF_COMMAND |     TID       |                               | 
+     | WOSIF_COMMAND |   NEXT-TID    |                               | 
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+                               |  
-     |                   WOU_PAYLOAD                                 |  
+     |                  WOSI_PAYLOAD                                 |  
      |               Byte[6] to Byte[6+PLOAD_SIZE_TX]                | PAYLOAD
      |                                                               |
      |                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
      |                               |        CRC-16                 |
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
 
-WOU Frame (RX) (for MAILBOX messages)
-=====================================
+WOSI Frame (RX) (for MAILBOX messages, 02)
+===============================================================================
       0                   1                   2                   3
       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
      |Preamble (2 octets of 10101010)|SOFD (10101011)| PLOAD_SIZE_TX | HEADER
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ -------- 
-     |  WOUF_COMMAND |            MAIL_TAG           |               | 
+     | WOSIF_COMMAND |            MAIL_TAG           |               | 
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ -------- 
      |  BP_TICK                                      |               | 
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               |  
@@ -96,41 +113,41 @@ WOU Frame (RX) (for MAILBOX messages)
      |                               |        CRC-16                 |
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
 
-WOU Frame (TX - REALTIME)
-=========================
+WOSI Frame (TX - REALTIME)
+===============================================================================
       0                   1                   2                   3
       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
      |Preamble (2 octets of 10101010)|SOFD (10101011)| PLOAD_SIZE_TX | HEADER
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ -------- 
-     |  WOUF_COMMAND | PLOAD_SIZE_RX |                               | 
+     | WOSIF_COMMAND | PLOAD_SIZE_RX |                               | 
      +-+-+-+-+-+-+-+-+- - - - - - - -                                |  
-     |                   WOU_PAYLOAD                                 |  
+     |                  WOSI_PAYLOAD                                 |  
      |               Byte[5] to Byte[5+PLOAD_SIZE_TX]                | PAYLOAD
      |                                                               |
      |                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
      |                               |        CRC-16                 |
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
 
-WOU Frame (RX - REALTIME)
-=========================
+WOSI Frame (RX - REALTIME, 03)
+===============================================================================
       0                   1                   2                   3
       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
      |Preamble (2 octets of 10101010)|SOFD (10101011)| PLOAD_SIZE_TX | HEADER
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ -------- 
-     |  WOUF_COMMAND |                                               | 
+     | WOSIF_COMMAND |                                               | 
      +-+-+-+-+-+-+-+-+                                               |  
-     |                   WOU_PAYLOAD                                 |  
+     |                  WOSI_PAYLOAD                                 |  
      |               Byte[5] to Byte[5+PLOAD_SIZE_TX]                | PAYLOAD
      |                                                               |
      |                               +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
      |                               |        CRC-16                 |
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
 
-WOU packet Format
+WOSI packet Format
 ===================
-    (WOU_PAYLOAD is composed of multiple WOU packets)
+    (WOSI_PAYLOAD is composed of multiple WOSI packets)
       0                   1                   2                   3
       0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
      +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+ --------
@@ -154,6 +171,6 @@ WOU packet Format
         the WB_ADDR increments by one for each DATA byte
 
 HOST:
-  + send [WOU_FRAME] messages, then recv [WOU_FRAME] messages if any
-  + TODO: HOST.Tx thread: send [WOU_FRAME] messages
-  + TODO: HOST.Rx thread: recv [WOU_FRAME] messages
+  + send [WOSI_FRAME] messages, then recv [WOSI_FRAME] messages if any
+  + TODO: HOST.Tx thread: send [WOSI_FRAME] messages
+  + TODO: HOST.Rx thread: recv [WOSI_FRAME] messages

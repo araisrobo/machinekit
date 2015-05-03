@@ -1903,7 +1903,7 @@ AC_SUBST([EMC2_HOME])
 # Subsection 3.3 - check for GTK                                             #
 # Subsection 3.4 - check for utility programs needed to build and run EMC    #
 # Subsection 3.5 - check for programs needed to build documentation          #
-# Subsection 3.6 - check for libwou (Wishbone Over USB)                      #
+# Subsection 3.6 - check for libwosi (Wishbone Over Serial Interface)        #
 ##############################################################################
 
 
@@ -2498,21 +2498,21 @@ AC_SUBST(BUILD_DOCS_PDF)
 AC_SUBST(BUILD_DOCS_HTML)
 
 ##############################################################################
-# Subsection 3.6 - check for libwou (Wishbone Over USB)                      #
+# Subsection 3.6 - check for libwosi (Wishbone Over Serial Interface)        #
 ##############################################################################
 
-AC_MSG_CHECKING([for wou])
-if pkg-config wou >/dev/null 2>&1; then
-  WOU_VER=`pkg-config wou --modversion`
-  AC_MSG_RESULT(yes - $WOU_VER)
-  WOU_CFLAGS=`pkg-config wou --cflags`
-  WOU_LIBS=`pkg-config wou --libs`
+AC_MSG_CHECKING([for wosi])
+if pkg-config wosi >/dev/null 2>&1; then
+  WOSI_VER=`pkg-config wosi --modversion`
+  AC_MSG_RESULT(yes - $WOSI_VER)
+  WOSI_CFLAGS=`pkg-config wosi --cflags`
+  WOSI_LIBS=`pkg-config wosi --libs`
 else
-  AC_MSG_RESULT(no -- wou_stepgen will not work)
+  AC_MSG_RESULT(no -- wosi_stepgen will not work)
 fi
-AC_SUBST(WOU_VER)
-AC_SUBST(WOU_LIBS)
-AC_SUBST(WOU_CFLAGS)
+AC_SUBST(WOSI_VER)
+AC_SUBST(WOSI_LIBS)
+AC_SUBST(WOSI_CFLAGS)
 
 
 ##############################################################################

@@ -23,7 +23,7 @@
 #include "motion.h"
 #include "mot_priv.h"
 #include "rtapi_math.h"
-#include <wou.h>
+#include <wosi.h>
 #include <mailtag.h>
 #include "sync_cmd.h"
 

@@ -1329,18 +1329,18 @@ hm2_pci-objs  :=			  \
     $(MATHSTUB)
 endif
 
-## Begin: WOU - wishbone over usb
-# build WOU if there's libwou-dev installed
-ifneq ($(WOU_VER),)
-SUBDIRS += hal/drivers/ar-usb
-EXTRA_CFLAGS += $(WOU_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/ar-usb
+## Begin: WOSI - wishbone over serial interface
+# build WOSI if there's libwosi-dev installed
+ifneq ($(WOSI_VER),)
+SUBDIRS += hal/drivers/arais
+EXTRA_CFLAGS += $(WOSI_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/arais
 # EXTRAFLAGS is for emctaskmain.cc ... etc.
-EXTRAFLAGS += $(WOU_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/ar-usb
-LDFLAGS += $(WOU_LIBS)
-obj-$(CONFIG_WOU) += wou.o
-wou-objs := hal/drivers/ar-usb/wou_stepgen.o $(MATHSTUB)
+EXTRAFLAGS += $(WOSI_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/arais
+LDFLAGS += $(WOSI_LIBS)
+obj-$(CONFIG_WOSI) += wosi.o
+wosi-objs := hal/drivers/arais/wosi.o $(MATHSTUB)
 endif
-## End: WOU - wishbone over usb
+## End: WOSI - wishbone over usb
 
 obj-$(CONFIG_PROBE_PARPORT) += probe_parport.o
 probe_parport-objs := hal/drivers/probe_parport.o $(MATHSTUB)
@@ -1546,8 +1546,8 @@ $(RTLIBDIR)/hm2_pci$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_pci-objs))
 $(RTLIBDIR)/hm2_test$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_test-objs)) 
 endif
 
-ifneq ($(WOU_VER),)
-$(RTLIBDIR)/wou$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(wou-objs))
+ifneq ($(WOSI_VER),)
+$(RTLIBDIR)/wosi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(wosi-objs))
 endif
 
 ifdef TARGET_PLATFORM_BEAGLEBONE
