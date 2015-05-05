@@ -1055,6 +1055,10 @@ see_segment(int line_number,
 	    double x, double y, double z, 
             double a, double b, double c,
             double u, double v, double w) {
+    bool changed_xyz = (x != canonEndPoint.x)
+        || (y != canonEndPoint.y)
+        || (z != canonEndPoint.z);
+
     bool changed_abc = (a != canonEndPoint.a)
         || (b != canonEndPoint.b)
         || (c != canonEndPoint.c);
@@ -1068,7 +1072,8 @@ see_segment(int line_number,
     }
     pt pos = {x, y, z, a, b, c, u, v, w, line_number};
     chained_points.push_back(pos);
-    if(changed_abc || changed_uvw) {
+//    if(changed_abc || changed_uvw) {
+    if(changed_xyz || changed_abc || changed_uvw) {
         flush_segments();
     }
 }
