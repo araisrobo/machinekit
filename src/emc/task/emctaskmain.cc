@@ -132,6 +132,8 @@ static int resume_startup_id;
 static bool resume_startup_en;
 static double resume_x, resume_y;
 static bool wait_resume_startup;
+static bool resume_cutter_comp_firstmove;
+static int resume_motion_type;
 
 // emcTaskIssueCommand issues command immediately
 static int emcTaskIssueCommand(NMLmsg * cmd);
@@ -609,6 +611,8 @@ interpret_again:
                             if ((wait_resume_startup == true) && (emcTaskPlanLevel() == 0)) {
 //                                //FIXME: force resume_z at safe-height 10mm
 //                                resume_z = emcStatus->motion.traj.actualPosition.tran.z + 10;
+                                emcTaskPlanSetCutterCompFirstmove(&resume_cutter_comp_firstmove);
+
                                 emcTaskPlanSetCurPos(&resume_x, &resume_y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
                                 wait_resume_startup = false;
 			    }
@@ -637,7 +641,6 @@ interpret_again:
                             FINISH();   // to call flush_segments(), emccanon.cc
 			    emcStatus->task.readLine = emcTaskPlanLine();
 			    toplevel_line_number = emcTaskPlanToplevelLine();
-
 			    emcTaskPlanCommand((char *) &emcStatus->task.command);
 			    // and execute it
 			    execRetval = emcTaskPlanExecute(0);
@@ -704,6 +707,7 @@ interpret_again:
                                         /**
                                          * Only support non-motion G/M code for RESUME_STARTUP_CODE
                                          */
+	                                emcTaskPlanGetCutterCompFirstmove(&resume_cutter_comp_firstmove);
                                         emcTaskPlanGetCurPos(&resume_x, &resume_y, &z, &a, &b, &c, &u, &v, &w);        //!< save Interpreter's internal positions
                                         //update the position with our current position, as the other positions are only skipped through
                                         CANON_UPDATE_END_POINT(emcStatus->motion.traj.actualPosition.tran.x,
@@ -715,6 +719,11 @@ interpret_again:
                                                                emcStatus->motion.traj.actualPosition.u,
                                                                emcStatus->motion.traj.actualPosition.v,
                                                                emcStatus->motion.traj.actualPosition.w);
+//                                        rcs_print("%s %s:%d resume_xyz(%f: %f: %f) actualpos(%f: %f: %f)\n", __FILE__, __FUNCTION__, __LINE__,
+//                                                        resume_x, resume_y, z,
+//                                                        emcStatus->motion.traj.actualPosition.tran.x,
+//                                                       emcStatus->motion.traj.actualPosition.tran.y,
+//                                                       emcStatus->motion.traj.actualPosition.tran.z);
                                         emcTaskPlanSynch();
                                         execRetval = emcTaskPlanExecute(resume_startup_code, toplevel_line_number);
                                         if (execRetval == INTERP_EXECUTE_FINISH) {
@@ -729,27 +738,66 @@ interpret_again:
                                         resume_startup_en = false;
                                         resume_startup_id = toplevel_line_number;
 	                            }
-                                    history_queue.move_tail();
-                                    // reset programStartLine so we don't fall into our stepping routines
-                                    // if we happen to execute lines before the current point later (due to subroutines).
-                                    programStartLine = 0;
                                 }
 			    }
-			    else if ((emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) &&
-                                     (toplevel_line_number == programStartLine))
+			    else if ((emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) &&
+			             (toplevel_line_number == programStartLine) && (programStartLine > 0))
 			    {
                                 FINISH();   // to call flush_segments(), emccanon.cc
-                                /* FINISH() might generate some line segments; move them to history_queue */
-                                if (0 != checkInterpList(&interp_list, emcStatus)) {
-                                    // problem with actions, so do same as we did for a bad read from emcTaskPlanRead() above
-                                    emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
-                                }
-                                if (emcTaskPlanLevel() == 0) {
+
+			        if (interp_list.len() > 0)
+                                {
+                                    NMLmsg *cmd = 0;
+                                    interp_list.move_head();
+                                    cmd = interp_list.update_current();
+                                    if (cmd->type != (resume_motion_type+218))
+                                    {
+                                        cmd = interp_list.get();
+                                        history_append (cmd,
+                                                        interp_list.get_line_number(),
+                                                        interp_list.get_call_level(),
+                                                        interp_list.get_remap_level());
+                                    }
                                     history_queue.move_tail();
                                     // reset programStartLine so we don't fall into our stepping routines
                                     // if we happen to execute lines before the current point later (due to subroutines).
                                     programStartLine = 0;
                                 }
+                            }
+			    else if ((emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) &&
+                                     (programStartLine > 0))
+			    {
+                                NMLmsg *cmd = 0;
+
+			        FINISH();   // to call flush_segments(), emccanon.cc
+                                /* FINISH() might generate some line segments; move them to history_queue */
+			        if (0 != checkInterpList(&interp_list, emcStatus)) {
+			            // problem with actions, so do same as we did for a bad read from emcTaskPlanRead() above
+			            emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
+			        }
+			        history_queue.move_tail();
+			        cmd = history_queue.update_current();
+			        while (history_queue.get_line_number() > programStartLine)
+			        {
+			            history_queue.move_last();
+			            cmd = history_queue.update_current();
+			        }
+			        while ((emcTaskPlanLevel() == 0) &&
+			                (cmd->type != (resume_motion_type+218)) &&
+			                (history_queue.get_line_number() == programStartLine))
+			        {
+			            history_queue.move_last();
+			            cmd = history_queue.update_current();
+			        }
+
+			        if ((emcTaskPlanLevel() == 0) &&
+			                (cmd->type == (resume_motion_type+218)) &&
+			                (history_queue.get_line_number() == programStartLine))
+			        {
+			            // reset programStartLine so we don't fall into our stepping routines
+			            // if we happen to execute lines before the current point later (due to subroutines).
+			            programStartLine = 0;
+			        }
 			    }
 
 			    if ((emcTaskPlanLevel() == 0) && (wait_resume_startup == true))
@@ -2399,6 +2447,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         history_queue.clear();
         if ((programStartLine == 0) && (emcStatus->motion.traj.tp_reverse_input == TP_FORWARD)) {
             /* run from beginning of NC file: save start position */
+            resume_startup_id = 0;          //!< reset here, will be set inside readahead_reading()
             emcTaskPlanSynch();             //!< synchronize External Position to Interpreter's internal positions
             emcTaskPlanSaveCurPos();        //!< save Interpreter's internal positions
         } else {
@@ -2423,7 +2472,8 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
             break;
         }
         emcTaskCommand = NULL;
-	emcTrajPause();
+        resume_motion_type = emcStatus->motion.traj.motion_type;
+        emcTrajPause();
 	if (emcStatus->task.interpState != EMC_TASK_INTERP_PAUSED) {
 	    interpResumeState = emcStatus->task.interpState;
 	}
@@ -2458,9 +2508,6 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         emcStatus->task.execState = EMC_TASK_EXEC_RESUME;       // wait for TCQ finishing pending motion
         emcTaskCommand = NULL;
         emcTrajResume();
-
-//        rcs_print("%s (%s:%d) motion.traj.id(%d) resume_startup_id(%d)\n", __FILE__, __FUNCTION__, __LINE__,
-//                emcStatus->motion.traj.id, resume_startup_id);
 
         if (wait_resume_startup == true) {
             wait_resume_startup = false;
@@ -2562,7 +2609,6 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
             emcTaskCommand = 0;     //!< cleanup emcTaskCommand
             resume_startup_en = false;
         }
-
         resume_startup_id = 0;  //!< reset here, will be set inside readahead_reading()
         emcStatus->motion.traj.cur_tp_reversed = emcStatus->motion.traj.next_tp_reversed;
         emcStatus->task.task_paused = 0;
@@ -2845,8 +2891,9 @@ static int emcTaskExecute(void)
 		    /* append motion node to history_queue */
 		    if (emcStatus->motion.traj.next_tp_reversed == TP_FORWARD)
 		    {
+
                         emcStatus->task.currentLine = interp_list.get_line_number();
-		        history_append (emcTaskCommand, emcStatus->task.currentLine, interp_list.get_call_level(), interp_list.get_remap_level());
+                        history_append (emcTaskCommand, emcStatus->task.currentLine, interp_list.get_call_level(), interp_list.get_remap_level());
 		    } else {
 		        emcStatus->task.currentLine = history_queue.get_line_number();
 		    }
@@ -3111,6 +3158,7 @@ static int emcTaskExecute(void)
                 emcOperatorError(0, _("can't open %s"), open_msg->file);
                 retval = -1;
             }
+            emcTaskPlanReset();
             /* update Z position as current Z */
             emcTaskPlanGetCurPos(&x, &y, &z, &a, &b, &c, &u, &v, &w);  //!< save Interpreter's internal positions
             emcTaskPlanRestoreCurPos();

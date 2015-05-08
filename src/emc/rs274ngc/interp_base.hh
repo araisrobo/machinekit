@@ -40,6 +40,9 @@ public:
     virtual int synch() = 0;
     virtual int save_cur_pos() = 0;
     virtual int restore_cur_pos() = 0;
+    virtual int get_cutter_comp_firstmove(bool *cutter_comp_firstmove) = 0;
+    virtual int set_cutter_comp_firstmove(bool *cutter_comp_firstmove) = 0;
+
     virtual int get_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w) = 0;
     virtual int set_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w) = 0;
     virtual int exit() = 0;

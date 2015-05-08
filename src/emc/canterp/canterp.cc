@@ -81,6 +81,9 @@ public:
     int synch();
     int save_cur_pos();
     int restore_cur_pos();
+    int get_cutter_comp_firstmove(bool *cutter_comp_firstmove);
+    int set_cutter_comp_firstmove(bool *cutter_comp_firstmove);
+
     int get_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
     int set_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
     int exit();
@@ -694,6 +697,9 @@ int Canterp::exit() { return 0; }
 int Canterp::synch() { return 0; }
 int Canterp::save_cur_pos() { return 0; }
 int Canterp::restore_cur_pos() { return 0; }
+int Canterp::get_cutter_comp_firstmove(bool *cutter_comp_firstmove) { return 0; }
+int Canterp::set_cutter_comp_firstmove(bool *cutter_comp_firstmove) { return 0; }
+
 int Canterp::get_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w) { return 0; }
 int Canterp::set_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w) { return 0; }
 int Canterp::reset() { return 0; }

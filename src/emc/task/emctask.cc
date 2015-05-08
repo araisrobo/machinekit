@@ -531,6 +531,27 @@ int emcTaskPlanRestoreCurPos()
     return retval;
 }
 
+
+/**
+ * emcTaskPlanGetCutterCompFirstmove(cutter_comp_firstmove): get interpreter's cutter_comp_firstmove
+ */
+int emcTaskPlanGetCutterCompFirstmove(bool *cutter_comp_firstmove)
+{
+    int retval = interp.get_cutter_comp_firstmove(cutter_comp_firstmove);
+
+    return retval;
+}
+
+/**
+ * emcTaskPlanSetCutterCompFirstmove(cutter_comp_firstmove): get interpreter's cutter_comp_firstmove
+ */
+int emcTaskPlanSetCutterCompFirstmove(bool *cutter_comp_firstmove)
+{
+    int retval = interp.set_cutter_comp_firstmove(cutter_comp_firstmove);
+
+    return retval;
+}
+
 /**
  * emcTaskPlanGetCurPos(pos): get interpreter's current positions
  */

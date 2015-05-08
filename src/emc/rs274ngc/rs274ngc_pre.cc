@@ -1293,6 +1293,8 @@ int Interp::open(const char *filename) //!< string: the name of the input NC-pro
   CHKS((strlen(filename) > (LINELEN - 1)), NCE_FILE_NAME_TOO_LONG);
   _setup.file_pointer = fopen(filename, "r");
   CHKS((_setup.file_pointer == NULL), NCE_UNABLE_TO_OPEN_FILE, filename);
+
+  rewind(_setup.file_pointer);
   line = _setup.linetext;
   for (index = -1; index == -1;) {      /* skip blank lines */
     CHKS((fgets(line, LINELEN, _setup.file_pointer) ==
@@ -1321,6 +1323,7 @@ int Interp::open(const char *filename) //!< string: the name of the input NC-pro
     _setup.percent_flag = false;
     _setup.sequence_number = 0; // Going back to line 0
   }
+
   strcpy(_setup.filename, filename);
   reset();
   return INTERP_OK;
@@ -2019,6 +2022,20 @@ int Interp::restore_cur_pos()
     return INTERP_OK;
 }
 
+int Interp::get_cutter_comp_firstmove(bool *cutter_comp_firstmove)
+{
+    *cutter_comp_firstmove = _setup.cutter_comp_firstmove;
+
+    return INTERP_OK;
+}
+
+int Interp::set_cutter_comp_firstmove(bool *cutter_comp_firstmove)
+{
+    _setup.cutter_comp_firstmove = *cutter_comp_firstmove;
+
+    return INTERP_OK;
+}
+
 int Interp::get_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w)
 {
     *a = _setup.AA_current;
@@ -2030,6 +2047,7 @@ int Interp::get_cur_pos(double *x, double *y, double *z, double *a, double *b, d
     *u = _setup.u_current ;
     *v = _setup.v_current ;
     *w = _setup.w_current ;
+
     return INTERP_OK;
 }
 
@@ -2044,6 +2062,8 @@ int Interp::set_cur_pos(double *x, double *y, double *z, double *a, double *b, d
     if (u != NULL) { _setup.u_current = *u; }
     if (v != NULL) { _setup.v_current = *v; }
     if (w != NULL) { _setup.w_current = *w; }
+
+
 
     /**
      * Will convert to CANON unit(mm), and rotate_and offset_pos()

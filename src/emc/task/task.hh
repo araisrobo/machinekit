@@ -37,6 +37,8 @@ int emcTaskPlanClearWait();
 int emcTaskPlanSynch();
 int emcTaskPlanSaveCurPos();
 int emcTaskPlanRestoreCurPos();
+int emcTaskPlanGetCutterCompFirstmove(bool *cutter_comp_firstmove);
+int emcTaskPlanSetCutterCompFirstmove(bool *cutter_comp_firstmove);
 int emcTaskPlanGetCurPos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
 int emcTaskPlanSetCurPos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
 int emcTaskPlanSetOptionalStop(bool state);

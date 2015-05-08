@@ -515,7 +515,13 @@ int Interp::convert_arc(int move,        //!< either G_2 (cw arc) or G_3 (ccw ar
                    block->j_number, block->k_number);
     CHP(status);
   } else
+  {
     ERS(NCE_BUG_PLANE_NOT_XY_YZ_OR_XZ);
+  }
+  dequeue_canons(settings);
+  comp_get_current(settings, &end_x, &end_y, &end_z);
+  set_endpoint(end_x, end_y);
+
   return INTERP_OK;
 }
 
@@ -885,7 +891,6 @@ int Interp::convert_arc_comp2(int move,  //!< either G_2 (cw arc) or G_3 (ccw ar
           
             midx = centerx + dist_from_center * cos(angle_from_center);
             midy = centery + dist_from_center * sin(angle_from_center);
-
             CHP(move_endpoint_and_flush(settings, midx, midy));
         } else {
             // arc->arc
@@ -923,7 +928,6 @@ int Interp::convert_arc_comp2(int move,  //!< either G_2 (cw arc) or G_3 (ccw ar
           
             midx = prev.center1 + oldrad * cos(dir);
             midy = prev.center2 + oldrad * sin(dir);
-          
             CHP(move_endpoint_and_flush(settings, midx, midy));
         }
         enqueue_ARC_FEED(settings, block->line_number, 
@@ -1769,10 +1773,11 @@ int Interp::convert_cutter_compensation_off(setup_pointer settings)      //!< po
       settings->current_x = settings->program_x;
       settings->current_y = settings->program_y;
       settings->current_z = settings->program_z;
-      settings->arc_not_allowed = true;
   }
+
   settings->cutter_comp_side = false;
   settings->cutter_comp_firstmove = true;
+
   return INTERP_OK;
 }
 
@@ -1889,6 +1894,7 @@ int Interp::convert_cutter_compensation_on(int side,     //!< side of path cutte
   settings->cutter_comp_radius = radius;
   settings->cutter_comp_orientation = orientation;
   settings->cutter_comp_side = side;
+
   return INTERP_OK;
 }
 
@@ -4674,7 +4680,6 @@ int Interp::convert_straight_comp1(int move,     //!< either G_0 or G_1
 
     end_x = (px + (radius * cos(alpha)));
     end_y = (py + (radius * sin(alpha)));
-
     // with these moves we don't need to record the direction vector.
     // they cannot get reversed because they are guaranteed to be long
     // enough.
@@ -4821,7 +4826,6 @@ int Interp::convert_straight_comp2(int move,     //!< either G_0 or G_1
         radius = settings->cutter_comp_radius;      /* will always be positive */
         theta = atan2(cy - opy, cx - opx);
         alpha = atan2(py - opy, px - opx);
-
         if (side == LEFT) {
             if (theta < alpha)
                 theta = (theta + (2 * M_PIl));
@@ -4948,6 +4952,7 @@ int Interp::convert_straight_comp2(int move,     //!< either G_0 or G_1
             dequeue_canons(settings);
             set_endpoint(cx, cy);
         }
+
         (move == G_0? enqueue_STRAIGHT_TRAVERSE: enqueue_STRAIGHT_FEED)
             (settings, block->line_number, 
              px - opx, py - opy, pz - opz, 

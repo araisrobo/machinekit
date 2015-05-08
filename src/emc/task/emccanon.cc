@@ -1055,27 +1055,12 @@ see_segment(int line_number,
 	    double x, double y, double z, 
             double a, double b, double c,
             double u, double v, double w) {
-    bool changed_xyz = (x != canonEndPoint.x)
-        || (y != canonEndPoint.y)
-        || (z != canonEndPoint.z);
-
-    bool changed_abc = (a != canonEndPoint.a)
-        || (b != canonEndPoint.b)
-        || (c != canonEndPoint.c);
-
-    bool changed_uvw = (u != canonEndPoint.u)
-        || (v != canonEndPoint.v)
-        || (w != canonEndPoint.w);
-
     if(!chained_points.empty() && !linkable(x, y, z, a, b, c, u, v, w)) {
         flush_segments();
     }
     pt pos = {x, y, z, a, b, c, u, v, w, line_number};
     chained_points.push_back(pos);
-//    if(changed_abc || changed_uvw) {
-    if(changed_xyz || changed_abc || changed_uvw) {
-        flush_segments();
-    }
+    flush_segments();
 }
 
 void FINISH() {
