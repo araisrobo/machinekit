@@ -362,7 +362,7 @@ int tpCreate(TP_STRUCT * const tp, int _queueSize, TC_STRUCT * const tcSpace)
     if (!dptrace) {
         dptrace = fopen("tp.log", "w");
         /* prepare header for gnuplot */
-        DPS ("%11s%5s%6s%15s%15s%15s%15s%15s%15s%15s%15s\n",
+        DPS ("%11s%5s%6s%15s%15s%15s%15s%15s%15s%15s%15s%15s%15s\n",
                 "#dt", "id", "state", "req_vel", "cur_accel", "cur_vel", "progress%", "progress", "dist_to_go", "lookahead", "tc->jerk");
         _dt = 0;
     }
@@ -2589,7 +2589,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             // check if dist would be greater than tc_target at next cycle
             if (tc_target < (dist - (tc->currentvel + 1.5 * tc->cur_accel))) {
                 tc->accel_state = ACCEL_S5;
-                DPS("should stay in S5 and keep decel\n");
+//                DPS("should stay in S5 and keep decel\n");
                 break;
             }
 
@@ -2608,7 +2608,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             if ((tc->currentvel + tc->cur_accel * t + 0.5 * tc->jerk * t * t) <= req_vel) {
                 if(tc->progress/tc_target < 0.9){
                     tc->accel_state = ACCEL_S6;
-                    DPS("S5 move to S6\n");
+//                    DPS("S5 move to S6\n");
                 }
                 else
                 {
@@ -2628,7 +2628,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                     c5 = -(error_d*s6_a)/(8*k*s6_v);
                     c6 = 4*k;
                     ti = 1;
-                    DPS("S5 move to S7\n");
+//                    DPS("S5 move to S7\n");
                     break;
                 }
             }
@@ -2721,10 +2721,10 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
 //        }
 //    }
 
-    DPS("%11u%5d%6d%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",
+    DPS("%11u%5d%6d%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",
             _dt, tc->id, tc->accel_state, tc->reqvel * tc->feed_override * tc->cycle_time,
             tc->cur_accel, tc->currentvel, tc->progress/tc->target, tc->progress,
-            (tc->target - tc->progress), tc_target, tc->jerk);
+            tc->target - tc->progress, tc_target, tc->jerk, tc->target, tc->lookahead_target);
 
     tc->distance_to_go = tc->target - tc->progress;
 }
