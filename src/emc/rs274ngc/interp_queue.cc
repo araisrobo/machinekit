@@ -65,9 +65,9 @@ void qc_reset(void) {
 }
 
 void enqueue_SET_FEED_RATE(double feed) {
+    SET_FEED_RATE(feed);
     if(qc().empty()) {
         if(debug_qc) printf("immediate set feed rate %f\n", feed);
-        SET_FEED_RATE(feed);
         return;
     }
     queued_canon q;
@@ -91,9 +91,10 @@ void enqueue_DWELL(double time) {
 }
 
 void enqueue_SET_FEED_MODE(int mode) {
+    SET_FEED_MODE(mode);
     if(qc().empty()) {
         if(debug_qc) printf("immediate set feed mode %d\n", mode);
-        SET_FEED_MODE(mode);
+//        SET_FEED_MODE(mode);
         return;
     }
     queued_canon q;

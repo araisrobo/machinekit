@@ -453,12 +453,37 @@ static int mdi_execute_wait = 0;
 static NML_INTERP_LIST mdi_execute_queue;
 // history for top level motion commands
 static NML_INTERP_LIST history_queue;
+// il_temp for top level motion commands
+static NML_INTERP_LIST il_temp_queue;
 
 // MDI input queue
 static NML_INTERP_LIST mdi_input_queue;
 #define  MAX_MDI_QUEUE 10
 static int max_mdi_queued_commands = MAX_MDI_QUEUE;
 
+/*
+  il_temp_append(NML_INTERP_LIST *il, EMC_STAT *stat) takes a pointer
+  to an interpreter list and a pointer to the EMC status,
+ */
+static void il_temp_append (NMLmsg * cmd, int lineno, int call_level, int remap_level)
+{
+    if ((call_level == 0) &&
+        (emcStatus->task.mode == EMC_TASK_MODE_AUTO))
+    {
+        if ((cmd->type == EMC_TRAJ_LINEAR_MOVE_TYPE) ||
+            (cmd->type == EMC_TRAJ_CIRCULAR_MOVE_TYPE))
+        {
+            /**
+             * append to history for top-level-motions only
+             */
+            il_temp_queue.set_line_number(lineno);
+            il_temp_queue.set_interp_params(call_level, remap_level);
+            il_temp_queue.append(cmd);      // move from interp_list to history_queue
+            rcs_print("%s %s:%d cmd->type(%ld) lineno(%d)\n", __FILE__, __FUNCTION__, __LINE__,
+                    cmd->type, lineno);
+        }
+    }
+}
 /*
   history_append(NML_INTERP_LIST *il, EMC_STAT *stat) takes a pointer
   to an interpreter list and a pointer to the EMC status,
@@ -499,6 +524,8 @@ static int checkInterpList(NML_INTERP_LIST * il, EMC_STAT * stat)
 
     while (il->len() > 0) {
 	cmd = il->get();
+        FINISH();   // to call flush_segments(), emccanon.cc
+
 	history_append (cmd, il->get_line_number(), il->get_call_level(), il->get_remap_level());
 
 	switch (cmd->type) {
@@ -607,12 +634,22 @@ interpret_again:
 #endif
 			)
 			{
+
 			    emcTaskPlanClearWait();
                             if ((wait_resume_startup == true) && (emcTaskPlanLevel() == 0)) {
+                                NMLmsg *cmd = 0;
+                                while (il_temp_queue.len() > 0)
+                                {
+                                    cmd = il_temp_queue.get();
+                                    interp_list.set_line_number(il_temp_queue.get_line_number());
+                                    interp_list.append(cmd);
+
+                                }
+                                interp_list.move_head();
+                                interp_list.update_current();
 //                                //FIXME: force resume_z at safe-height 10mm
 //                                resume_z = emcStatus->motion.traj.actualPosition.tran.z + 10;
                                 emcTaskPlanSetCutterCompFirstmove(&resume_cutter_comp_firstmove);
-
                                 emcTaskPlanSetCurPos(&resume_x, &resume_y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
                                 wait_resume_startup = false;
 			    }
@@ -642,8 +679,9 @@ interpret_again:
 			    emcStatus->task.readLine = emcTaskPlanLine();
 			    toplevel_line_number = emcTaskPlanToplevelLine();
 			    emcTaskPlanCommand((char *) &emcStatus->task.command);
-			    // and execute it
+                            // and execute it
 			    execRetval = emcTaskPlanExecute(0);
+
 			    if (execRetval > INTERP_MIN_ERROR) {
 				emcStatus->task.interpState =
 				    EMC_TASK_INTERP_WAITING;
@@ -654,7 +692,7 @@ interpret_again:
 				    || execRetval == INTERP_EXIT ) {
 				emcStatus->task.interpState =
 				    EMC_TASK_INTERP_WAITING;
-			    } else if (execRetval == INTERP_EXECUTE_FINISH) {
+			    } else if (execRetval == INTERP_EXECUTE_FINISH ) {
 				// INTERP_EXECUTE_FINISH signifies
 				// that no more reading should be done until
 				// everything
@@ -677,7 +715,7 @@ interpret_again:
 			    assert (emcStatus->task.readLine > 0);
 			    assert (toplevel_line_number > 0);
 			    assert(programStartLine >= 0);
-			    if (toplevel_line_number < programStartLine) {
+                            if (toplevel_line_number < programStartLine) {
 				// we're stepping over lines, so check them for limits, etc. and clear then out
                                 /* checkInterpList() flushes nodes from interp_list and moves motion nodes to history_queue */
 				if (0 != checkInterpList(&interp_list, emcStatus)) {
@@ -686,84 +724,104 @@ interpret_again:
 				}
 				assert(interp_list.len() == 0);
 				emcBypassFlags();
-
-                                if ((emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) &&
-                                    (toplevel_line_number + 1 == programStartLine) &&
-                                    (emcTaskPlanLevel() == 0))
-                                {
-                                    FINISH();   // to call flush_segments(), emccanon.cc
-				    /* FINISH() might generate some line segments; move them to history_queue */
-				    if (0 != checkInterpList(&interp_list, emcStatus)) {
-				        // problem with actions, so do same as we did for a bad read from emcTaskPlanRead() above
-				        emcStatus->task.interpState = EMC_TASK_INTERP_WAITING;
-				    }
-	                            assert(interp_list.len() == 0);
-
-	                            /**
-                                     * if inserted [RS247NGC]RESUME_STARTUP_CODE is given, execute it here
-                                     */
-	                            if ((strlen(resume_startup_code) > 0) && (resume_startup_en == true)) {
-	                                double z, a, b, c, u, v, w;
-                                        /**
-                                         * Only support non-motion G/M code for RESUME_STARTUP_CODE
-                                         */
-	                                emcTaskPlanGetCutterCompFirstmove(&resume_cutter_comp_firstmove);
-                                        emcTaskPlanGetCurPos(&resume_x, &resume_y, &z, &a, &b, &c, &u, &v, &w);        //!< save Interpreter's internal positions
-                                        //update the position with our current position, as the other positions are only skipped through
-                                        CANON_UPDATE_END_POINT(emcStatus->motion.traj.actualPosition.tran.x,
-                                                               emcStatus->motion.traj.actualPosition.tran.y,
-                                                               emcStatus->motion.traj.actualPosition.tran.z,
-                                                               emcStatus->motion.traj.actualPosition.a,
-                                                               emcStatus->motion.traj.actualPosition.b,
-                                                               emcStatus->motion.traj.actualPosition.c,
-                                                               emcStatus->motion.traj.actualPosition.u,
-                                                               emcStatus->motion.traj.actualPosition.v,
-                                                               emcStatus->motion.traj.actualPosition.w);
-//                                        rcs_print("%s %s:%d resume_xyz(%f: %f: %f) actualpos(%f: %f: %f)\n", __FILE__, __FUNCTION__, __LINE__,
-//                                                        resume_x, resume_y, z,
-//                                                        emcStatus->motion.traj.actualPosition.tran.x,
-//                                                       emcStatus->motion.traj.actualPosition.tran.y,
-//                                                       emcStatus->motion.traj.actualPosition.tran.z);
-                                        emcTaskPlanSynch();
-                                        execRetval = emcTaskPlanExecute(resume_startup_code, toplevel_line_number);
-                                        if (execRetval == INTERP_EXECUTE_FINISH) {
-                                            // INTERP_EXECUTE_FINISH signifies
-                                            // that no more reading should be done until everything
-                                            // outstanding is completed
-                                            FINISH();   // to call flush_segments(), emccanon.cc
-                                            emcTaskPlanSetWait();
-                                            emcTaskQueueCommand(&taskPlanSynchCmd);
-                                        }
-                                        wait_resume_startup = true;
-                                        resume_startup_en = false;
-                                        resume_startup_id = toplevel_line_number;
-	                            }
-                                }
 			    }
 			    else if ((emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) &&
-			             (toplevel_line_number == programStartLine) && (programStartLine > 0))
+			            (programStartLine > 0) && (emcTaskPlanLevel() == 0))
 			    {
-                                FINISH();   // to call flush_segments(), emccanon.cc
-
-			        if (interp_list.len() > 0)
-                                {
-                                    NMLmsg *cmd = 0;
+			        FINISH();   // to call flush_segments(), emccanon.cc
+			        NMLmsg *cmd = 0;
+			        interp_list.move_head();
+			        cmd = interp_list.update_current();
+			        while (interp_list.get_line_number() < programStartLine)
+			        {
+                                    cmd = interp_list.get();
+			            history_append (cmd,
+			                    interp_list.get_line_number(),
+			                    interp_list.get_call_level(),
+			                    interp_list.get_remap_level());
                                     interp_list.move_head();
-                                    cmd = interp_list.update_current();
-                                    if (cmd->type != (resume_motion_type+218))
-                                    {
-                                        cmd = interp_list.get();
-                                        history_append (cmd,
-                                                        interp_list.get_line_number(),
-                                                        interp_list.get_call_level(),
-                                                        interp_list.get_remap_level());
-                                    }
-                                    history_queue.move_tail();
-                                    // reset programStartLine so we don't fall into our stepping routines
-                                    // if we happen to execute lines before the current point later (due to subroutines).
-                                    programStartLine = 0;
-                                }
-                            }
+                                    interp_list.update_current();
+			            if(interp_list.len() == 0 || interp_list.get_line_number() == programStartLine)
+			            {
+			                break;
+			            }
+			        }
+
+			        if(interp_list.get_line_number() == programStartLine)
+			        {
+			            if (interp_list.len() > 0)
+			            {
+			                interp_list.move_head();
+			                cmd = interp_list.update_current();
+			                if (cmd->type != (resume_motion_type+218))
+			                {
+			                    cmd = interp_list.get();
+			                    history_append (cmd,
+			                            interp_list.get_line_number(),
+			                            interp_list.get_call_level(),
+			                            interp_list.get_remap_level());
+			                }
+			            }
+
+			            assert((interp_list.len() > 0) || (interp_list.len() < 3));
+
+			            while (interp_list.len() > 0)
+			            {
+			                cmd = interp_list.get();
+			                il_temp_append(cmd,
+			                        interp_list.get_line_number(),
+			                        interp_list.get_call_level(),
+			                        interp_list.get_remap_level());
+			            }
+
+			            assert(interp_list.len() == 0);
+
+			            /**
+			             * if inserted [RS247NGC]RESUME_STARTUP_CODE is given, execute it here
+			             */
+			            if ((strlen(resume_startup_code) > 0) && (resume_startup_en == true)) {
+			                /**
+			                 * Only support non-motion G/M code for RESUME_STARTUP_CODE
+			                 */
+			                double z, a, b, c, u, v, w;
+			                emcTaskPlanGetCutterCompFirstmove(&resume_cutter_comp_firstmove);
+                                        emcTaskPlanGetCurPos(&resume_x, &resume_y, &z, &a, &b, &c, &u, &v, &w);        //!< save Interpreter's internal positions
+			                //update the position with our current position, as the other positions are only skipped through
+			                CANON_UPDATE_END_POINT(emcStatus->motion.traj.actualPosition.tran.x,
+			                        emcStatus->motion.traj.actualPosition.tran.y,
+			                        emcStatus->motion.traj.actualPosition.tran.z,
+			                        emcStatus->motion.traj.actualPosition.a,
+			                        emcStatus->motion.traj.actualPosition.b,
+			                        emcStatus->motion.traj.actualPosition.c,
+			                        emcStatus->motion.traj.actualPosition.u,
+			                        emcStatus->motion.traj.actualPosition.v,
+			                        emcStatus->motion.traj.actualPosition.w);
+//			                rcs_print("%s %s:%d resume_xyz(%f: %f: %f) actualpos(%f: %f: %f)\n", __FILE__, __FUNCTION__, __LINE__,
+//			                        resume_x, resume_y, z,
+//			                        emcStatus->motion.traj.actualPosition.tran.x,
+//			                        emcStatus->motion.traj.actualPosition.tran.y,
+//			                        emcStatus->motion.traj.actualPosition.tran.z);
+			                emcTaskPlanSynch();
+			                execRetval = emcTaskPlanExecute(resume_startup_code, toplevel_line_number);
+			                if (execRetval == INTERP_EXECUTE_FINISH) {
+			                    // INTERP_EXECUTE_FINISH signifies
+			                    // that no more reading should be done until everything
+			                    // outstanding is completed
+			                    FINISH();   // to call flush_segments(), emccanon.cc
+			                    emcTaskPlanSetWait();
+			                    emcTaskQueueCommand(&taskPlanSynchCmd);
+			                }
+			                wait_resume_startup = true;
+			                resume_startup_en = false;
+			                resume_startup_id = programStartLine;
+			            }
+			            history_queue.move_tail();
+			            // reset programStartLine so we don't fall into our stepping routines
+			            // if we happen to execute lines before the current point later (due to subroutines).
+			            programStartLine = 0;
+			        }
+
+			    }
 			    else if ((emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) &&
                                      (programStartLine > 0))
 			    {
@@ -2508,7 +2566,6 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         emcStatus->task.execState = EMC_TASK_EXEC_RESUME;       // wait for TCQ finishing pending motion
         emcTaskCommand = NULL;
         emcTrajResume();
-
         if (wait_resume_startup == true) {
             wait_resume_startup = false;
             emcTaskPlanClearWait();
@@ -2519,7 +2576,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         {
             if (emcStatus->motion.traj.id == resume_startup_id) {
                 /* resume from RESUME_STARTUP_CODE; start from next line of NC file */
-                programStartLine = emcStatus->motion.traj.id + 1;
+                programStartLine = emcStatus->motion.traj.id;
                 resume_startup_en = true;
             }
             else
@@ -2556,7 +2613,6 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
                          * Resume from current line of NC file
                          */
                         programStartLine = emcStatus->motion.traj.id;
-
                     }
                     emcTaskCommand = 0;     //!< cleanup emcTaskCommand
                     resume_startup_en = true;
@@ -2582,7 +2638,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
             if (emcStatus->motion.traj.id == resume_startup_id)
             {
                 /* resume from RESUME_STARTUP_CODE; start from next line of NC file */
-                programStartLine = emcStatus->motion.traj.id + 1;
+                programStartLine = emcStatus->motion.traj.id;
             }
             else if (distance_to_go <= (TP_MIN_ARC_LENGTH * 2))
             {   /**
@@ -2875,7 +2931,8 @@ static int emcTaskExecute(void)
 	    if (0 == emcTaskCommand) {
 		// need a new command
 	        if (emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) {
-	            emcTaskCommand = interp_list.get();
+                    interp_list.move_head();
+                    emcTaskCommand = interp_list.get();
 	        } else {
 	            /* (emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) */
 	            if (emcStatus->task.interpState == EMC_TASK_INTERP_WAITING) {

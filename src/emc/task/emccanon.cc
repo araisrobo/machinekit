@@ -586,7 +586,6 @@ void SET_FEED_RATE(double rate)
 	/* convert to traj units (mm & deg) if needed */
 	double newLinearFeedRate = FROM_PROG_LEN(rate),
 	       newAngularFeedRate = FROM_PROG_ANG(rate);
-
 	if(newLinearFeedRate != currentLinearFeedRate
 		|| newAngularFeedRate != currentAngularFeedRate)
 	    flush_segments();
@@ -988,6 +987,13 @@ static void flush_segments(void) {
     linearMoveMsg.ini_maxvel = toExtVel(ini_maxvel);
     linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
     double acc = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
+    if (acc <= 0){
+        printf("%s %s:%d FIXME: vel(%f) acc(%f) synched(%d)\n", __FILE__, __FUNCTION__, __LINE__,
+                vel,
+                acc,
+                synched);
+        acc =250;
+    }
     linearMoveMsg.acc = toExtAcc(acc);
 
     linearMoveMsg.type = EMC_MOTION_TYPE_FEED;
