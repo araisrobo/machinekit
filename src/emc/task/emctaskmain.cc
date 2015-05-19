@@ -479,8 +479,8 @@ static void il_temp_append (NMLmsg * cmd, int lineno, int call_level, int remap_
             il_temp_queue.set_line_number(lineno);
             il_temp_queue.set_interp_params(call_level, remap_level);
             il_temp_queue.append(cmd);      // move from interp_list to history_queue
-            rcs_print("%s %s:%d cmd->type(%ld) lineno(%d)\n", __FILE__, __FUNCTION__, __LINE__,
-                    cmd->type, lineno);
+//            rcs_print("%s %s:%d cmd->type(%ld) lineno(%d)\n", __FILE__, __FUNCTION__, __LINE__,
+//                    cmd->type, lineno);
         }
     }
 }
@@ -685,6 +685,7 @@ interpret_again:
 			    if (execRetval > INTERP_MIN_ERROR) {
 				emcStatus->task.interpState =
 				    EMC_TASK_INTERP_WAITING;
+			        il_temp_queue.clear();
 				interp_list.clear();
 				emcAbortCleanup(EMC_ABORT_INTERPRETER_ERROR,
 						"interpreter error"); 
@@ -2355,6 +2356,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
 		// clear out the pending command
 		emcTaskCommand = 0;
+	        il_temp_queue.clear();
 		interp_list.clear();
                 emcStatus->task.currentLine = 0;
 
@@ -2465,6 +2467,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
 	    case INTERP_ERROR:
 		// emcStatus->task.interpState =  EMC_TASK_INTERP_WAITING;
+	        il_temp_queue.clear();
 		interp_list.clear();
 		// abort everything
 		emcTaskAbort();
@@ -2502,7 +2505,10 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	}
 	run_msg = (EMC_TASK_PLAN_RUN *) cmd;
 	programStartLine = run_msg->line;
+        il_temp_queue.clear();
         history_queue.clear();
+        wait_resume_startup = false;
+        resume_startup_en = false;
         if ((programStartLine == 0) && (emcStatus->motion.traj.tp_reverse_input == TP_FORWARD)) {
             /* run from beginning of NC file: save start position */
             resume_startup_id = 0;          //!< reset here, will be set inside readahead_reading()
@@ -2908,6 +2914,7 @@ static int emcTaskExecute(void)
 
 	// clear out pending command
 	emcTaskCommand = 0;
+        il_temp_queue.clear();
 	interp_list.clear();
 	emcAbortCleanup(EMC_ABORT_TASK_EXEC_ERROR);
         emcStatus->task.currentLine = 0;
@@ -3204,6 +3211,7 @@ static int emcTaskExecute(void)
         {
             double x, y, z, a, b, c, u, v, w;
 
+            il_temp_queue.clear();
             interp_list.clear();
             emcBypassFlags();
             emcTaskPlanClearWait();
@@ -3869,6 +3877,7 @@ int main(int argc, char *argv[])
 	    // clear out the pending command
 	    emcTaskCommand = 0;
 	    interp_list.clear();
+            il_temp_queue.clear();
 	    emcStatus->task.currentLine = 0;
 
 	    emcAbortCleanup(EMC_ABORT_MOTION_OR_IO_RCS_ERROR);
