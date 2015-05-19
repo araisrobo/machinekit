@@ -1336,7 +1336,7 @@ SUBDIRS += hal/drivers/arais
 EXTRA_CFLAGS += $(WOSI_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/arais
 # EXTRAFLAGS is for emctaskmain.cc ... etc.
 EXTRAFLAGS += $(WOSI_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/arais
-LDFLAGS += $(WOSI_LIBS)
+EXTRA_LDFLAGS += $(WOSI_LIBS)
 obj-$(CONFIG_WOSI) += wosi.o
 wosi-objs := hal/drivers/arais/wosi.o $(MATHSTUB)
 endif
