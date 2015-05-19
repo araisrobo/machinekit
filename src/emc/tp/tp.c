@@ -2724,7 +2724,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
     DPS("%11u%5d%6d%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",
             _dt, tc->id, tc->accel_state, tc->reqvel * tc->feed_override * tc->cycle_time,
             tc->cur_accel, tc->currentvel, tc->progress/tc->target, tc->progress,
-            tc->target - tc->progress, tc_target, tc->jerk, tc->target, tc->lookahead_target);
+            tc->target - tc->progress, tc_target, tc->jerk, tp->currentPos.tran.x, tp->currentPos.tran.y);
 
     tc->distance_to_go = tc->target - tc->progress;
 }
