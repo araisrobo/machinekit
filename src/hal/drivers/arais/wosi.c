@@ -48,7 +48,7 @@
 #define SON_DELAY_TICK  1500
 
 // to disable DP(): #define TRACE 0
-#define TRACE 1
+#define TRACE 0
 #include "tp_debug.h"
 #if (TRACE!=0)
 static FILE *dptrace;

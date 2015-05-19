@@ -36,6 +36,7 @@ check-rsyslog() {
 	echo
 	echo "          Hint:"
 	echo "            $ sudo touch /var/log/linuxcnc.log"
+	echo "            $ sudo chown syslog:adm /var/log/linuxcnc.log # for ubuntu 14.04"
 	echo "            $ sudo service rsyslog restart"
 	echo
 	echo "          Gurus:  If you intentionally log to another file,"
