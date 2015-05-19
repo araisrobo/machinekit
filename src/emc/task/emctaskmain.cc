@@ -479,8 +479,8 @@ static void il_temp_append (NMLmsg * cmd, int lineno, int call_level, int remap_
             il_temp_queue.set_line_number(lineno);
             il_temp_queue.set_interp_params(call_level, remap_level);
             il_temp_queue.append(cmd);      // move from interp_list to history_queue
-            rcs_print("%s %s:%d cmd->type(%ld) lineno(%d)\n", __FILE__, __FUNCTION__, __LINE__,
-                    cmd->type, lineno);
+//            rcs_print("%s %s:%d cmd->type(%ld) lineno(%d)\n", __FILE__, __FUNCTION__, __LINE__,
+//                    cmd->type, lineno);
         }
     }
 }
@@ -2502,6 +2502,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	}
 	run_msg = (EMC_TASK_PLAN_RUN *) cmd;
 	programStartLine = run_msg->line;
+        il_temp_queue.clear();
         history_queue.clear();
         if ((programStartLine == 0) && (emcStatus->motion.traj.tp_reverse_input == TP_FORWARD)) {
             /* run from beginning of NC file: save start position */
