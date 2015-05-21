@@ -988,11 +988,9 @@ static void flush_segments(void) {
     linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
     double acc = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
     if (acc <= 0){
-        printf("%s %s:%d FIXME: vel(%f) acc(%f) synched(%d)\n", __FILE__, __FUNCTION__, __LINE__,
-                vel,
-                acc,
-                synched);
-        acc =250;
+        printf("%s %s:%d FIXME: vel(%f) acc(%f) synched(%d) line_no(%d)\n", __FILE__, __FUNCTION__, __LINE__,
+                vel, acc, synched,line_no);
+        acc = FROM_EXT_LEN(MAX3(axis_max_acceleration[0], axis_max_acceleration[1], axis_max_acceleration[2]));
     }
     linearMoveMsg.acc = toExtAcc(acc);
 
@@ -1553,15 +1551,15 @@ void ARC_FEED(int line_number,
         rotate_and_offset_pos(fa, sa, unused, unused, unused, unused, unused, unused, unused);
         if (chord_deviation(lx, ly, fe, se, fa, sa, rotation, mx, my) < canonNaivecamTolerance/10000) {
             rotate_and_offset_pos(unused, unused, unused, a, b, c, u, v, w);
-            see_segment(line_number, mx, my,
-                        (lz + ae)/2, 
-                        (canonEndPoint.a + a)/2, 
-                        (canonEndPoint.b + b)/2, 
-                        (canonEndPoint.c + c)/2, 
-                        (canonEndPoint.u + u)/2, 
-                        (canonEndPoint.v + v)/2, 
+            see_segment(line_number-1, mx, my,
+                        (lz + ae)/2,
+                        (canonEndPoint.a + a)/2,
+                        (canonEndPoint.b + b)/2,
+                        (canonEndPoint.c + c)/2,
+                        (canonEndPoint.u + u)/2,
+                        (canonEndPoint.v + v)/2,
                         (canonEndPoint.w + w)/2);
-            see_segment(line_number, fe, se, ae, a, b, c, u, v, w);
+            see_segment(line_number-1, fe, se, ae, a, b, c, u, v, w);
             return;
         }
     }

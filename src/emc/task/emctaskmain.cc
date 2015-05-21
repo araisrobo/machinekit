@@ -750,6 +750,26 @@ interpret_again:
 
 			        if(interp_list.get_line_number() == programStartLine)
 			        {
+			            if (interp_list.len() == 2)
+			            {
+			                NMLmsg *cmd1 = 0;
+			                NMLmsg *cmd2 = 0;
+
+			                interp_list.move_head();
+			                cmd1 = interp_list.update_current();
+			                interp_list.move_next();
+			                cmd2 = interp_list.update_current();
+			                if ((cmd1->type == cmd2->type) && (cmd1->type == (resume_motion_type+218)))
+			                {
+			                    cmd = interp_list.get();
+			                    history_append (cmd,
+			                            interp_list.get_line_number(),
+			                            interp_list.get_call_level(),
+			                            interp_list.get_remap_level());
+			                }
+                                        interp_list.move_head();
+                                        cmd = interp_list.update_current();
+			            }
 			            if (interp_list.len() > 0)
 			            {
 			                interp_list.move_head();
