@@ -1485,10 +1485,10 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
             tp_debug_print("Found non-tangent segment, stopping optimization\n");
             return TP_ERR_OK;
         }
-
+        // FIXME: emcmotStatus->net_feed_scale = 100 %, will let velocity down to zero
         // for circular motion, its maxvel is limited by tangential velocity
         if (((tc->motion_type == TC_CIRCULAR) || (tc->motion_type == TC_SPHERICAL)) &&
-            ((emcmotStatus->net_feed_scale * tc->reqvel * tc->cycle_time) > tc->maxvel))
+            ((0.1 * tc->reqvel * tc->cycle_time) > tc->maxvel))
         {   // sharp arc that is not allowed for requested-velocity
             prev1_tc->lookahead_target = tc->target;
             tp_debug_print("Found sharp arc, stopping optimization\n");
