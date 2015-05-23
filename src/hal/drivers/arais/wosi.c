@@ -44,7 +44,6 @@
 #define FIXED_POINT_SCALE   65536.0             // (double (1 << FRACTION_BITS))
 #define FP_SCALE_RECIP      0.0000152587890625  // (1.0/65536.0)
 #define FRACTION_MASK 0x0000FFFF
-#define PID_LOOP 8
 #define SON_DELAY_TICK  1500
 
 // to disable DP(): #define TRACE 0
@@ -112,8 +111,7 @@ const char *jsp_id[MAX_CHAN] =
 RTAPI_MP_ARRAY_STRING(jsp_id, MAX_CHAN,
         "jsp_id: gpio pin id for jog-switch-positive(jsp) for up to 8 channels");
 
-
-// lsp_id: gpio pin id for ALARM siganl
+// alr_id: gpio pin id for ALARM siganl
 const char *alr_id[MAX_CHAN] =
 { " ", " ", " ", " ", " ", " ", " ", " " };
 RTAPI_MP_ARRAY_STRING(alr_id, MAX_CHAN,
@@ -1179,8 +1177,7 @@ int rtapi_app_main(void)
         pos_scale = fabs(pos_scale);    // absolute pos_scale for MAX_VEL/ACCEL calculation
 
         /* config MAX velocity */
-        // * 1.05 : add 50% head room
-        immediate_data = (uint32_t)((max_vel * pos_scale * dt * FIXED_POINT_SCALE) * 1.5);
+        immediate_data = (uint32_t)((max_vel * pos_scale * dt * FIXED_POINT_SCALE));
         rtapi_print_msg(RTAPI_MSG_DBG,
                 "j[%d] max_vel(%d) = %f*%f*%f*%f\n",
                 n, immediate_data, max_vel, pos_scale, dt, FIXED_POINT_SCALE);
@@ -1190,8 +1187,7 @@ int rtapi_app_main(void)
         stepgen_array[n].pulse_maxv = immediate_data;
 
         /* config acceleration */
-        // * 1.05 : add 50% head room
-        immediate_data = (uint32_t)((max_accel * pos_scale * dt * FIXED_POINT_SCALE * dt) * 1.5 );
+        immediate_data = (uint32_t)((max_accel * pos_scale * dt * FIXED_POINT_SCALE * dt));
         rtapi_print_msg(RTAPI_MSG_DBG,
                 "j[%d] max_accel(%d) = %f*%f*(%f^2)*(%f)\n",
                 n, immediate_data, max_accel, pos_scale, dt, FIXED_POINT_SCALE);
@@ -1200,21 +1196,8 @@ int rtapi_app_main(void)
         while(wosi_flush(&w_param) == -1);
         stepgen_array[n].pulse_maxa = immediate_data;
 
-//        /* config acceleration recip */
-//        immediate_data = (uint32_t)(FIXED_POINT_SCALE / (max_accel * pos_scale * dt * dt * 1.05));
-//        rtapi_print_msg(RTAPI_MSG_DBG,
-//                "j[%d] max_accel_recip(%d) = (%f/(%f*%f*(%f^2)))\n",
-//                n, immediate_data, FIXED_POINT_SCALE, max_accel, pos_scale, dt);
-//        assert(immediate_data > 0);
-//        write_mot_param (n, (MAX_ACCEL_RECIP), immediate_data);
-//        while(wosi_flush(&w_param) == -1);
-
-
-
         /* config max jerk */
-        /* TODO: confirm the "2.17x" of jerk:
-         *        in tp.c, the tc->jerk is ~2.17x of ini-jerk */
-        immediate_data = (uint32_t)(3.0 * (max_jerk * pos_scale * FIXED_POINT_SCALE * dt * dt * dt));
+        immediate_data = (uint32_t)(max_jerk * pos_scale * FIXED_POINT_SCALE * dt * dt * dt);
         rtapi_print_msg(RTAPI_MSG_DBG,
                 "j[%d] max_jerk(%d) = (%f * %f * %f * %f^3)))\n",
                 n, immediate_data, FIXED_POINT_SCALE, max_jerk, pos_scale, dt);
@@ -1241,7 +1224,7 @@ int rtapi_app_main(void)
     pid_str[5] = j5_pid_str;
     pid_str[6] = j6_pid_str;
     pid_str[7] = j7_pid_str;
-    for (n=0; n < PID_LOOP; n++) {
+    for (n=0; n < MAX_CHAN; n++) {
         if (pid_str[n][0] != NULL) {
             rtapi_print_msg(RTAPI_MSG_INFO, "J%d_PID: ", n);
             rtapi_print_msg(RTAPI_MSG_INFO,"#   0:P 1:I 2:D 3:FF0 4:FF1 5:FF2 6:DB 7:BI 8:M_ER 9:M_EI 10:M_ED 11:MCD 12:MCDD 13:MO\n");
@@ -1255,14 +1238,9 @@ int rtapi_app_main(void)
                 while(wosi_flush(&w_param) == -1);
                 rtapi_print_msg(RTAPI_MSG_INFO, "pid(%d) = %s (%d)\n",i, pid_str[n][i], immediate_data);
             }
-
-//            value = 0;
-//            immediate_data = (int32_t) (value);
-//            write_mot_param (n, (ENABLE), immediate_data);
-//            while(wosi_flush(&w_param) == -1);
-//            rtapi_print_msg(RTAPI_MSG_INFO, "\n");
         }
     }
+
     analog = hal_malloc(sizeof(analog_t));
     if (analog == 0) {
         rtapi_print_msg(RTAPI_MSG_ERR,
