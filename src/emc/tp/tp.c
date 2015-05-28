@@ -3699,7 +3699,7 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
 //    if (tc->splitting) {
 //        tpHandleSplitCycle(tp, tc, nexttc);
 //    } else {
-        tpHandleRegularCycle(tp, tc, nexttc);
+    tpHandleRegularCycle(tp, tc, nexttc);
 //    }
     emcmotStatus->motion_type = tc->motion_type;
     emcmotStatus->motionState = tc->accel_state;
