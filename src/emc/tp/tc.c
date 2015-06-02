@@ -526,6 +526,11 @@ int tcSetupMotion(TC_STRUCT * const tc,
     }
 
     tc->jerk = ini_maxjerk * cycle_time * cycle_time * cycle_time;      // unit: dt^3
+    // FIXME: ini_maxjerk suddenly becomes abnormal
+    if (tc->jerk > 1){
+        ini_maxjerk = 10000;
+        tc->jerk = ini_maxjerk * cycle_time * cycle_time * cycle_time;
+    }
 
     tc->maxaccel = acc * cycle_time * cycle_time;                       // unit: dt^2
 
