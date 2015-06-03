@@ -1065,7 +1065,8 @@ static void check_for_faults(void)
 			    joint_num);
 		    }
 		    SET_JOINT_ERROR_FLAG(joint, 1);
-		    emcmotDebug->enabling = 0;
+		    // We don't want it to stop motion when PHL or NHL are toggled
+		    // emcmotDebug->enabling = 0;
 		}
 	    }
 	    /* check for amp fault */
