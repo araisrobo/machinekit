@@ -1385,8 +1385,8 @@ static void update_freq(void *arg, long period)
     //     rtapi_set_msg_level(RTAPI_MSG_ALL);
     rtapi_set_msg_level(RTAPI_MSG_WARN);
 
-    // wosi_status (&w_param); // print usb bandwidth utilization
-    wosi_update(&w_param);   // link to wosi_recv()
+    // wosi_status (&w_param);  // print bandwidth utilization
+    wosi_update(&w_param);      // link to wosi_recv()
 
     /* begin: sending debug pattern */
     if (test_pattern_type != NO_TEST) {
