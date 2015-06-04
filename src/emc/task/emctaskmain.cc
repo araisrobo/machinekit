@@ -885,10 +885,9 @@ interpret_again:
                                 emcTaskPlanSetWait();
 			    }
 
-			    if ((count++ < emc_task_interp_max_len
+			    if (count++ < emc_task_interp_max_len
                                     && emcStatus->task.interpState == EMC_TASK_INTERP_READING
-                                    && interp_list.len() <= emc_task_interp_max_len * 2/3)
-                                    || programStartLine != 0) {
+                                    && interp_list.len() <= emc_task_interp_max_len * 2/3) {
                                 goto interpret_again;
                             }
 
