@@ -81,6 +81,19 @@
 #define DPS(fmt, args...)    do {} while(0)
 #endif
 
+#define ERRP(fmt, args...)                                              \
+    do {                                                                \
+        fprintf(stderr, "%s: (%s:%d) ERROR: ",                          \
+                         __FILE__, __FUNCTION__, __LINE__ );            \
+        fprintf(stderr, fmt, ##args);                                   \
+        fflush(stderr);                                                 \
+    } while (0)
+#define ERRPS(fmt, args...)                                             \
+    do {                                                                \
+        fprintf(stderr, fmt, ##args);                                   \
+        fflush(stderr);                                                 \
+    } while (0)
+
 int gdb_fake_catch(int condition);
 int gdb_fake_assert(int condition);
 #endif

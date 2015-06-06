@@ -1,1 +1,21 @@
+# the rule for servo_tick.comp is defined at src/hal/components/Submakefile
+
 INCLUDES += hal/drivers/arais
+
+WOSI_TRANS_SRCS :=  \
+	$(addprefix ./tests/wosi.0/, check_wosi_trans.c) \
+	$(addprefix ./hal/drivers/arais/, wosi_trans.c) \
+	./hal/drivers/arais/wosi_driver.c
+
+WOSI_TRANS_CFLAGS := -g -Wall -O3 $(WOSI_CFLAGS) $(LIBBACKTRACE)
+WOSI_TRANS_LDFLAGS := -g -lpthread -lrt -lm $(WOSI_LIBS) $(CHECK_LIBS)
+
+$(call TOOBJSDEPS, $(WOSI_TRANS_SRCS)) : EXTRAFLAGS += $(WOSI_TRANS_CFLAGS)
+
+../bin/wosi_trans: $(call TOOBJS, $(WOSI_TRANS_SRCS)) \
+	../lib/liblinuxcnchal.so
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) -o $@ $^ $(LDFLAGS) $(WOSI_TRANS_LDFLAGS)
+
+USERSRCS += $(WOSI_TRANS_SRCS)
+TARGETS += ../bin/wosi_trans

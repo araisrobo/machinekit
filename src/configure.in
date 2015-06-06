@@ -1903,7 +1903,8 @@ AC_SUBST([EMC2_HOME])
 # Subsection 3.3 - check for GTK                                             #
 # Subsection 3.4 - check for utility programs needed to build and run EMC    #
 # Subsection 3.5 - check for programs needed to build documentation          #
-# Subsection 3.6 - check for libwosi (Wishbone Over Serial Interface)        #
+# Subsection 3.6 - check for libwosi -- Wishbone Over Serial Interface       #
+# Subsection 3.7 - check for Check -- a unit testing framework for C         #
 ##############################################################################
 
 
@@ -2514,6 +2515,16 @@ AC_SUBST(WOSI_VER)
 AC_SUBST(WOSI_LIBS)
 AC_SUBST(WOSI_CFLAGS)
 
+##############################################################################
+# Subsection 3.7 - check for Check -- a unit testing framework for C         #
+##############################################################################
+# This macro is defined in check.m4 and tests if check.h and
+# libcheck.a are installed in your system. It sets CHECK_CFLAGS and
+# CHECK_LIBS accordingly.  
+#  AM_PATH_CHECK([MINIMUM-VERSION,
+#                [ACTION-IF-FOUND [, ACTION-IF-NOT-FOUND]]])
+# AM_PATH_CHECK()
+PKG_CHECK_MODULES([CHECK], [check >= 0.9.4])
 
 ##############################################################################
 # Section 4 - Important headers, functions and gloabl defines.               #

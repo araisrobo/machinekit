@@ -6,10 +6,14 @@
  * Author: Yishin Li
  * License: GPL Version 2
  *
- * Copyright (c) 2009-2010 All rights reserved.
+ * Copyright (c) 2009-2015 All rights reserved.
  *
- * Last change:
  ********************************************************************/
+
+#ifndef ULAPI
+#error This is intended as a userspace component only.
+#endif
+
 #include "config.h"
 
 #include <stdio.h>
@@ -22,7 +26,6 @@
 #include <unistd.h>
 
 #include "rtapi.h"		/* RTAPI realtime OS API */
-#include "rtapi_app.h"		/* RTAPI realtime module decls */
 #include "hal.h"		/* HAL public API decls */
 #include "tc.h"                 /* motion state */
 #include <math.h>
@@ -36,7 +39,6 @@
 #include <mailtag.h>
 #include "sync_cmd.h"
 
-#define REQUEST_TICK_SYNC_AFTER 500 // after 500 tick count, request risc to sync tick count
 #define MAX_CHAN 8
 #define MAX_STEP_CUR 255
 #define PLASMA_ON_BIT 0x02
@@ -67,174 +69,209 @@ static FILE *debug_fp;
 
 
 /* module information */
-MODULE_AUTHOR("Yishin Li");
-MODULE_DESCRIPTION("HAL for Wishbone Over Serial Interface");
-MODULE_LICENSE("GPL");
+//MODULE_AUTHOR("Yishin Li");
+//MODULE_DESCRIPTION("HAL for Wishbone Over Serial Interface");
+//MODULE_LICENSE("GPL");
 
-const char *pulse_type[MAX_CHAN] =
-{ " ", " ", " ", " ", " ", " ", " ", " " };
-RTAPI_MP_ARRAY_STRING(pulse_type, MAX_CHAN,
-        "pulse type (AB-PHASE(A) or STEP-DIR(S) or PWM-DIR(P)) for up to 8 channels");
+////!< "pulse_type: (AB-PHASE(A) or STEP-DIR(S) or PWM-DIR(P)) for up to 8 channels"
+//const char *pulse_type[MAX_CHAN] = { " ", " ", " ", " ", " ", " ", " ", " " };
+////!< "encoder_type: (AB-PHASE(A) or STEP-DIR(S) or LOOP-BACK(l)) for up to 8 channels"
+//const char *enc_type[MAX_CHAN] = { " ", " ", " ", " ", " ", " ", " ", " " };
+//// enc_pol: encoder polarity (POSITIVE(p) or NEGATIVE(n)) for up to 8 channels
+//const char *enc_pol[MAX_CHAN] = { "p", "p", "p", "p", "p", "p", "p", "p" };
+//
+//// lsp_id: gpio pin id for limit-switch-positive(lsp)
+//const char *lsp_id[MAX_CHAN] =
+//{ " ", " ", " ", " ", " ", " ", " ", " " };
+//RTAPI_MP_ARRAY_STRING(lsp_id, MAX_CHAN,
+//        "lsp_id: gpio pin id for limit-switch-positive(lsp) for up to 8 channels");
+//
+//// lsn_id: gpio pin id for limit-switch-negative(lsn)
+//const char *lsn_id[MAX_CHAN] =
+//{ " ", " ", " ", " ", " ", " ", " ", " " };
+//RTAPI_MP_ARRAY_STRING(lsn_id, MAX_CHAN,
+//        "lsn_id: gpio pin id for limit-switch-negative(lsn) for up to 8 channels");
+//
+//// jsn_id: gpio pin id for jog-switch-negative(jsn)
+//const char *jsn_id[MAX_CHAN] =
+//{ " ", " ", " ", " ", " ", " ", " ", " " };
+//RTAPI_MP_ARRAY_STRING(jsn_id, MAX_CHAN,
+//        "jsn_id: gpio pin id for jog-switch-negative(jsn) for up to 8 channels");
+//
+//// jsp_id: gpio pin id for jog-switch-positive(jsp)
+//const char *jsp_id[MAX_CHAN] =
+//{ " ", " ", " ", " ", " ", " ", " ", " " };
+//RTAPI_MP_ARRAY_STRING(jsp_id, MAX_CHAN,
+//        "jsp_id: gpio pin id for jog-switch-positive(jsp) for up to 8 channels");
+//
+//// alr_id: gpio pin id for ALARM siganl
+//const char *alr_id[MAX_CHAN] =
+//{ " ", " ", " ", " ", " ", " ", " ", " " };
+//RTAPI_MP_ARRAY_STRING(alr_id, MAX_CHAN,
+//        "alr_id: gpio pin id for ALARM signal for up to 8 channels");
+//
+//int alarm_en = -1;
+//RTAPI_MP_INT(alarm_en, "hardware alarm dection mode");
 
-const char *enc_type[MAX_CHAN] =
-{ " ", " ", " ", " ", " ", " ", " ", " " };
-RTAPI_MP_ARRAY_STRING(enc_type, MAX_CHAN,
-        "encoder type (AB-PHASE(A) or STEP-DIR(S) or LOOP-BACK(l)) for up to 8 channels");
+//const char **pid_str[MAX_CHAN];
+//const char *j0_pid_str[NUM_PID_PARAMS] =
+//{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+//RTAPI_MP_ARRAY_STRING(j0_pid_str, NUM_PID_PARAMS,
+//        "pid parameters for joint[0]");
+//
+//const char *j1_pid_str[NUM_PID_PARAMS] =
+//{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+//RTAPI_MP_ARRAY_STRING(j1_pid_str, NUM_PID_PARAMS,
+//        "pid parameters for joint[1]");
+//
+//const char *j2_pid_str[NUM_PID_PARAMS] =
+//{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+//RTAPI_MP_ARRAY_STRING(j2_pid_str, NUM_PID_PARAMS,
+//        "pid parameters for joint[2]");
+//
+//const char *j3_pid_str[NUM_PID_PARAMS] =
+//{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+//RTAPI_MP_ARRAY_STRING(j3_pid_str, NUM_PID_PARAMS,
+//        "pid parameters for joint[3]");
+//
+//const char *j4_pid_str[NUM_PID_PARAMS] =
+//{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+//RTAPI_MP_ARRAY_STRING(j4_pid_str, NUM_PID_PARAMS,
+//        "pid parameters for joint[4]");
+//
+//const char *j5_pid_str[NUM_PID_PARAMS] =
+//{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+//RTAPI_MP_ARRAY_STRING(j5_pid_str, NUM_PID_PARAMS,
+//        "pid parameters for joint[5]");
+//
+//const char *j6_pid_str[NUM_PID_PARAMS] =
+//{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+//RTAPI_MP_ARRAY_STRING(j6_pid_str, NUM_PID_PARAMS,
+//        "pid parameters for joint[6]");
+//
+//const char *j7_pid_str[NUM_PID_PARAMS] =
+//{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+//RTAPI_MP_ARRAY_STRING(j7_pid_str, NUM_PID_PARAMS,
+//        "pid parameters for joint[7]");
+//
+//
+//const char *max_vel_str[MAX_CHAN] =
+//{ "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0" };
+//RTAPI_MP_ARRAY_STRING(max_vel_str, MAX_CHAN,
+//        "max velocity value for up to 8 channels");
+//
+//const char *max_accel_str[MAX_CHAN] =
+//{ "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0" };
+//RTAPI_MP_ARRAY_STRING(max_accel_str, MAX_CHAN,
+//        "max acceleration value for up to 8 channels");
+//
+//const char *max_jerk_str[MAX_CHAN] =
+//{ "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0" };
+//RTAPI_MP_ARRAY_STRING(max_jerk_str, MAX_CHAN,
+//        "max jerk value for up to 8 channels");
+//
+//const char *pos_scale_str[MAX_CHAN] =
+//{ "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0" };
+//RTAPI_MP_ARRAY_STRING(pos_scale_str, MAX_CHAN,
+//        "pos scale value for up to 8 channels");
+//
+//const char *enc_scale_str[MAX_CHAN] =
+//{ "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0" };
+//RTAPI_MP_ARRAY_STRING(enc_scale_str, MAX_CHAN,
+//        "enc scale value for up to 8 channels");
+//
+//const char *ferror_str[MAX_CHAN] =
+//{ "0", "0", "0", "0", "0", "0", "0", "0" };
+//RTAPI_MP_ARRAY_STRING(ferror_str, MAX_CHAN,
+//        "max following error value for up to 8 channels");
+//
+//const char *alr_output_0= "0";
+//RTAPI_MP_STRING(alr_output_0, "DOUT[31:0] while E-Stop is pressed");
+//const char *alr_output_1= "0";
+//RTAPI_MP_STRING(alr_output_1, "DOUT[63:32] while E-Stop is pressed");
+//
 
-// enc_pol: encoder polarity, default to POSITIVE(p)
-const char *enc_pol[MAX_CHAN] =
-{ "p", "p", "p", "p", "p", "p", "p", "p" };
-RTAPI_MP_ARRAY_STRING(enc_pol, MAX_CHAN,
-        "encoder polarity (POSITIVE(p) or NEGATIVE(n)) for up to 8 channels");
-
-// lsp_id: gpio pin id for limit-switch-positive(lsp)
-const char *lsp_id[MAX_CHAN] =
-{ " ", " ", " ", " ", " ", " ", " ", " " };
-RTAPI_MP_ARRAY_STRING(lsp_id, MAX_CHAN,
-        "lsp_id: gpio pin id for limit-switch-positive(lsp) for up to 8 channels");
-
-// lsn_id: gpio pin id for limit-switch-negative(lsn)
-const char *lsn_id[MAX_CHAN] =
-{ " ", " ", " ", " ", " ", " ", " ", " " };
-RTAPI_MP_ARRAY_STRING(lsn_id, MAX_CHAN,
-        "lsn_id: gpio pin id for limit-switch-negative(lsn) for up to 8 channels");
-
-// jsn_id: gpio pin id for jog-switch-negative(jsn)
-const char *jsn_id[MAX_CHAN] =
-{ " ", " ", " ", " ", " ", " ", " ", " " };
-RTAPI_MP_ARRAY_STRING(jsn_id, MAX_CHAN,
-        "jsn_id: gpio pin id for jog-switch-negative(jsn) for up to 8 channels");
-
-// jsp_id: gpio pin id for jog-switch-positive(jsp)
-const char *jsp_id[MAX_CHAN] =
-{ " ", " ", " ", " ", " ", " ", " ", " " };
-RTAPI_MP_ARRAY_STRING(jsp_id, MAX_CHAN,
-        "jsp_id: gpio pin id for jog-switch-positive(jsp) for up to 8 channels");
-
-// alr_id: gpio pin id for ALARM siganl
-const char *alr_id[MAX_CHAN] =
-{ " ", " ", " ", " ", " ", " ", " ", " " };
-RTAPI_MP_ARRAY_STRING(alr_id, MAX_CHAN,
-        "alr_id: gpio pin id for ALARM signal for up to 8 channels");
-
-const char *bits = "\0";
-RTAPI_MP_STRING(bits, "FPGA bitfile");
-
-const char *bins = "\0";
-RTAPI_MP_STRING(bins, "RISC binfile");
-
-int alarm_en = -1;
-RTAPI_MP_INT(alarm_en, "hardware alarm dection mode");
-
-int servo_period_ns = -1;   // init to '-1' for testing valid parameter value
-RTAPI_MP_INT(servo_period_ns, "used for calculating new velocity command, unit: ns");
 
 # define GPIO_IN_NUM    80
 # define GPIO_OUT_NUM   32
 
-const char **pid_str[MAX_CHAN];
-const char *j0_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
-RTAPI_MP_ARRAY_STRING(j0_pid_str, NUM_PID_PARAMS,
-        "pid parameters for joint[0]");
-
-const char *j1_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
-RTAPI_MP_ARRAY_STRING(j1_pid_str, NUM_PID_PARAMS,
-        "pid parameters for joint[1]");
-
-const char *j2_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
-RTAPI_MP_ARRAY_STRING(j2_pid_str, NUM_PID_PARAMS,
-        "pid parameters for joint[2]");
-
-const char *j3_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
-RTAPI_MP_ARRAY_STRING(j3_pid_str, NUM_PID_PARAMS,
-        "pid parameters for joint[3]");
-
-const char *j4_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
-RTAPI_MP_ARRAY_STRING(j4_pid_str, NUM_PID_PARAMS,
-        "pid parameters for joint[4]");
-
-const char *j5_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
-RTAPI_MP_ARRAY_STRING(j5_pid_str, NUM_PID_PARAMS,
-        "pid parameters for joint[5]");
-
-const char *j6_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
-RTAPI_MP_ARRAY_STRING(j6_pid_str, NUM_PID_PARAMS,
-        "pid parameters for joint[6]");
-
-const char *j7_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
-RTAPI_MP_ARRAY_STRING(j7_pid_str, NUM_PID_PARAMS,
-        "pid parameters for joint[7]");
-
-
-const char *max_vel_str[MAX_CHAN] =
-{ "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0" };
-RTAPI_MP_ARRAY_STRING(max_vel_str, MAX_CHAN,
-        "max velocity value for up to 8 channels");
-
-const char *max_accel_str[MAX_CHAN] =
-{ "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0" };
-RTAPI_MP_ARRAY_STRING(max_accel_str, MAX_CHAN,
-        "max acceleration value for up to 8 channels");
-
-const char *max_jerk_str[MAX_CHAN] =
-{ "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0" };
-RTAPI_MP_ARRAY_STRING(max_jerk_str, MAX_CHAN,
-        "max jerk value for up to 8 channels");
-
-const char *pos_scale_str[MAX_CHAN] =
-{ "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0" };
-RTAPI_MP_ARRAY_STRING(pos_scale_str, MAX_CHAN,
-        "pos scale value for up to 8 channels");
-
-const char *enc_scale_str[MAX_CHAN] =
-{ "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0" };
-RTAPI_MP_ARRAY_STRING(enc_scale_str, MAX_CHAN,
-        "enc scale value for up to 8 channels");
-
-const char *ferror_str[MAX_CHAN] =
-{ "0", "0", "0", "0", "0", "0", "0", "0" };
-RTAPI_MP_ARRAY_STRING(ferror_str, MAX_CHAN,
-        "max following error value for up to 8 channels");
-
-const char *ahc_polarity = "POSITIVE";  // normally joint is lifted up when feedback level below reference
-RTAPI_MP_STRING(ahc_polarity,
-        "auto height control behavior");
-
-const char *ahc_joint_str = "2";
-RTAPI_MP_STRING(ahc_joint_str,
-        "auto height control joint");
-
-const char *ahc_ch_str ="0"; // ANALOG_0: analog input0
-RTAPI_MP_STRING(ahc_ch_str,
-        "auto height control analog channel");
-
-const char *pattern_type_str ="NO_TEST"; // ANALOG_0: analog input0
-RTAPI_MP_STRING(pattern_type_str,
-        "indicate test pattern type");
-
-const char *alr_output_0= "0";
-RTAPI_MP_STRING(alr_output_0, "DOUT[31:0] while E-Stop is pressed");
-const char *alr_output_1= "0";
-RTAPI_MP_STRING(alr_output_1, "DOUT[63:32] while E-Stop is pressed");
-
-int gantry_polarity = 0;
-RTAPI_MP_INT(gantry_polarity, "gantry polarity");
-
-static int test_pattern_type = 0;  // use dbg_pat_str to update dbg_pat_type
-
-const char *board = "ar11";
-RTAPI_MP_STRING(board, "board model");
-
 static const char wosi_id = 0;
 static wosi_param_t w_param;
+
+#define FIXED_POINT_SCALE       65536.0             // (double (1 << FRACTION_BITS))
+#define MAX_DSIZE               127     // Maximum WOSI data size
+#define MAX_CHAN                8
+#define JOINT_NUM               6
+
+const char *board = "ar11-rpi2";     //!< board, "board model"
+//TODO: const char *bits = "\0";        //!< bits, FPGA bitfile
+//TODO: const char *bins = "\0";        //!< bins, RISC binfile
+//!< servo_period_ns: servo period for velocity control, unit: ns
+//TODO: int servo_period_ns = -1;   // init to '-1' for testing valid parameter value
+const char *bits = "ar11_top.bit";
+const char *bins = "css.bin";
+int servo_period_ns = 655360;
+
+const char *pulse_type[MAX_CHAN] =      { "A", "A", "A", "A", "A", "A", " ", " "};
+const char *enc_type[MAX_CHAN] =        { "A", "A", "A", "A", "A", "A", " ", " "};
+const char *enc_pol[MAX_CHAN] =         { "P", "P", "P", "P", "P", "P", " ", " "};
+// lsp_id: gpio pin id for limit-switch-positive(lsp)
+const char *lsp_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+// lsn_id: gpio pin id for limit-switch-negative(lsn)
+const char *lsn_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+// jsn_id: gpio pin id for jog-switch-negative(jsn)
+const char *jsn_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+// jsp_id: gpio pin id for jog-switch-positive(jsp)
+const char *jsp_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+// alr_id: gpio pin id for ALARM siganl
+const char *alr_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+const int  alarm_en = 1;        // "hardware alarm dection mod
+const char *alr_output_0= "0";  // "DOUT[31:0]  while E-Stop is pressed";
+const char *alr_output_1= "0";  // "DOUT[63:32] while E-Stop is pressed";
+
+const char *max_vel_str[MAX_CHAN] =
+{ "30.0", "30.0", "30.0", "30.0", "30.0", "30.0", "0.0", "0.0" };
+const char *max_accel_str[MAX_CHAN] =
+{ "120.0", "120.0", "120.0", "120.0", "120.0", "120.0", "0.0", "0.0" };
+const char *max_jerk_str[MAX_CHAN] =
+{ "590.0", "590.0", "590.0", "590.0", "590.0", "590.0", "0.0", "0.0" };
+const char *pos_scale_str[MAX_CHAN] =
+{ "186181.81818", "186181.81818", "186181.81818", "186181.81818", "186181.81818", "186181.81818", "1.0", "1.0" };
+const char *enc_scale_str[MAX_CHAN] =
+{ "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0" };
+const char *ferror_str[MAX_CHAN] =
+{ "0", "0", "0", "0", "0", "0", "0", "0" };
+
+const char **pid_str[MAX_CHAN];
+// P    I    D    FF0  FF1      FF2  DB   BI   M_ER M_EI M_ED MCD  MCDD MO
+const char *j0_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j1_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j2_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j3_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j4_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j5_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j6_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const char *j7_pid_str[NUM_PID_PARAMS] =
+{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+const int gantry_polarity = 0;
+
+//!< ahc_polarity, the auto height control polarity between command and error
+const char *ahc_polarity = "POSITIVE";  // normally joint is lifted up when feedback level below reference
+//!< ahc_joint_str, the joint that under auto height control
+const char *ahc_joint_str = "2";
+//!< analog channel for auto height control
+const char *ahc_ch_str ="0"; // ANALOG_0: analog input0
+
+/* TODO: remove pattern_type_str */
+const char *pattern_type_str ="NO_TEST";
+static int test_pattern_type = 0;  // use dbg_pat_str to update dbg_pat_type
 
 /***********************************************************************
  *                STRUCTURES AND GLOBAL VARIABLES                       *
@@ -425,7 +462,7 @@ static machine_control_t *machine_control;
 #define MAX_STEP_TYPE 14
 
 /* other globals */
-static int comp_id;		/* component ID */
+static int comp_id;             /* hal component id */
 static int num_joints = 0;	/* number of step generators configured */
 static double dt;		/* update_freq period in seconds */
 static double recip_dt;		/* reciprocal of period, avoids divides */
@@ -437,7 +474,6 @@ static double recip_dt;		/* reciprocal of period, avoids divides */
 static int export_stepgen(int num, stepgen_t * addr, char pulse_type);
 static int export_analog(analog_t * addr);
 static int export_machine_control(machine_control_t * machine_control);
-static void update_freq(void *arg, long period);
 static void update_rt_cmd(void);
 
 static void diff_time(struct timespec *start, struct timespec *end,
@@ -730,7 +766,7 @@ static void write_machine_param (uint32_t addr, int32_t data)
  *                       INIT AND EXIT CODE                             *
  ************************************************************************/
 
-int rtapi_app_main(void)
+int wosi_driver_init(int hal_comp_id)
 {
     int n, retval, i;
 
@@ -743,6 +779,8 @@ int rtapi_app_main(void)
     int lsp, lsn, alr, jsp, jsn;
     uint16_t sync_cmd;
     uint32_t dac_ctrl_reg;
+
+    comp_id = hal_comp_id;
 
     msg = rtapi_get_msg_level();
     // rtapi_set_msg_level(RTAPI_MSG_ALL);
@@ -925,22 +963,26 @@ int rtapi_app_main(void)
 
     // "encoder polarity (POSITIVE(p) or NEGATIVE(n)) for up to 8 channels"
     data[0] = 0;
-    for (n = 0; n < MAX_CHAN; n++) {
-        if ((enc_pol[n][0] == 'p') || (enc_pol[n][0] == 'P')) {
+    for (n = 0; n < MAX_CHAN && (enc_pol[n][0] != ' '); n++) {
+        if (toupper(enc_pol[n][0]) == 'P') {
             // ENC_POL(0): POSITIVE ENCODER POLARITY (default)
-        } else if ((enc_pol[n][0] == 'n') || (enc_pol[n][0] == 'N')) {
+        } else if (toupper(enc_pol[n][0]) == 'N') {
             // ENC_POL(1): NEGATIVE ENCODER POLARITY
             data[0] |= (1 << n);
         } else {
-            rtapi_print_msg(RTAPI_MSG_ERR,
-                    "STEPGEN: ERROR: bad enc_pol '%s' for joint %i (must be 'p' or 'n')\n",
-                    enc_pol[n], n);
+            ERRP("ERROR: bad enc_pol '%s' for joint %i (must be 'p' or 'n')\n",
+                  enc_pol[n], n);
             return -1;
         }
     }
-    wosi_cmd (&w_param, WB_WR_CMD,
-            (uint16_t) (SSIF_BASE | SSIF_ENC_POL),
-            (uint8_t) 1, data);
+    if(n > 0) {
+        wosi_cmd (&w_param, WB_WR_CMD,
+                (uint16_t) (SSIF_BASE | SSIF_ENC_POL),
+                (uint8_t) 1, data);
+    } else {
+        ERRP ("ERROR: no enc_pol defined\n");
+        return -1;
+    }
 
     // "set LSP_ID/LSN_ID for up to 8 channels"
     for (n = 0; n < MAX_CHAN && (lsp_id[n][0] != ' ') ; n++) {
@@ -1130,19 +1172,12 @@ int rtapi_app_main(void)
     wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | OR32_CTRL), 1, data);
     while(wosi_flush(&w_param) == -1);
     /* have good config info, connect to the HAL */
-    comp_id = hal_init("wosi");
-    if (comp_id < 0) {
-        rtapi_print_msg(RTAPI_MSG_ERR,
-                "STEPGEN: ERROR: hal_init() failed\n");
-        return -1;
-    }
 
     /* allocate shared memory for counter data */
     stepgen_array = hal_malloc(num_joints * sizeof(stepgen_t));
     if (stepgen_array == 0) {
         rtapi_print_msg(RTAPI_MSG_ERR,
                 "STEPGEN: ERROR: hal_malloc() failed\n");
-        hal_exit(comp_id);
         return -1;
     }
 
@@ -1245,7 +1280,6 @@ int rtapi_app_main(void)
     if (analog == 0) {
         rtapi_print_msg(RTAPI_MSG_ERR,
                 "ANALOG: ERROR: hal_malloc() failed\n");
-        hal_exit(comp_id);
         return -1;
     }
 
@@ -1253,7 +1287,6 @@ int rtapi_app_main(void)
     if (machine_control == 0) {
         rtapi_print_msg(RTAPI_MSG_ERR,
                 "MACHINE_CONTROL: ERROR: hal_malloc() failed\n");
-        hal_exit(comp_id);
         return -1;
     }
     machine_control->prev_machine_ctrl = 0;	// num_joints is not included
@@ -1267,7 +1300,6 @@ int rtapi_app_main(void)
             rtapi_print_msg(RTAPI_MSG_ERR,
                     "STEPGEN: ERROR: stepgen %d var export failed\n",
                     n);
-            hal_exit(comp_id);
             return -1;
         }
     }
@@ -1276,7 +1308,6 @@ int rtapi_app_main(void)
     if (retval != 0) {
         rtapi_print_msg(RTAPI_MSG_ERR,
                 "ANALOG: ERROR: analog var export failed\n");
-        hal_exit(comp_id);
         return -1;
     }
 
@@ -1286,19 +1317,9 @@ int rtapi_app_main(void)
     if (retval != 0) {
         rtapi_print_msg(RTAPI_MSG_ERR,
                 "MACHINE_CONTROL: ERROR:  machine_control var export failed\n");
-        hal_exit(comp_id);
         return -1;
     }
 
-    /* put export machine_control above */
-    retval = hal_export_funct("wosi.stepgen.update-freq", update_freq,
-            stepgen_array, 1, 0, comp_id);
-    if (retval != 0) {
-        rtapi_print_msg(RTAPI_MSG_ERR,
-                "STEPGEN: ERROR: freq update funct export failed\n");
-        hal_exit(comp_id);
-        return -1;
-    }
     rtapi_print_msg(RTAPI_MSG_INFO,
             "STEPGEN: installed %d step pulse generators\n",
             num_joints);
@@ -1306,16 +1327,14 @@ int rtapi_app_main(void)
     /*   restore saved message level*/
     rtapi_set_msg_level(msg);
 
-    hal_ready(comp_id);
     return 0;
 }
 
-void rtapi_app_exit(void)
+void wosi_dirver_exit(void)
 {
 #if (TRACE!=0)
     fclose(dptrace);
 #endif
-    hal_exit(comp_id);
 }
 
 
@@ -1350,7 +1369,8 @@ static void update_rt_cmd(void)
     }
 }
 
-static void update_freq(void *arg, long period)
+//static void update_freq(void *arg, long period)
+void wosi_transceive(void)
 {
     stepgen_t *stepgen;
     int n, i;
@@ -1363,10 +1383,12 @@ static void update_freq(void *arg, long period)
     uint32_t sync_out_data;
     uint32_t tmp;
     int32_t immediate_data = 0;
+    void *arg;
 #if (TRACE!=0)
     static uint32_t _dt = 0;
 #endif
 
+    arg = (void *) stepgen_array;
     /* FIXME - while this code works just fine, there are a bunch of
        internal variables, many of which hold intermediate results that
        don't really need their own variables.  They are used either for
@@ -1385,7 +1407,7 @@ static void update_freq(void *arg, long period)
     //     rtapi_set_msg_level(RTAPI_MSG_ALL);
     rtapi_set_msg_level(RTAPI_MSG_WARN);
 
-    // wosi_status (&w_param);  // print bandwidth utilization
+    wosi_status (&w_param);  // print bandwidth utilization
     wosi_update(&w_param);      // link to wosi_recv()
 
     /* begin: sending debug pattern */

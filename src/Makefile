@@ -244,6 +244,18 @@ SUBDIRS := \
 	\
 	../docs/src
 
+## Begin: WOSI - wishbone over serial interface
+ifneq ($(WOSI_VER),)
+# build WOSI if there's libwosi-dev installed
+SUBDIRS += hal/drivers/arais
+EXTRA_CFLAGS += $(WOSI_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/arais
+# EXTRAFLAGS is for emctaskmain.cc ... etc.
+EXTRAFLAGS += $(WOSI_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/arais
+EXTRA_LDFLAGS += $(WOSI_LIBS)
+endif
+## End: WOSI - wishbone over usb
+
+
 
 # moved to src/rtapi/Submakefile
 # ULAPISRCS := rtapi/$(RTPREFIX)_ulapi.c
@@ -701,6 +713,7 @@ ifeq ($(HAVE_KERNEL_THREADS),yes)
 CHECK_KFLAV_SWITCH=-k
 endif
 setuid:
+	$(call fix_perms,../bin/wosi_trans)
 	$(call fix_perms,../libexec/linuxcnc_module_helper)
 	$(call fix_perms,../libexec/pci_read)
 	$(call fix_perms,../libexec/pci_write)
@@ -1329,19 +1342,6 @@ hm2_pci-objs  :=			  \
     $(MATHSTUB)
 endif
 
-## Begin: WOSI - wishbone over serial interface
-# build WOSI if there's libwosi-dev installed
-ifneq ($(WOSI_VER),)
-SUBDIRS += hal/drivers/arais
-EXTRA_CFLAGS += $(WOSI_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/arais
-# EXTRAFLAGS is for emctaskmain.cc ... etc.
-EXTRAFLAGS += $(WOSI_CFLAGS) -DUSB_MOTION_ENABLE -I$(BASEPWD)/hal/drivers/arais
-EXTRA_LDFLAGS += $(WOSI_LIBS)
-obj-$(CONFIG_WOSI) += wosi.o
-wosi-objs := hal/drivers/arais/wosi.o $(MATHSTUB)
-endif
-## End: WOSI - wishbone over usb
-
 obj-$(CONFIG_PROBE_PARPORT) += probe_parport.o
 probe_parport-objs := hal/drivers/probe_parport.o $(MATHSTUB)
 endif
@@ -1544,10 +1544,6 @@ $(RTLIBDIR)/hm2_7i43$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_7i43-objs))
 $(RTLIBDIR)/hm2_7i90$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_7i90-objs))
 $(RTLIBDIR)/hm2_pci$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_pci-objs))
 $(RTLIBDIR)/hm2_test$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_test-objs)) 
-endif
-
-ifneq ($(WOSI_VER),)
-$(RTLIBDIR)/wosi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(wosi-objs))
 endif
 
 ifdef TARGET_PLATFORM_BEAGLEBONE
