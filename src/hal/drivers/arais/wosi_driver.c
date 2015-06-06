@@ -212,29 +212,29 @@ const char *bits = "ar11_top.bit";
 const char *bins = "css.bin";
 int servo_period_ns = 655360;
 
-const char *pulse_type[MAX_CHAN] =      { "A", "A", "A", "A", "A", "A", " ", " "};
+const char *pulse_type[MAX_CHAN] =      { "P", "P", "P", "P", "P", "P", " ", " "};
 const char *enc_type[MAX_CHAN] =        { "A", "A", "A", "A", "A", "A", " ", " "};
 const char *enc_pol[MAX_CHAN] =         { "P", "P", "P", "P", "P", "P", " ", " "};
 // lsp_id: gpio pin id for limit-switch-positive(lsp)
-const char *lsp_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+const char *lsp_id[MAX_CHAN] = { "7", "255", "255", "255", "255", "255", " ", " " };
 // lsn_id: gpio pin id for limit-switch-negative(lsn)
 const char *lsn_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
+// alr_id: gpio pin id for ALARM siganl
+const char *alr_id[MAX_CHAN] = { "1", "255", "255", "255", "255", "255", " ", " " };
 // jsn_id: gpio pin id for jog-switch-negative(jsn)
 const char *jsn_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
 // jsp_id: gpio pin id for jog-switch-positive(jsp)
 const char *jsp_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
-// alr_id: gpio pin id for ALARM siganl
-const char *alr_id[MAX_CHAN] = { "255", "255", "255", "255", "255", "255", " ", " " };
 const int  alarm_en = 1;        // "hardware alarm dection mod
 const char *alr_output_0= "0";  // "DOUT[31:0]  while E-Stop is pressed";
 const char *alr_output_1= "0";  // "DOUT[63:32] while E-Stop is pressed";
 
 const char *max_vel_str[MAX_CHAN] =
-{ "30.0", "30.0", "30.0", "30.0", "30.0", "30.0", "0.0", "0.0" };
+{ "33.0", "30.0", "30.0", "30.0", "30.0", "30.0", "0.0", "0.0" };
 const char *max_accel_str[MAX_CHAN] =
-{ "120.0", "120.0", "120.0", "120.0", "120.0", "120.0", "0.0", "0.0" };
+{ "117.0", "120.0", "120.0", "120.0", "120.0", "120.0", "0.0", "0.0" };
 const char *max_jerk_str[MAX_CHAN] =
-{ "590.0", "590.0", "590.0", "590.0", "590.0", "590.0", "0.0", "0.0" };
+{ "585.0", "590.0", "590.0", "590.0", "590.0", "590.0", "0.0", "0.0" };
 const char *pos_scale_str[MAX_CHAN] =
 { "186181.81818", "186181.81818", "186181.81818", "186181.81818", "186181.81818", "186181.81818", "1.0", "1.0" };
 const char *enc_scale_str[MAX_CHAN] =
@@ -245,7 +245,7 @@ const char *ferror_str[MAX_CHAN] =
 const char **pid_str[MAX_CHAN];
 // P    I    D    FF0  FF1      FF2  DB   BI   M_ER M_EI M_ED MCD  MCDD MO
 const char *j0_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{ "1250", "0", "40000", "0", "65500", "0", "262144", "0", "0", "0", "0", "0", "0", "0"};
 const char *j1_pid_str[NUM_PID_PARAMS] =
 { "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
 const char *j2_pid_str[NUM_PID_PARAMS] =

@@ -28,7 +28,7 @@ static ringiter_t ri;
 
 // default options; read from inifile or command line
 static params_type param = {
-        .modname = "wosi_transceiver", // hal module param.modname
+        .modname = "wosi_trans", // hal module param.modname
         .ring_name = "ring_0",
         .debug = 0,
         .hal_comp_id = -1,
@@ -92,13 +92,7 @@ int wosi_trans_init()
         return retval;
     }
 
-    retval = hal_ready(param.hal_comp_id);
-    if (retval)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: hal_ready(%d) failed: %d\n",
-                param.modname, param.hal_comp_id, retval);
-        return retval;
-    }
+
 
     signal(SIGINT, quit);
     signal(SIGTERM, quit);
@@ -132,9 +126,13 @@ int wosi_trans_run()
     char *ring;
     uint32_t underrun = 0; // "number of failed read attempts";
     uint32_t received = 0; // "number of successful read attempts";
+    int retval;
 
     name = param.modname;
     ring = param.ring_name;
+
+    rtapi_print_msg(RTAPI_MSG_INFO,
+            "%s(%s): wosi_trans_run() begin\n", name, ring);
 
     if (rb.header->type != RINGTYPE_RECORD)
     {
@@ -143,15 +141,25 @@ int wosi_trans_run()
         return -1;
     }
 
+    retval = hal_ready(param.hal_comp_id);
+    if (retval)
+    {
+        rtapi_print_msg(RTAPI_MSG_ERR, "%s: ERROR: hal_ready(%d) failed: %d\n",
+                param.modname, param.hal_comp_id, retval);
+        return retval;
+    }
+
     /* RINGTYPE_RECORD, queue mode */
     while (1)
     {
         rsize = record_next_size(&rb);
-        if (rsize < 0)
+        if (rsize <= 0)
         {
             // ring empty
             underrun++;
-            // usleep(100);
+            rtapi_print_msg(RTAPI_MSG_INFO,
+                    "%s(%s): wosi_trans_run() record size(%d) underrun(%d)\n", name, ring, rsize, underrun);
+            usleep(50);
             continue;
         }
         rtapi_print_msg(RTAPI_MSG_INFO,
