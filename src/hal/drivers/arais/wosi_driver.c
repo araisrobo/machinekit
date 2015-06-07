@@ -38,6 +38,7 @@
 #include <wb_regs.h>
 #include <mailtag.h>
 #include "sync_cmd.h"
+#include "wosi_joint_cmd.h"
 
 #define MAX_CHAN 8
 #define MAX_STEP_CUR 255
@@ -301,7 +302,6 @@ typedef struct {
     hal_float_t *vel_cmd;	/* pin: velocity command (pos units/cycle_time) */
     double prev_vel_cmd;        /* prev vel cmd: previous velocity command */
     double      pos_cmd_s;	/* saved pos_cmd at rising edge of usb_busy */
-    hal_float_t *pos_cmd;	/* pin: motor_pos_cmd (position units) */
     double prev_pos_cmd;        /* prev pos_cmd: previous position command */
     hal_float_t *probed_pos;
     hal_float_t *pos_fb;	/* pin: position feedback (position units) */
@@ -1369,8 +1369,7 @@ static void update_rt_cmd(void)
     }
 }
 
-//static void update_freq(void *arg, long period)
-void wosi_transceive(void)
+void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd)
 {
     stepgen_t *stepgen;
     int n, i;
@@ -1724,7 +1723,7 @@ void wosi_transceive(void)
             stepgen->freq = 0;
 
             /* to prevent position drift while toggeling "PWR-ON" switch */
-            (stepgen->prev_pos_cmd) = *stepgen->pos_cmd;
+            (stepgen->prev_pos_cmd) = wosi_jcmd->pos_cmd[n];
             stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE * stepgen->pos_scale;
 
             /* clear vel status when enable = 0 */
@@ -1845,10 +1844,10 @@ void wosi_transceive(void)
 
             if (*(machine_control->update_pos_ack))
             {
-                (stepgen->prev_pos_cmd) = (*stepgen->pos_cmd);
+                (stepgen->prev_pos_cmd) = wosi_jcmd->pos_cmd[n];
                 stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE * stepgen->pos_scale;
             }
-            *stepgen->vel_cmd = ((*stepgen->pos_cmd) - (stepgen->prev_pos_cmd));
+            *stepgen->vel_cmd = (wosi_jcmd->pos_cmd[n] - (stepgen->prev_pos_cmd));
 
             integer_pos_cmd = (int32_t)(*stepgen->vel_cmd * (stepgen->pos_scale) * FIXED_POINT_SCALE);
 
@@ -1858,7 +1857,7 @@ void wosi_transceive(void)
                 pulse_jerk = pulse_accel - stepgen->pulse_accel;
                 printf("j[%d], pos_fb(%f) \n", n, (*stepgen->pos_fb));
                 printf("j[%d], vel_cmd(%f) pos_cmd(%f) prev_pos_cmd(%f)\n",
-                        n, *stepgen->vel_cmd, (*stepgen->pos_cmd), (stepgen->prev_pos_cmd));
+                        n, *stepgen->vel_cmd, wosi_jcmd->pos_cmd[n], (stepgen->prev_pos_cmd));
                 printf("j[%d], pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
                         n, integer_pos_cmd, pulse_accel, pulse_jerk);
                 printf("j[%d], PREV pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
@@ -1901,7 +1900,7 @@ void wosi_transceive(void)
             if(wosi_pos_cmd >= 8192) {
                 fprintf(stderr,"j(%d) pos_cmd(%f) prev_pos_cmd(%f) vel_cmd(%f)\n",
                         n ,
-                        (*stepgen->pos_cmd), 
+                        wosi_jcmd->pos_cmd[n],
                         (stepgen->prev_pos_cmd), 
                         *stepgen->vel_cmd);
                 fprintf(stderr,"wosi.c: wosi_pos_cmd(%d) too large\n", wosi_pos_cmd);
@@ -1965,7 +1964,7 @@ void wosi_transceive(void)
                 // store current traj-planning command
                 stepgen = arg;
                 for (n = 0; n < num_joints; n++) {
-                    stepgen->pos_cmd_s = *(stepgen->pos_cmd);
+                    stepgen->pos_cmd_s = wosi_jcmd->pos_cmd[n];
                     stepgen ++;
                 }
             }
@@ -1986,7 +1985,8 @@ void wosi_transceive(void)
                 // reload saved traj-planning command
                 stepgen = arg;
                 for (n = 0; n < num_joints; n++) {
-                    *(stepgen->pos_cmd) = stepgen->pos_cmd_s;
+                    assert(0); // should not get here, comment out the following line:
+//                    *(stepgen->pos_cmd) = stepgen->pos_cmd_s;
                     stepgen ++;
                 }
             }
@@ -2098,13 +2098,6 @@ static int export_stepgen(int num, stepgen_t * addr, char pulse_type)
 
     /* export parameter for position scaling */
     retval = hal_param_float_newf(HAL_RW, &(addr->pos_scale), comp_id, "wosi.stepgen.%d.position-scale", num);
-    if (retval != 0) {
-        return retval;
-    }
-
-    /* export pin for pos/vel command */
-    retval = hal_pin_float_newf(HAL_IN, &(addr->pos_cmd), comp_id,
-            "wosi.stepgen.%d.position-cmd", num);
     if (retval != 0) {
         return retval;
     }
@@ -2257,7 +2250,6 @@ static int export_stepgen(int num, stepgen_t * addr, char pulse_type)
     *(addr->enc_pos) = 0;
     *(addr->pos_fb) = 0.0;
     *(addr->vel_fb) = 0;
-    *(addr->pos_cmd) = 0.0;
     *(addr->vel_cmd) = 0.0;
     (addr->prev_vel_cmd) = 0.0;
     addr->pulse_vel = 0;

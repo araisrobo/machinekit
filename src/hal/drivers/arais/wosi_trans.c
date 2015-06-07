@@ -22,6 +22,7 @@
 #endif
 
 #include "wosi_trans.h"
+#include "wosi_joint_cmd.h"
 
 static ringbuffer_t rb;
 static ringiter_t ri;
@@ -127,6 +128,7 @@ int wosi_trans_run()
     uint32_t underrun = 0; // "number of failed read attempts";
     uint32_t received = 0; // "number of successful read attempts";
     int retval;
+    wosi_joint_cmd_t *wosi_jcmd;
 
     name = param.modname;
     ring = param.ring_name;
@@ -162,14 +164,25 @@ int wosi_trans_run()
             usleep(50);
             continue;
         }
+
+        // point wosi_jcmd to ringBuffer
+        wosi_jcmd = (wosi_joint_cmd_t *) record_next(&rb);
+
         rtapi_print_msg(RTAPI_MSG_INFO,
-                "%s(%s): record-len=%d '%.*s', writer=%d\n", name, ring, rsize,
-                rsize, (char *) record_next(&rb), rb.header->writer);
+                "%s(%s): record-len=%d, writer=%d tick(%d)\n", name, ring, rsize,
+                rb.header->writer, wosi_jcmd->_tick);
+        rtapi_print_msg(RTAPI_MSG_INFO,
+                "j0_pos_cmd(%f) j1_pos_cmd(%f) j2_pos_cmd(%f) j3_pos_cmd(%f) j4_pos_cmd(%f) j5_pos_cmd(%f)\n",
+                wosi_jcmd->pos_cmd[0], wosi_jcmd->pos_cmd[1], wosi_jcmd->pos_cmd[2],
+                wosi_jcmd->pos_cmd[3], wosi_jcmd->pos_cmd[4], wosi_jcmd->pos_cmd[5]);
+
+        // issue wosi_transceive transaction as receiving servo-tick
+        wosi_transceive(wosi_jcmd);
+
         // consume record
         record_shift(&rb);
         received++;
-        // issue wosi_transceive transaction as receiving servo-tick
-        wosi_transceive();
+
     };
 
     return 0;

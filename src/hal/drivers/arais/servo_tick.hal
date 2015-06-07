@@ -12,3 +12,10 @@ addf servo_tick fast
 
 # get going
 start
+
+setp servo_tick.j0-pos-cmd  0.0
+setp servo_tick.j1-pos-cmd  1.0
+setp servo_tick.j2-pos-cmd  2.0
+setp servo_tick.j3-pos-cmd  3.0
+setp servo_tick.j4-pos-cmd  4.0
+setp servo_tick.j5-pos-cmd  5.0

@@ -1,6 +1,12 @@
-component servo_tick    "for every servo period, send a tick message to ring buffer";
-pin out u32 tick        "number of tick messages written";
-pin out u32 overrun     "number of failed write attempts";
+component servo_tick        "for every servo period, send a tick message to ring buffer";
+pin out u32 tick            "number of tick messages written";
+pin out u32 overrun         "number of failed write attempts";
+pin in  float j0_pos_cmd    "motor position of Joint.0";
+pin in  float j1_pos_cmd    "motor position of Joint.1";
+pin in  float j2_pos_cmd    "motor position of Joint.2";
+pin in  float j3_pos_cmd    "motor position of Joint.3";
+pin in  float j4_pos_cmd    "motor position of Joint.4";
+pin in  float j5_pos_cmd    "motor position of Joint.5";
 
 function _;
 
@@ -12,6 +18,7 @@ license "GPLv2 or later";
 
 #include "hal_priv.h"
 #include "hal_ring.h"	        /* ringbuffer declarations */
+#include "wosi_joint_cmd.h"
 
 #define BUFFERSIZE 100
 
@@ -22,11 +29,18 @@ static ringbuffer_t rb;
 static char buffer[BUFFERSIZE];
 static size_t length;
 static char *name = "servo_tick";
+static wosi_joint_cmd_t wosi_jcmd;
 
 FUNCTION(_) {
-    rtapi_snprintf(buffer, sizeof(buffer), "tick %u to %s, sender=comp %d",
-                   tick, ring, comp_id);
-    length = strlen(buffer);
+
+    wosi_jcmd._tick = tick;
+    wosi_jcmd.pos_cmd[0] = j0_pos_cmd;
+    wosi_jcmd.pos_cmd[1] = j1_pos_cmd;
+    wosi_jcmd.pos_cmd[2] = j2_pos_cmd;
+    wosi_jcmd.pos_cmd[3] = j3_pos_cmd;
+    wosi_jcmd.pos_cmd[4] = j4_pos_cmd;
+    wosi_jcmd.pos_cmd[5] = j5_pos_cmd;
+
     tick++;
 
     if (rb.header->type == RINGTYPE_STREAM) {
@@ -37,7 +51,7 @@ FUNCTION(_) {
     } else {
         // ringbuffer is with RECORD type
         // queue behavior: fail if insufficient space
-        if (record_write(&rb, buffer, length))
+        if (record_write(&rb, &wosi_jcmd, sizeof(wosi_jcmd)))
             overrun++;
     }
 }
