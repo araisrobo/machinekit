@@ -21,7 +21,7 @@
 #include "hal_priv.h"
 #include "hal_ring.h"           /* ringbuffer declarations */
 
-#include "wosi_joint_cmd.h"
+#include "tick_jcmd.h"
 
 // configuration and execution state
 typedef struct params {
@@ -36,6 +36,6 @@ int wosi_trans_run();
 int wosi_trans_exit();
 
 int wosi_driver_init(int hal_comp_id);
-void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd);
+void wosi_transceive(tick_jcmd_t *tick_jcmd);
 
 #endif

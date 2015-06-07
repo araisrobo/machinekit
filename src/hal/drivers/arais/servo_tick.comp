@@ -7,6 +7,7 @@ pin in  float j2_pos_cmd    "motor position of Joint.2";
 pin in  float j3_pos_cmd    "motor position of Joint.3";
 pin in  float j4_pos_cmd    "motor position of Joint.4";
 pin in  float j5_pos_cmd    "motor position of Joint.5";
+pin in  bit  update_pos_ack "the ACK, which means joint postion is updated";
 
 function _;
 
@@ -18,7 +19,7 @@ license "GPLv2 or later";
 
 #include "hal_priv.h"
 #include "hal_ring.h"	        /* ringbuffer declarations */
-#include "wosi_joint_cmd.h"
+#include "tick_jcmd.h"
 
 #define BUFFERSIZE 100
 
@@ -29,17 +30,22 @@ static ringbuffer_t rb;
 static char buffer[BUFFERSIZE];
 static size_t length;
 static char *name = "servo_tick";
-static wosi_joint_cmd_t wosi_jcmd;
+static tick_jcmd_t tick_jcmd;
 
 FUNCTION(_) {
 
-    wosi_jcmd._tick = tick;
-    wosi_jcmd.pos_cmd[0] = j0_pos_cmd;
-    wosi_jcmd.pos_cmd[1] = j1_pos_cmd;
-    wosi_jcmd.pos_cmd[2] = j2_pos_cmd;
-    wosi_jcmd.pos_cmd[3] = j3_pos_cmd;
-    wosi_jcmd.pos_cmd[4] = j4_pos_cmd;
-    wosi_jcmd.pos_cmd[5] = j5_pos_cmd;
+    tick_jcmd._tick = tick;
+    tick_jcmd.pos_cmd[0] = j0_pos_cmd;
+    tick_jcmd.pos_cmd[1] = j1_pos_cmd;
+    tick_jcmd.pos_cmd[2] = j2_pos_cmd;
+    tick_jcmd.pos_cmd[3] = j3_pos_cmd;
+    tick_jcmd.pos_cmd[4] = j4_pos_cmd;
+    tick_jcmd.pos_cmd[5] = j5_pos_cmd;
+
+    if (update_pos_ack)
+        tick_jcmd.cmd = TICK_UPDATE_POS_ACK;
+    else
+        tick_jcmd.cmd = TICK_JCMD;
 
     tick++;
 
@@ -51,7 +57,7 @@ FUNCTION(_) {
     } else {
         // ringbuffer is with RECORD type
         // queue behavior: fail if insufficient space
-        if (record_write(&rb, &wosi_jcmd, sizeof(wosi_jcmd)))
+        if (record_write(&rb, &tick_jcmd, sizeof(tick_jcmd)))
             overrun++;
     }
 }

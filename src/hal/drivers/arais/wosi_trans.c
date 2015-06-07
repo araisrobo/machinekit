@@ -22,7 +22,6 @@
 #endif
 
 #include "wosi_trans.h"
-#include "wosi_joint_cmd.h"
 
 static ringbuffer_t rb;
 static ringiter_t ri;
@@ -128,13 +127,10 @@ int wosi_trans_run()
     uint32_t underrun = 0; // "number of failed read attempts";
     uint32_t received = 0; // "number of successful read attempts";
     int retval;
-    wosi_joint_cmd_t *wosi_jcmd;
+    tick_jcmd_t *tick_jcmd;
 
     name = param.modname;
     ring = param.ring_name;
-
-    rtapi_print_msg(RTAPI_MSG_INFO,
-            "%s(%s): wosi_trans_run() begin\n", name, ring);
 
     if (rb.header->type != RINGTYPE_RECORD)
     {
@@ -159,25 +155,25 @@ int wosi_trans_run()
         {
             // ring empty
             underrun++;
-            rtapi_print_msg(RTAPI_MSG_INFO,
-                    "%s(%s): wosi_trans_run() record size(%d) underrun(%d)\n", name, ring, rsize, underrun);
+//            rtapi_print_msg(RTAPI_MSG_INFO,
+//                    "%s(%s): wosi_trans_run() record size(%d) underrun(%d)\n", name, ring, rsize, underrun);
             usleep(50);
             continue;
         }
 
-        // point wosi_jcmd to ringBuffer
-        wosi_jcmd = (wosi_joint_cmd_t *) record_next(&rb);
+        // point tick_jcmd to ringBuffer
+        tick_jcmd = (tick_jcmd_t *) record_next(&rb);
 
-        rtapi_print_msg(RTAPI_MSG_INFO,
-                "%s(%s): record-len=%d, writer=%d tick(%d)\n", name, ring, rsize,
-                rb.header->writer, wosi_jcmd->_tick);
-        rtapi_print_msg(RTAPI_MSG_INFO,
-                "j0_pos_cmd(%f) j1_pos_cmd(%f) j2_pos_cmd(%f) j3_pos_cmd(%f) j4_pos_cmd(%f) j5_pos_cmd(%f)\n",
-                wosi_jcmd->pos_cmd[0], wosi_jcmd->pos_cmd[1], wosi_jcmd->pos_cmd[2],
-                wosi_jcmd->pos_cmd[3], wosi_jcmd->pos_cmd[4], wosi_jcmd->pos_cmd[5]);
+//        rtapi_print_msg(RTAPI_MSG_INFO,
+//                "%s(%s): record-len=%d, writer=%d tick(%d)\n", name, ring, rsize,
+//                rb.header->writer, tick_jcmd->_tick);
+//        rtapi_print_msg(RTAPI_MSG_INFO,
+//                "j0_pos_cmd(%f) j1_pos_cmd(%f) j2_pos_cmd(%f) j3_pos_cmd(%f) j4_pos_cmd(%f) j5_pos_cmd(%f)\n",
+//                tick_jcmd->pos_cmd[0], tick_jcmd->pos_cmd[1], tick_jcmd->pos_cmd[2],
+//                tick_jcmd->pos_cmd[3], tick_jcmd->pos_cmd[4], tick_jcmd->pos_cmd[5]);
 
         // issue wosi_transceive transaction as receiving servo-tick
-        wosi_transceive(wosi_jcmd);
+        wosi_transceive(tick_jcmd);
 
         // consume record
         record_shift(&rb);

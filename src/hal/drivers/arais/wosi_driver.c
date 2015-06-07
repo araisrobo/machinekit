@@ -38,7 +38,7 @@
 #include <wb_regs.h>
 #include <mailtag.h>
 #include "sync_cmd.h"
-#include "wosi_joint_cmd.h"
+#include "tick_jcmd.h"
 
 #define MAX_CHAN 8
 #define MAX_STEP_CUR 255
@@ -231,13 +231,13 @@ const char *alr_output_0= "0";  // "DOUT[31:0]  while E-Stop is pressed";
 const char *alr_output_1= "0";  // "DOUT[63:32] while E-Stop is pressed";
 
 const char *max_vel_str[MAX_CHAN] =
-{ "33.0", "30.0", "30.0", "30.0", "30.0", "30.0", "0.0", "0.0" };
+{ "34.0", "725.0", "725.0", "635.0", "635.0", "30.0", "0.0", "0.0" };
 const char *max_accel_str[MAX_CHAN] =
-{ "117.0", "120.0", "120.0", "120.0", "120.0", "120.0", "0.0", "0.0" };
+{ "118.0", "2535.0", "2535.0", "2217.0", "2217.0", "120.0", "0.0", "0.0" };
 const char *max_jerk_str[MAX_CHAN] =
-{ "585.0", "590.0", "590.0", "590.0", "590.0", "590.0", "0.0", "0.0" };
+{ "585.0", "12667.0", "12667.0", "11085.0", "11085.0", "590.0", "0.0", "0.0" };
 const char *pos_scale_str[MAX_CHAN] =
-{ "186181.81818", "186181.81818", "186181.81818", "186181.81818", "186181.81818", "186181.81818", "1.0", "1.0" };
+{ "186181.81818", "5734.4", "-5734.4", "6553.6", "6553.6", "186181.81818", "1.0", "1.0" };
 const char *enc_scale_str[MAX_CHAN] =
 { "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0", "1.0" };
 const char *ferror_str[MAX_CHAN] =
@@ -246,15 +246,15 @@ const char *ferror_str[MAX_CHAN] =
 const char **pid_str[MAX_CHAN];
 // P    I    D    FF0  FF1      FF2  DB   BI   M_ER M_EI M_ED MCD  MCDD MO
 const char *j0_pid_str[NUM_PID_PARAMS] =
-{ "1250", "0", "40000", "0", "65500", "0", "262144", "0", "0", "0", "0", "0", "0", "0"};
+{ "625", "0", "10000", "0", "55000", "0", "262144", "0", "0", "0", "0", "0", "0", "0"};
 const char *j1_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{ "1250", "0", "0", "0", "65500", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
 const char *j2_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{ "1250", "0", "0", "0", "65500", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
 const char *j3_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{ "1250", "0", "0", "0", "65500", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
 const char *j4_pid_str[NUM_PID_PARAMS] =
-{ "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
+{ "1250", "0", "0", "0", "65500", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
 const char *j5_pid_str[NUM_PID_PARAMS] =
 { "0", "0", "0", "0", "65536", "0", "0", "0", "0", "0", "0", "0", "0", "0"};
 const char *j6_pid_str[NUM_PID_PARAMS] =
@@ -418,7 +418,6 @@ typedef struct {
     hal_bit_t	*machine_on;
 
     hal_bit_t   *update_pos_req;
-    hal_bit_t   *update_pos_ack;
     hal_u32_t   *rcmd_seq_num_req;
     hal_u32_t   *rcmd_seq_num_ack;
     hal_u32_t   *rcmd_state;
@@ -1369,7 +1368,7 @@ static void update_rt_cmd(void)
     }
 }
 
-void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd)
+void wosi_transceive(tick_jcmd_t *tick_jcmd)
 {
     stepgen_t *stepgen;
     int n, i;
@@ -1474,7 +1473,7 @@ void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd)
     }
     /* end: */
 
-    if (*machine_control->update_pos_ack)
+    if (tick_jcmd->cmd == TICK_UPDATE_POS_ACK)
     {
         int32_t dbuf[2];
         dbuf[0] = RCMD_UPDATE_POS_ACK;
@@ -1723,7 +1722,7 @@ void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd)
             stepgen->freq = 0;
 
             /* to prevent position drift while toggeling "PWR-ON" switch */
-            (stepgen->prev_pos_cmd) = wosi_jcmd->pos_cmd[n];
+            (stepgen->prev_pos_cmd) = tick_jcmd->pos_cmd[n];
             stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE * stepgen->pos_scale;
 
             /* clear vel status when enable = 0 */
@@ -1837,17 +1836,16 @@ void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd)
         // first sanity-check our maxaccel and maxvel params
         //
 
-//        if (stepgen->pulse_type != 'P') {
             /* pulse_type is either A(AB-PHASE) or S(STEP-DIR) */
             int32_t pulse_accel;
             int32_t pulse_jerk;
 
-            if (*(machine_control->update_pos_ack))
+            if (tick_jcmd->cmd == TICK_UPDATE_POS_ACK)
             {
-                (stepgen->prev_pos_cmd) = wosi_jcmd->pos_cmd[n];
+                (stepgen->prev_pos_cmd) = tick_jcmd->pos_cmd[n];
                 stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE * stepgen->pos_scale;
             }
-            *stepgen->vel_cmd = (wosi_jcmd->pos_cmd[n] - (stepgen->prev_pos_cmd));
+            *stepgen->vel_cmd = (tick_jcmd->pos_cmd[n] - (stepgen->prev_pos_cmd));
 
             integer_pos_cmd = (int32_t)(*stepgen->vel_cmd * (stepgen->pos_scale) * FIXED_POINT_SCALE);
 
@@ -1857,7 +1855,7 @@ void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd)
                 pulse_jerk = pulse_accel - stepgen->pulse_accel;
                 printf("j[%d], pos_fb(%f) \n", n, (*stepgen->pos_fb));
                 printf("j[%d], vel_cmd(%f) pos_cmd(%f) prev_pos_cmd(%f)\n",
-                        n, *stepgen->vel_cmd, wosi_jcmd->pos_cmd[n], (stepgen->prev_pos_cmd));
+                        n, *stepgen->vel_cmd, tick_jcmd->pos_cmd[n], (stepgen->prev_pos_cmd));
                 printf("j[%d], pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
                         n, integer_pos_cmd, pulse_accel, pulse_jerk);
                 printf("j[%d], PREV pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
@@ -1874,24 +1872,6 @@ void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd)
             stepgen->pulse_vel = integer_pos_cmd;
             stepgen->pulse_accel = pulse_accel;
             stepgen->pulse_jerk = pulse_jerk;
-//        }
-
-//        else
-//        {
-//            /* pulse_type is P(PWM) */
-//            /* pos_cmd is PWM duty ratio, +/- 0~100 */
-//            integer_pos_cmd = (int32_t)((*stepgen->pos_cmd * (stepgen->pos_scale)) * FIXED_POINT_SCALE); // 16.16 precision
-//            if (abs(integer_pos_cmd) > ((int32_t) stepgen->maxvel))
-//            {
-//                if (integer_pos_cmd > 0)
-//                {
-//                    integer_pos_cmd = (int32_t) stepgen->maxvel;
-//                } else
-//                {
-//                    integer_pos_cmd = (int32_t) -stepgen->maxvel;
-//                }
-//            }
-//        }
 
         {
             /* extract integer part of command */
@@ -1900,7 +1880,7 @@ void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd)
             if(wosi_pos_cmd >= 8192) {
                 fprintf(stderr,"j(%d) pos_cmd(%f) prev_pos_cmd(%f) vel_cmd(%f)\n",
                         n ,
-                        wosi_jcmd->pos_cmd[n],
+                        tick_jcmd->pos_cmd[n],
                         (stepgen->prev_pos_cmd), 
                         *stepgen->vel_cmd);
                 fprintf(stderr,"wosi.c: wosi_pos_cmd(%d) too large\n", wosi_pos_cmd);
@@ -1964,7 +1944,7 @@ void wosi_transceive(wosi_joint_cmd_t *wosi_jcmd)
                 // store current traj-planning command
                 stepgen = arg;
                 for (n = 0; n < num_joints; n++) {
-                    stepgen->pos_cmd_s = wosi_jcmd->pos_cmd[n];
+                    stepgen->pos_cmd_s = tick_jcmd->pos_cmd[n];
                     stepgen ++;
                 }
             }
@@ -2485,11 +2465,6 @@ static int export_machine_control(machine_control_t * machine_control)
             "wosi.motion.rcmd-state");
     if (retval != 0) { return retval; }
     *(machine_control->rcmd_state) = 0;
-
-    retval = hal_pin_bit_newf(HAL_IN, &(machine_control->update_pos_ack), comp_id,
-            "wosi.motion.update-pos-ack");
-    if (retval != 0) { return retval; }
-    *(machine_control->update_pos_ack) = 0;
 
     retval = hal_pin_u32_newf(HAL_IN, &(machine_control->rcmd_seq_num_ack), comp_id,
             "wosi.motion.rcmd-seq-num-ack");
