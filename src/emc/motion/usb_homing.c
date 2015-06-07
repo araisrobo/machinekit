@@ -115,6 +115,7 @@ void do_usb_homing_sequence(void)
     static int home_sequence = -1;
     int i;
     int seen = 0;
+    int home_todo = 0;
     emcmot_joint_t *joint;
 
     /* first pass init */
@@ -146,9 +147,6 @@ void do_usb_homing_sequence(void)
         }
         /* ok to start the sequence, start at zero */
         home_sequence = 0;
-//        /* reset gantry joint pointers */
-//        master_gantry_joint = 0;
-//        slave_gantry_joint = 0;
         /* tell the world we're on the job */
         emcmotStatus->homing_active = 1;
         /* and drop into next state */
@@ -162,16 +160,24 @@ void do_usb_homing_sequence(void)
                 joint->free_tp_enable = 0;
                 joint->home_state = HOME_START;
                 seen++;
+            } else if (joint->home_sequence > home_sequence) {
+                home_todo++;
             }
         }
         if(seen) {
             /* at least one joint is homing, wait for it */
             emcmotStatus->homingSequenceState = HOME_SEQUENCE_WAIT_JOINTS;
         } else {
-            /* no joints have this sequence number, we're done */
-            emcmotStatus->homingSequenceState = HOME_IDLE;
-            /* tell the world */
-            emcmotStatus->homing_active = 0;
+            if (home_todo == 0)
+            {
+                /* no joints have this sequence number, we're done */
+                emcmotStatus->homingSequenceState = HOME_IDLE;
+                /* tell the world */
+                emcmotStatus->homing_active = 0;
+            } else {
+                home_sequence ++;
+                emcmotStatus->homingSequenceState = HOME_SEQUENCE_START_JOINTS;
+            }
         }
         break;
 
