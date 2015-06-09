@@ -181,8 +181,6 @@ enum machine_parameter_addr {
     AHC_JNT,
     AHC_POLARITY,
     GANTRY_POLARITY,
-    TEST_PATTERN_TYPE,
-    TEST_PATTERN,
     ANALOG_REF_LEVEL,       // wait analog signal: M110
     AHC_MAX_OFFSET,
     AHC_ANALOG_CH,
@@ -221,12 +219,6 @@ enum accel_state_type {
   MACH_ACCEL_S4 = (4 << 4),     // 4
   MACH_ACCEL_S5 = (5 << 4),     // 5
   MACH_ACCEL_S6 = (6 << 4)      // 6
-};
-
-enum test_pattern_type_enum {
-    NO_TEST,
-    DIGITAL_IN,
-    ANALOG_IN,
 };
 
 enum ahc_state_enum {

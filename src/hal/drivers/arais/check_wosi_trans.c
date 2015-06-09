@@ -1,26 +1,19 @@
 #include <check.h>
-#include "../../src/hal/drivers/arais/wosi_trans.h"
+#include <getopt.h>
+#include "wosi_trans.h"
+
+static char *option_string = "h:I:";
+static struct option long_options[] = {
+        {"help", no_argument, 0, 'h'},
+        {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
+        {0,0,0,0}
+};
+static char *inifile;
 
 START_TEST (test_wosi_trans_init)
 {
     int ret;
-    ret = wosi_trans_init();
-    ck_assert_int_eq (ret, 0);
-}
-END_TEST
-
-//START_TEST (test_wosi_trans_run)
-//{
-//    int ret;
-//    ret = wosi_trans_run();
-//    ck_assert_int_eq (ret, 0);
-//}
-//END_TEST
-
-START_TEST (test_wosi_trans_exit)
-{
-    int ret;
-    ret = wosi_trans_exit();
+    ret = wosi_trans_init(inifile);
     ck_assert_int_eq (ret, 0);
 }
 END_TEST
@@ -33,8 +26,8 @@ wosi_suite (void)
     /* Core test case */
     TCase *tc_core = tcase_create ("Core");
     tcase_add_test (tc_core, test_wosi_trans_init);
-//    tcase_add_test (tc_core, test_wosi_trans_run);
-    tcase_add_test (tc_core, test_wosi_trans_exit);
+
+//    tcase_add_test (tc_core, test_wosi_trans_exit);
 //    tcase_add_test (tc_core, test_wosi_connect);
 //    tcase_add_test (tc_core, test_tx_timeout);
 //    tcase_add_test (tc_core, test_wosi_recv);
@@ -46,10 +39,36 @@ wosi_suite (void)
     return s;
 }
 
-int
-main (void)
+
+static void usage(int argc, char **argv) {
+    printf("Usage:  %s [options]\n", argv[0]);
+    printf("This is a userspace HAL program, typically loaded using the halcmd \"loadusr\" command:\n"
+            "    loadusr wosi_trans [options]\n"
+            "Options are:\n"
+            "-I or --ini <inifile>\n"
+            "    Use <inifile> (default: take ini filename from environment variable INI_FILE_NAME)\n"
+            );
+}
+
+
+int main(int argc, char **argv)
 {
     int number_failed;
+    int opt;
+
+    inifile = getenv("INI_FILE_NAME");
+
+    while ((opt = getopt_long(argc, argv, option_string, long_options, NULL)) != -1) {
+        switch(opt) {
+        case 'I':
+            inifile = optarg;
+            break;
+        case 'h':
+        default:
+            usage(argc, argv);
+            exit(0);
+        }
+    }
 
     Suite *s = wosi_suite ();
     SRunner *sr = srunner_create (s);
@@ -62,12 +81,7 @@ main (void)
     if (number_failed == 0)
     {   /* start wosi-transceiver after passing checks */
         int ret;
-        ret = wosi_trans_init();
-        if (ret != 0) {
-            printf ("ERROR: wosi_trans_init() ret(%d)\n", ret);
-            ret = wosi_trans_exit();
-            exit(ret);
-        }
+
         ret = wosi_trans_run();
         if (ret != 0) {
             printf ("ERROR: wosi_trans_run() ret(%d)\n", ret);

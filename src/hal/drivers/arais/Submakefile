@@ -3,7 +3,7 @@
 INCLUDES += hal/drivers/arais
 
 WOSI_TRANS_SRCS :=  \
-	$(addprefix ./tests/wosi.0/, check_wosi_trans.c) \
+	$(addprefix ./hal/drivers/arais/, check_wosi_trans.c) \
 	$(addprefix ./hal/drivers/arais/, wosi_trans.c) \
 	./hal/drivers/arais/wosi_driver.c
 

@@ -44,7 +44,7 @@ static void quit(int sig)
 /**
  * wosi_trans(): WOSI Transceiver
  **/
-int wosi_trans_init()
+int wosi_trans_init(char *inifile)
 {
     int retval;
 
@@ -83,7 +83,7 @@ int wosi_trans_init()
         return retval;
     }
 
-    retval = wosi_driver_init(param.hal_comp_id);
+    retval = wosi_driver_init(param.hal_comp_id, inifile);
     if (retval)
     {
         rtapi_print_msg(RTAPI_MSG_ERR,
@@ -91,8 +91,6 @@ int wosi_trans_init()
                 retval);
         return retval;
     }
-
-
 
     signal(SIGINT, quit);
     signal(SIGTERM, quit);

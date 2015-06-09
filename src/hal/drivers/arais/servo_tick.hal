@@ -7,6 +7,9 @@ loadrt servo_tick ring=ring_0
 # 0.65ms thread
 loadrt threads name1=fast period1=655360
 
+# move wosi_trans to run.sh for "ctrl-c" to stop it
+# loadusr wosi_trans -I meinan.ini
+
 # the 'enqueue a message' function
 addf servo_tick fast
 
