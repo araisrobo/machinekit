@@ -1063,12 +1063,23 @@ static void check_for_faults(void)
 			/* report the error just this once */
 			reportError(_("joint %d on limit switch error"),
 			    joint_num);
+                        // override limit automatically.
+                        emcmotStatus->overrideLimitMask |= ( 2 << (joint_num*2));
+                        emcmotStatus->overrideLimitMask |= ( 1 << (joint_num*2));
 		    }
 		    SET_JOINT_ERROR_FLAG(joint, 1);
+                    SET_MOTION_ERROR_FLAG(1);
 		    // We don't want it to stop motion when PHL or NHL are toggled
 		    // emcmotDebug->enabling = 0;
 		}
-	    }
+	    } else {
+                // clean override mask after leave hard limits.
+                if ((!GET_JOINT_PHL_FLAG(joint)) && (!GET_JOINT_NHL_FLAG(joint))) {
+                    emcmotStatus->overrideLimitMask &= ~( 2 << (joint_num*2));
+                    emcmotStatus->overrideLimitMask &= ~( 1 << (joint_num*2));
+                }
+            }
+
 	    /* check for amp fault */
 	    if (GET_JOINT_FAULT_FLAG(joint)) {
 		/* joint is faulted, trip */
