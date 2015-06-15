@@ -164,18 +164,9 @@ typedef struct
     hal_bit_t *reload_params;
     hal_bit_t *usb_busy;
     hal_bit_t usb_busy_s;
-    hal_bit_t *ignore_ahc_limit;
-    int32_t prev_vel_sync;
-    hal_float_t *vel_sync_scale;
     hal_float_t *current_vel;
-    hal_float_t *requested_vel;
     hal_float_t *feed_scale;
-    hal_bit_t *vel_sync; /* A pin to determine when (vel * feedscale) beyond (req_vel * vel_sync_scale) */
     hal_bit_t *rt_abort; // realtime abort to FPGA
-    /* plasma control */
-    hal_bit_t *thc_enbable;
-    //TODO: replace plasma enable with output enable for each pin.
-    hal_bit_t *plasma_enable;
     /* sync input pins (input to motmod) */
     hal_bit_t *in[80];
     hal_bit_t *in_n[80];
@@ -2235,19 +2226,6 @@ static int export_machine_control(machine_control_t * machine_control)
         return retval;
     }
 
-    retval = hal_pin_bit_newf(HAL_OUT, &(machine_control->vel_sync), comp_id,
-            "wosi.motion.vel-sync");
-    if (retval != 0)
-    {
-        return retval;
-    }
-
-    retval = hal_pin_float_newf(HAL_IN, &(machine_control->vel_sync_scale),
-            comp_id, "wosi.motion.vel-sync-scale");
-    if (retval != 0)
-    {
-        return retval;
-    }
     retval = hal_pin_float_newf(HAL_IN, &(machine_control->current_vel),
             comp_id, "wosi.motion.current-vel");
     if (retval != 0)
@@ -2261,13 +2239,6 @@ static int export_machine_control(machine_control_t * machine_control)
         return retval;
     }
     *(machine_control->feed_scale) = 0; // pin index must not beyond index
-    retval = hal_pin_float_newf(HAL_IN, &(machine_control->requested_vel),
-            comp_id, "wosi.motion.requested-vel");
-    if (retval != 0)
-    {
-        return retval;
-    }
-    *(machine_control->requested_vel) = 0; // pin index must not beyond index
 
     retval = hal_pin_bit_newf(HAL_IN, &(machine_control->machine_on), comp_id,
             "wosi.machine-on");
