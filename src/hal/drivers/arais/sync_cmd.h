@@ -193,7 +193,8 @@ enum machine_parameter_addr {
     JOINT_JSP_JSN,          // format jog: {JOINT[31:16], LSP_ID[15:8], LSN_ID[7:0]}
     ALR_OUTPUT_0,           // DOUT_0 value, dout[31:0], when ESTOP is pressed
     ALR_OUTPUT_1,           // DOUT_1 value, dout[63:32], when ESTOP is pressed
-    ALR_EN_BITS,            // the enable bitmap of ALARM input bits (
+    ALR_EN_BITS,            // the bitmap of ALARM bits for all joints (DIN[6:1])
+                            //             as well as ALARM_EN/ESTOP bit (DIN[0])
 
     SSIF_MODE,              // [7:0]    bitwise mapping of mode for SSIF_PULSE_TYPE
                             //          0: POSITION MODE (STEP-DIR or AB-PHASE)

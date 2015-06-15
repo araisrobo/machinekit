@@ -1010,37 +1010,6 @@ static int load_parameters(FILE *fp)
         }
     }
 
-    // "set ALR_ID (gpio id of alarm signal) for up to 8 channels"
-    s = iniFind(fp, "ALR_ID", "ARAIS");
-    if (s == NULL)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no ALR_ID defined\n");
-        return -1;
-    }
-    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: ALR_ID=%s\n", s);
-    immediate_data = 0; // reset ALR_EN_BITS to 0
-    for (n = 0, t = (char *) s;; n++, t = NULL)
-    {
-        token = strtok(t, ",");
-        if (token == NULL)
-            break;
-        else
-        {
-            int alr;
-            alr = atoi(token);
-            if (alr != 255)
-            {
-                immediate_data |= (1 << alr);
-                assert(alr < 7); // AR08: ALARM maps to GPIO[6:1]
-                assert(alr > 0);
-            }
-        }
-    }
-    write_machine_param(ALR_EN_BITS, immediate_data);
-    while (wosi_flush(&w_param) == -1)
-        ;
-    // end of ALR_ED
-
     // ALARM_EN: let ALARM/ESTOP signal to stall SSIF and reset DOUT port
     int alarm_en;
     ret = iniFindInt(fp, "ALARM_EN", "ARAIS", &alarm_en);
@@ -1061,6 +1030,37 @@ static int load_parameters(FILE *fp)
     wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (GPIO_BASE + GPIO_SYSTEM),
             (uint8_t) 1, data);
     // end of ALARM_EN
+
+    // "set ALR_ID (gpio id of alarm signal) for up to 8 channels"
+    s = iniFind(fp, "ALR_ID", "ARAIS");
+    if (s == NULL)
+    {
+        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no ALR_ID defined\n");
+        return -1;
+    }
+    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: ALR_ID=%s\n", s);
+    immediate_data = alarm_en; // reset ALR_EN_BITS to ALARM_EN/ESTOP_EN/DIN[0] bit
+    for (n = 0, t = (char *) s;; n++, t = NULL)
+    {
+        token = strtok(t, ",");
+        if (token == NULL)
+            break;
+        else
+        {
+            int alr;
+            alr = atoi(token);
+            if (alr != 255)
+            {
+                immediate_data |= (1 << alr);
+                assert(alr < 7); // AR08: ALARM maps to GPIO[6:1]
+                assert(alr > 0);
+            }
+        }
+    }
+    write_machine_param(ALR_EN_BITS, immediate_data);
+    while (wosi_flush(&w_param) == -1)
+        ;
+    // end of ALR_ID (ALR_EN_BITS)
 
     // configure alarm output (the GPIO-DOUT PORT while E-Stop was pressed)
     // ALR_OUTPUT_0: "DOUT[31:0]  while E-Stop is pressed";
@@ -1391,7 +1391,7 @@ int wosi_driver_init(int hal_comp_id, char *inifile)
 
     /* prepare header for gnuplot */
     DPS("#%10s", "dt");
-    for (n = 0; n < num_joints; n++)
+    for (int n = 0; n < num_joints; n++)
     {
         DPS("      int_pcmd[%d]", n);
         DPS("     prev_pcmd[%d]", n);
@@ -1459,12 +1459,9 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
     uint32_t sync_out_data;
     uint32_t tmp;
     int32_t immediate_data = 0;
-    void *arg;
 #if (TRACE!=0)
     static uint32_t _dt = 0;
 #endif
-
-    arg = (void *) stepgen_array;
 
     DP("begin\n");
 
@@ -1501,12 +1498,10 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
      *                  // [    0]  MACHINE_ON
      **/
 
-    stepgen = arg;
     homing = 0;
     for (n = 0; n < num_joints; n++)
     {
-        homing |= *stepgen->homing;
-        stepgen++; /* move on to next channel */
+        homing |= *(stepgen_array[n].homing);
     }
 
     assert(abs(*machine_control->jog_vel_scale) < 8);
@@ -1660,12 +1655,11 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
         }
     }
 
-    /* point at stepgen data */
-    stepgen = arg;
+    DP("stepgen_array[0].enable(%d)\n", *stepgen_array[0].enable);
 
 #if (TRACE!=0)
     _dt++;
-    if (*stepgen->enable)
+    if (*stepgen_array[0].enable)
     {
         DPS("%11u", _dt); // %11u: '#' + %10s
     }
@@ -1686,9 +1680,9 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
         double delta_pos;
         dbuf[0] = RCMD_PSO;
         delta_pos = *machine_control->pso_pos
-                - stepgen[*machine_control->pso_joint].prev_pos_cmd; // delta PSO position, unit: pulse
+                - stepgen_array[*machine_control->pso_joint].prev_pos_cmd; // delta PSO position, unit: pulse
         dbuf[1] =
-                (delta_pos * (stepgen[*machine_control->pso_joint].pos_scale));
+                (delta_pos * (stepgen_array[*machine_control->pso_joint].pos_scale));
         dbuf[2] = ((*machine_control->pso_ticks & 0xFFFF) << 16) | // dbuf[2][31:16]
                 (0x1 << 15) | // force pso_en to 1
                 ((*machine_control->pso_mode & 0x3) << 12) | // dbuf[2][15:12]
@@ -1699,15 +1693,14 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
 //    			*machine_control->pso_mode, *machine_control->pso_joint);
 //    	printf("wosi.c: pso_pos(%f) dbuf1[%d] delta_pos(%f) prev_pos(%f) pos_cmd(%f)\n",
 //    			*machine_control->pso_pos, dbuf[1], delta_pos,
-//    			stepgen[*machine_control->pso_joint].prev_pos_cmd,
-//    			*stepgen[*machine_control->pso_joint].pos_cmd);
+//    			stepgen_array[*machine_control->pso_joint].prev_pos_cmd,
+//    			*stepgen_array[*machine_control->pso_joint].pos_cmd);
     }
 
     i = 0;
-    stepgen = arg;
     for (n = 0; n < num_joints; n++)
     {
-
+        stepgen = &(stepgen_array[n]);
         if (*stepgen->enable != stepgen->prev_enable)
         {
             stepgen->prev_enable = *stepgen->enable;
@@ -1889,9 +1882,6 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
                 }
 
             }
-
-            /* and skip to next one */
-            stepgen++;
             continue;
         }
 
@@ -2039,16 +2029,12 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
 
         DPS("%17d%17.7f%17.7f%17.7f",
                 integer_pos_cmd, (stepgen->prev_pos_cmd), *stepgen->pos_fb, *stepgen->risc_pos_cmd);
-
-        /* move on to next channel */
-        stepgen++;
     }
 
     sync_cmd = SYNC_EOF;
     memcpy(data, &sync_cmd, sizeof(uint16_t));
     wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD),
             sizeof(uint16_t), data);
-
     {
         struct timespec t_begin, t_end, dt;
 
@@ -2060,23 +2046,14 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
             if (machine_control->usb_busy_s == 0)
             {
                 DP("usb_busy: begin\n");
+                assert(0);
                 // store current traj-planning command
-                stepgen = arg;
                 for (n = 0; n < num_joints; n++)
                 {
-                    stepgen->pos_cmd_s = tick_jcmd->pos_cmd[n];
-                    stepgen++;
+                    stepgen_array[n].pos_cmd_s = tick_jcmd->pos_cmd[n];
                 }
             }
             machine_control->usb_busy_s = 1;
-            // DP ("usb is busy\n");
-            // time.tv_sec = 0;
-            // time.tv_nsec = 300000;      // 0.3ms
-            // nanosleep(&time, NULL);     // sleep 0.3ms to prevent busy loop
-            // sleep(1);
-            // usleep(10000);  // usleep for 10ms will suspend too long to keep usb-link alive
-            // usleep(1000);  // suspend for 1ms
-            // usleep(10);  // suspend for 0.01ms
             return;
         } else
         {
@@ -2084,13 +2061,11 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
             if (machine_control->usb_busy_s == 1)
             {
                 DP("usb_busy: end\n");
+                assert(0);
                 // reload saved traj-planning command
-                stepgen = arg;
                 for (n = 0; n < num_joints; n++)
                 {
-                    assert(0); // should not get here, comment out the following line:
-//                    *(stepgen->pos_cmd) = stepgen->pos_cmd_s;
-                    stepgen++;
+//                    *(stepgen_array[n].pos_cmd) = stepgen_array[n].pos_cmd_s;
                 }
             }
             machine_control->usb_busy_s = 0;
@@ -2102,21 +2077,12 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
     }
 
 #if (TRACE!=0)
-    stepgen = arg;
-    if (*(stepgen->enable))
+    if (*(stepgen_array[0].enable))
     {
-        DPS("%15d%15d%15d%15d%15d",
-                *machine_control->debug[0],
-                *machine_control->debug[1],
-                *machine_control->debug[2],
-                *machine_control->debug[3],
-                *machine_control->debug[4]);
         DPS("\n");
     }
 #endif
 
-    /* done */
-    DP("end\n");
 }
 
 /***********************************************************************
