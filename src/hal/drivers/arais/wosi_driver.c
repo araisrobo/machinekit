@@ -48,7 +48,6 @@
 #define FIXED_POINT_SCALE   65536.0             // (double (1 << FRACTION_BITS))
 #define FP_SCALE_RECIP      0.0000152587890625  // (1.0/65536.0)
 #define FRACTION_MASK 0x0000FFFF
-#define SON_DELAY_TICK  1500
 
 // to disable DP(): #define TRACE 0
 #define TRACE 0
@@ -105,15 +104,12 @@ typedef struct
     int64_t rawcount; /* precision: 64.16; accumulated pulse sent to FPGA */
     hal_s32_t *rawcount32; /* 32-bit integer part of rawcount */
     hal_bit_t prev_enable;
-    uint32_t son_delay; /* eanble delay tick for svo-on of ac-servo drivers */
     hal_bit_t *enable; /* pin for enable stepgen */
-    hal_u32_t step_len; /* parameter: step pulse length */
     char pulse_type; /* A(AB-PHASE), S(STEP-DIR), P(PWM) */
     hal_s32_t *enc_pos; /* pin: encoder position from servo drive, captured from FPGA */
     hal_float_t pos_scale; /* param: steps per position unit */
     double scale_recip; /* reciprocal value used for scaling */
     hal_float_t *vel_cmd; /* pin: velocity command (pos units/cycle_time) */
-    double prev_vel_cmd; /* prev vel cmd: previous velocity command */
     double pos_cmd_s; /* saved pos_cmd at rising edge of usb_busy */
     double prev_pos_cmd; /* prev pos_cmd: previous position command */
     hal_float_t *probed_pos;
@@ -121,9 +117,6 @@ typedef struct
     hal_float_t *risc_pos_cmd; /* pin: position command issued by RISC (position units) */
     hal_float_t *vel_fb; /* pin: velocity feedback */
     hal_bit_t *ferror_flag; /* following error flag from risc */
-    hal_float_t freq; /* param: frequency command */
-    hal_float_t maxvel; /* param: max velocity, (pos units/sec) */
-    hal_float_t maxaccel; /* param: max accel (pos units/sec^2) */
     int printed_error; /* flag to avoid repeated printing */
     uint32_t pulse_maxv; /* max-vel in pulse */
     uint32_t pulse_maxa; /* max-accel in pulse */
@@ -1416,17 +1409,8 @@ void wosi_dirver_exit(void)
 }
 
 /***********************************************************************
- *              REALTIME STEP PULSE GENERATION FUNCTIONS                *
- ************************************************************************/
-
-// This function was invented by Jeff Epler.
-// It forces a floating-point variable to be degraded from native register
-// size (80 bits on x86) to C double size (64 bits).
-static double force_precision(double d) __attribute__ ((__noinline__));
-static double force_precision(double d)
-{
-    return d;
-}
+ *              REALTIME STEP PULSE GENERATION FUNCTIONS               *
+ ***********************************************************************/
 
 static void update_rt_cmd(void)
 {
@@ -1450,7 +1434,6 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
 {
     stepgen_t *stepgen;
     int n, i;
-    double physical_maxvel; // max vel supported by current step timings & position-scal
 
     uint16_t sync_cmd;
     int32_t wosi_pos_cmd, integer_pos_cmd;
@@ -1792,7 +1775,6 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
         if (stepgen->prev_enable == 0)
         {
             /* AXIS not PWR-ON */
-
             /* reload_params only when machine-is-off */
             if (*machine_control->reload_params)
             {
@@ -1808,81 +1790,10 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
                 *machine_control->reload_params = 0;
             }
 
-
-            /* set velocity to zero */
-            stepgen->freq = 0;
-
             /* to prevent position drift while toggeling "PWR-ON" switch */
             (stepgen->prev_pos_cmd) = tick_jcmd->pos_cmd[n];
             stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
                     * stepgen->pos_scale;
-
-            /* clear vel status when enable = 0 */
-            *stepgen->vel_cmd = 0;
-            stepgen->prev_vel_cmd = 0;
-            stepgen->pulse_vel = 0;
-            stepgen->pulse_accel = 0;
-            stepgen->pulse_jerk = 0;
-
-            /* in HAL, 若任何一軸的 *stepgen->enable 訊號忘了接，就會造成這個 assertion */
-            assert(i == n); // confirm the JCMD_SYNC_CMD is packed with all joints
-            i += 1;
-            wosi_pos_cmd = 0;
-            sync_cmd = SYNC_JNT | DIR_P | (POS_MASK & wosi_pos_cmd);
-
-            memcpy(data + 2 * n * sizeof(uint16_t), &sync_cmd,
-                    sizeof(uint16_t));
-            sync_cmd = 0;
-
-            memcpy(data + (2 * n + 1) * sizeof(uint16_t), &sync_cmd,
-                    sizeof(uint16_t));
-            if (n == (num_joints - 1))
-            {
-                // send to WOSI when all axes commands are generated
-                wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
-                        4 * num_joints, data);
-            }
-
-            // maxvel must be >= 0.0, and may not be faster than 1 step per (steplen+stepspace) seconds
-            {
-                if (stepgen->pulse_type != 'P')
-                {
-                    /* AB-PHASE or STEP-DIR */
-                    /* step_len is for electron characteristic: pulse duration. */
-                    double min_ns_per_step = stepgen->step_len;
-                    double max_steps_per_s = 1.0e9 / min_ns_per_step;
-
-                    physical_maxvel = max_steps_per_s
-                            / fabs(stepgen->pos_scale);
-                    physical_maxvel = force_precision(physical_maxvel);
-
-                    if (stepgen->maxvel < 0.0)
-                    {
-                        rtapi_print_msg(RTAPI_MSG_ERR,
-                                "stepgen.%02d.maxvel < 0, setting to its absolute value\n",
-                                n);
-                        stepgen->maxvel = fabs(stepgen->maxvel);
-                    }
-
-                    if (stepgen->maxvel > physical_maxvel)
-                    {
-                        rtapi_print_msg(RTAPI_MSG_ERR,
-                                "stepgen.%02d.maxvel is too big for current step timings & position-scale, clipping to max possible\n",
-                                n);
-                        stepgen->maxvel = physical_maxvel;
-                    }
-                } else
-                {
-                    /* PWM-DIR */
-                    if (stepgen->pulse_type == 'P')
-                    {
-                        stepgen->maxvel = 100.0
-                                * fabs(stepgen->pos_scale) * FIXED_POINT_SCALE;
-                    }
-                }
-
-            }
-            continue;
         }
 
         if (*stepgen->risc_probe_vel == 0)
@@ -1927,10 +1838,6 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
             send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 2);
             machine_control->prev_probing = *machine_control->probing;
         }
-
-        //
-        // first sanity-check our maxaccel and maxvel params
-        //
 
         /* pulse_type is either A(AB-PHASE) or S(STEP-DIR) */
         int32_t pulse_accel;
@@ -2017,7 +1924,6 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
             stepgen->rawcount += (int64_t) integer_pos_cmd; // precision: 64.16
             stepgen->prev_pos_cmd = (((double) stepgen->rawcount
                     * stepgen->scale_recip) / (FIXED_POINT_SCALE));
-            stepgen->prev_vel_cmd = *stepgen->vel_cmd;
         }
 
         if (n == (num_joints - 1))
@@ -2163,7 +2069,6 @@ static int export_stepgen(int num, stepgen_t * addr)
 
     /* export pin for enable command */
     addr->prev_enable = 0;
-    addr->son_delay = 0;
     retval = hal_pin_bit_newf(HAL_IN, &(addr->enable), comp_id,
             "wosi.stepgen.%d.enable", num);
     if (retval != 0)
@@ -2197,34 +2102,6 @@ static int export_stepgen(int num, stepgen_t * addr)
     /* export pin for velocity feedback (pulse) */
     retval = hal_pin_s32_newf(HAL_OUT, &(addr->enc_vel_p), comp_id,
             "wosi.stepgen.%d.enc-vel", num);
-    if (retval != 0)
-    {
-        return retval;
-    }
-    /* export param for scaled velocity (frequency in Hz) */
-    retval = hal_param_float_newf(HAL_RO, &(addr->freq), comp_id,
-            "wosi.stepgen.%d.frequency", num);
-    if (retval != 0)
-    {
-        return retval;
-    }
-    /* export parameter for max frequency */
-    retval = hal_param_float_newf(HAL_RW, &(addr->maxvel), comp_id,
-            "wosi.stepgen.%d.maxvel", num);
-    if (retval != 0)
-    {
-        return retval;
-    }
-    /* export parameter for max accel/decel */
-    retval = hal_param_float_newf(HAL_RW, &(addr->maxaccel), comp_id,
-            "wosi.stepgen.%d.maxaccel", num);
-    if (retval != 0)
-    {
-        return retval;
-    }
-    /* every step type uses steplen */
-    retval = hal_param_u32_newf(HAL_RW, &(addr->step_len), comp_id,
-            "wosi.stepgen.%d.steplen", num);
     if (retval != 0)
     {
         return retval;
@@ -2316,16 +2193,9 @@ static int export_stepgen(int num, stepgen_t * addr)
 
     addr->pos_scale = 0.0;
     addr->scale_recip = 0.0;
-    addr->freq = 0.0;
-    addr->maxvel = 0.0;
-    addr->maxaccel = 0.0;
     addr->pulse_type = 0;
     addr->pos_cmd_s = 0;
-    /* timing parameter defaults depend on step type */
-    addr->step_len = 1;
     /* init the step generator core to zero output */
-    /* accumulator gets a half step offset, so it will step half
-     way between integer positions, not at the integer positions */
     addr->rawcount = 0;
     addr->prev_pos_cmd = 0;
 
@@ -2338,7 +2208,6 @@ static int export_stepgen(int num, stepgen_t * addr)
     *(addr->pos_fb) = 0.0;
     *(addr->vel_fb) = 0;
     *(addr->vel_cmd) = 0.0;
-    (addr->prev_vel_cmd) = 0.0;
     addr->pulse_vel = 0;
     addr->pulse_accel = 0;
     addr->pulse_jerk = 0;
