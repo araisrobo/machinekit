@@ -246,5 +246,18 @@ class HAL_Gremlin(gremlin.Gremlin, _EMC_ActionBase):
     # TODO fix this so it doesn't print twice and it should probably pop up a dialog
     def report_gcode_error(self, result, seq, filename):
         error_str = gcode.strerror(result)
-        print("G-Code error in " + os.path.basename(filename) + "\n" + "Near line "
+#         print("G-Code error in " + os.path.basename(filename) + "\n" + "Near line "
+#                      + str(seq) + " of\n" + filename + "\n" + error_str + "\n")
+        label = gtk.Label("G-Code error in " + os.path.basename(filename) + "\n" + "Near line "
                      + str(seq) + " of\n" + filename + "\n" + error_str + "\n")
+        dialog = gtk.Dialog("G-Code error",
+                           None,
+                           gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                           (gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
+        dialog.vbox.pack_start(label)
+        label.show()
+        response = dialog.run()
+        if response == gtk.RESPONSE_ACCEPT:
+            pass
+
+        dialog.destroy()
