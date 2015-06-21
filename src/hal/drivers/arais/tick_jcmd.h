@@ -10,8 +10,8 @@ typedef struct {
 } tick_jcmd_t;
 
 typedef enum {
-    TICK_JCMD = 0,
-    TICK_UPDATE_POS_ACK,
+    TICK_AMP_ENABLE = 0,        //<! bit-0 of cmd
+    TICK_UPDATE_POS_ACK,        //<! bit-1 of cmd
 } tick_cmd_t;
 
 #endif

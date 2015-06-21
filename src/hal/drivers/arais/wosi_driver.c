@@ -103,8 +103,6 @@ typedef struct
     // hal_param_*_newf: varaiable not necessary to be pointer
     int64_t rawcount; /* precision: 64.16; accumulated pulse sent to FPGA */
     hal_s32_t *rawcount32; /* 32-bit integer part of rawcount */
-    hal_bit_t prev_enable;
-    hal_bit_t *enable; /* pin for enable stepgen */
     char pulse_type; /* A(AB-PHASE), S(STEP-DIR), P(PWM) */
     hal_s32_t *enc_pos; /* pin: encoder position from servo drive, captured from FPGA */
     hal_float_t pos_scale; /* param: steps per position unit */
@@ -117,7 +115,6 @@ typedef struct
     hal_float_t *risc_pos_cmd; /* pin: position command issued by RISC (position units) */
     hal_float_t *vel_fb; /* pin: velocity feedback */
     hal_bit_t *ferror_flag; /* following error flag from risc */
-    int printed_error; /* flag to avoid repeated printing */
     uint32_t pulse_maxv; /* max-vel in pulse */
     uint32_t pulse_maxa; /* max-accel in pulse */
     uint32_t pulse_maxj; /* max-jerk  in pulse */
@@ -222,8 +219,11 @@ typedef struct
     hal_u32_t *rcmd_state;
 
     hal_u32_t *max_tick_time;
+
+    // machine_status bits
     hal_bit_t *ahc_doing;
     hal_bit_t *rtp_running; // risc/remote tp running
+    hal_bit_t *sfifo_empty;
 
     hal_u32_t *spindle_joint_id;
 
@@ -423,6 +423,11 @@ static void fetchmail(const uint8_t *buf_head)
         }
         *machine_control->ahc_doing = (machine_status >> AHC_DOING_BIT) & 1;
         *machine_control->rtp_running = (machine_status >> TP_RUNNING_BIT) & 1;
+        *machine_control->sfifo_empty = (machine_status >> SFIFO_IS_EMPTY_BIT) & 1;
+        if (*machine_control->sfifo_empty)
+        {
+            rtapi_print ("bp_tick(%d) sfifo_empty\n", bp_tick);
+        }
 
         p += 1;
         *(machine_control->max_tick_time) = *p;
@@ -1421,6 +1426,11 @@ static void update_rt_cmd(void)
     }
 }
 
+void wosi_receive()
+{
+    wosi_update(&w_param); // link to wosi_recv()
+}
+
 void wosi_transceive(tick_jcmd_t *tick_jcmd)
 {
     stepgen_t *stepgen;
@@ -1440,7 +1450,6 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
     DP("begin\n");
 
     wosi_status(&w_param); // print bandwidth utilization
-    wosi_update(&w_param); // link to wosi_recv()
 
     /* begin set analog trigger level*/
     if (*machine_control->analog_ref_level
@@ -1506,7 +1515,7 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
     }
     /* end: */
 
-    if (tick_jcmd->cmd == TICK_UPDATE_POS_ACK)
+    if (tick_jcmd->cmd & (1 << TICK_UPDATE_POS_ACK))
     {
         int32_t dbuf[2];
         dbuf[0] = RCMD_UPDATE_POS_ACK;
@@ -1629,11 +1638,9 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
         }
     }
 
-    DP("stepgen_array[0].enable(%d)\n", *stepgen_array[0].enable);
-
 #if (TRACE!=0)
     _dt++;
-    if (*stepgen_array[0].enable)
+    if (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE))
     {
         DPS("%11u", _dt); // %11u: '#' + %10s
     }
@@ -1675,10 +1682,6 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
     for (n = 0; n < num_joints; n++)
     {
         stepgen = &(stepgen_array[n]);
-        if (*stepgen->enable != stepgen->prev_enable)
-        {
-            stepgen->prev_enable = *stepgen->enable;
-        }
 
         *(stepgen->rawcount32) = (int32_t) (stepgen->rawcount >> FRACTION_BITS);
 
@@ -1762,8 +1765,7 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
         *(stepgen->vel_fb) = *(stepgen->enc_vel_p) * stepgen->scale_recip
                 * recip_dt * FP_SCALE_RECIP;
 
-        /* test for disabled stepgen */
-        if (stepgen->prev_enable == 0)
+        if ((tick_jcmd->cmd & (1 << TICK_AMP_ENABLE)) == 0)
         {
             /* AXIS not PWR-ON */
             /* reload_params only when machine-is-off */
@@ -1834,7 +1836,7 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
         int32_t pulse_accel;
         int32_t pulse_jerk;
 
-        if (tick_jcmd->cmd == TICK_UPDATE_POS_ACK)
+        if (tick_jcmd->cmd & (1 << TICK_UPDATE_POS_ACK))
         {
             (stepgen->prev_pos_cmd) = tick_jcmd->pos_cmd[n];
             stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
@@ -1974,7 +1976,7 @@ void wosi_transceive(tick_jcmd_t *tick_jcmd)
     }
 
 #if (TRACE!=0)
-    if (*(stepgen_array[0].enable))
+    if (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE))
     {
         DPS("\n");
     }
@@ -2053,15 +2055,6 @@ static int export_stepgen(int num, stepgen_t * addr)
     /* export pin for pos/vel command */
     retval = hal_pin_float_newf(HAL_OUT, &(addr->probed_pos), comp_id,
             "wosi.stepgen.%d.probed-pos", num);
-    if (retval != 0)
-    {
-        return retval;
-    }
-
-    /* export pin for enable command */
-    addr->prev_enable = 0;
-    retval = hal_pin_bit_newf(HAL_IN, &(addr->enable), comp_id,
-            "wosi.stepgen.%d.enable", num);
     if (retval != 0)
     {
         return retval;
@@ -2190,9 +2183,6 @@ static int export_stepgen(int num, stepgen_t * addr)
     addr->rawcount = 0;
     addr->prev_pos_cmd = 0;
 
-    *(addr->enable) = 0;
-    /* other init */
-    addr->printed_error = 0;
     /* set initial pin values */
     *(addr->rawcount32) = 0;
     *(addr->enc_pos) = 0;
@@ -2513,6 +2503,14 @@ static int export_machine_control(machine_control_t * machine_control)
     }
     *(machine_control->ahc_doing) = 0;
 
+    retval = hal_pin_bit_newf(HAL_OUT, &(machine_control->sfifo_empty), comp_id,
+            "wosi.sfifo_empty");
+    if (retval != 0)
+    {
+        return retval;
+    }
+    *(machine_control->sfifo_empty) = 0;
+    
     retval = hal_pin_bit_newf(HAL_OUT, &(machine_control->rtp_running), comp_id,
             "wosi.motion.rtp-running");
     if (retval != 0)

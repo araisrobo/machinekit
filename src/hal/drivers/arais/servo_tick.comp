@@ -8,6 +8,7 @@ pin in  float j3_pos_cmd    "motor position of Joint.3";
 pin in  float j4_pos_cmd    "motor position of Joint.4";
 pin in  float j5_pos_cmd    "motor position of Joint.5";
 pin in  bit  update_pos_ack "the ACK, which means joint postion is updated";
+pin in  bit  amp_enable     "amplifier enable signal";
 
 function _;
 
@@ -21,14 +22,10 @@ license "GPLv2 or later";
 #include "hal_ring.h"	        /* ringbuffer declarations */
 #include "tick_jcmd.h"
 
-#define BUFFERSIZE 100
-
 static char *ring = "ring_0";
 RTAPI_MP_STRING(ring,  "name of ring to attach");
 
 static ringbuffer_t rb;
-static char buffer[BUFFERSIZE];
-static size_t length;
 static char *name = "servo_tick";
 static tick_jcmd_t tick_jcmd;
 
@@ -42,10 +39,10 @@ FUNCTION(_) {
     tick_jcmd.pos_cmd[4] = j4_pos_cmd;
     tick_jcmd.pos_cmd[5] = j5_pos_cmd;
 
-    if (update_pos_ack)
-        tick_jcmd.cmd = TICK_UPDATE_POS_ACK;
-    else
-        tick_jcmd.cmd = TICK_JCMD;
+    // pack bit-mapping for cmd
+    tick_jcmd.cmd =
+            (amp_enable << TICK_AMP_ENABLE) |
+            (update_pos_ack << TICK_UPDATE_POS_ACK);
 
     tick++;
 

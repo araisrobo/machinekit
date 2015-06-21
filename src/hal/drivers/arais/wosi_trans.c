@@ -153,9 +153,10 @@ int wosi_trans_run()
         {
             // ring empty
             underrun++;
-//            rtapi_print_msg(RTAPI_MSG_INFO,
-//                    "%s(%s): wosi_trans_run() record size(%d) underrun(%d)\n", name, ring, rsize, underrun);
-            usleep(50);
+            rtapi_print_msg(RTAPI_MSG_INFO,
+                    "%s(%s): wosi_trans_run() record size(%d) underrun(%d)\n", name, ring, rsize, underrun);
+            wosi_receive();
+            // usleep(1);
             continue;
         }
 
