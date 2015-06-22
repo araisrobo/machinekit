@@ -1431,7 +1431,7 @@ void wosi_receive()
     wosi_update(&w_param); // link to wosi_recv()
 }
 
-void wosi_transceive(tick_jcmd_t *tick_jcmd)
+void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 {
     stepgen_t *stepgen;
     int n, i;

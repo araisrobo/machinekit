@@ -127,13 +127,14 @@ int wosi_trans_exit()
 
 int wosi_trans_run()
 {
-    ring_size_t rsize;
     char *name;
     char *ring;
+    size_t rsize; //<! record size
     uint32_t underrun = 0; // "number of failed read attempts";
     uint32_t received = 0; // "number of successful read attempts";
     int retval;
-    tick_jcmd_t *tick_jcmd;
+    const tick_jcmd_t *tick_jcmd;
+    int machine_is_on;
 
     name = param.modname;
     ring = param.ring_name;
@@ -149,35 +150,42 @@ int wosi_trans_run()
     /* infinite loop to poll RingBuffer with RINGTYPE_RECORD, queue mode */
     while (1)
     {
-        rsize = record_next_size(&rb);
-        if (rsize <= 0)
+        // point tick_jcmd to ringBuffer
+        retval = record_read(&rb, (const void **)&tick_jcmd, &rsize);
+        if (retval)
         {
             // ring empty
             underrun++;
             rtapi_print_msg(RTAPI_MSG_INFO,
-                    "%s(%s): wosi_trans_run() record size(%d) underrun(%d)\n", name, ring, rsize, underrun);
+                    "%s(%s): wosi_trans_run() underrun(%d)\n", name, ring, underrun);
             wosi_receive();
             // usleep(1);
             continue;
         }
 
-        // point tick_jcmd to ringBuffer
-        tick_jcmd = (tick_jcmd_t *) record_next(&rb);
-
-//        rtapi_print_msg(RTAPI_MSG_INFO,
-//                "%s(%s): record-len=%d, writer=%d tick(%d)\n", name, ring, rsize,
-//                rb.header->writer, tick_jcmd->_tick);
-//        rtapi_print_msg(RTAPI_MSG_INFO,
-//                "j0_pos_cmd(%f) j1_pos_cmd(%f) j2_pos_cmd(%f) j3_pos_cmd(%f) j4_pos_cmd(%f) j5_pos_cmd(%f)\n",
-//                tick_jcmd->pos_cmd[0], tick_jcmd->pos_cmd[1], tick_jcmd->pos_cmd[2],
-//                tick_jcmd->pos_cmd[3], tick_jcmd->pos_cmd[4], tick_jcmd->pos_cmd[5]);
-
         // issue wosi_transceive transaction as receiving servo-tick
         wosi_transceive(tick_jcmd);
+
+        machine_is_on = tick_jcmd->cmd & (1 << TICK_AMP_ENABLE);
 
         // consume record
         record_shift(&rb);
         received++;
+
+        // flush consecutive MACHINE_IS_OFF commands
+        while (machine_is_on == 0)
+        {
+            tick_jcmd = record_next(&rb); // peek next record
+            if (tick_jcmd == NULL)
+            {
+                break;  // ring buffer is empty
+            }
+            machine_is_on = tick_jcmd->cmd & (1 << TICK_AMP_ENABLE);
+            if (machine_is_on == 0)
+            {
+                record_shift(&rb); // flush next record if MACHINE_IS_OFF
+            } // else, stop flushing record if MACHINE_IS_ON
+        }
 
     };
 
