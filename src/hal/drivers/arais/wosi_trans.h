@@ -31,7 +31,7 @@ typedef struct params {
     int hal_comp_id;
 } params_type, *param_pointer;
 
-int wosi_trans_init();
+int wosi_trans_init(char *ring, char *inifile);
 int wosi_trans_run();
 int wosi_trans_exit();
 

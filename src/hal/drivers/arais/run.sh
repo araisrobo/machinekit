@@ -10,5 +10,5 @@ realtime status
 halcmd show comp
 
 # run check program
-sudo $EMC2_HOME/bin/wosi_trans -I meinan.ini
+sudo $EMC2_HOME/bin/wosi_trans -r ring_jcmd -I meinan.ini
 # or execute wosi_trans after "make setuid"

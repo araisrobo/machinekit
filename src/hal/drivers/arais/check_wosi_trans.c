@@ -2,18 +2,20 @@
 #include <getopt.h>
 #include "wosi_trans.h"
 
-static char *option_string = "h:I:";
+static char *option_string = "h:r:I:";
 static struct option long_options[] = {
         {"help", no_argument, 0, 'h'},
+        {"ring", required_argument, 0, 'r'},    // ring name
         {"ini", required_argument, 0, 'I'},     // default: getenv(INI_FILE_NAME)
         {0,0,0,0}
 };
 static char *inifile;
+static char *ring;      //<! ring buffer name
 
 START_TEST (test_wosi_trans_init)
 {
     int ret;
-    ret = wosi_trans_init(inifile);
+    ret = wosi_trans_init(ring, inifile);
     ck_assert_int_eq (ret, 0);
 }
 END_TEST
@@ -57,11 +59,15 @@ int main(int argc, char **argv)
     int opt;
 
     inifile = getenv("INI_FILE_NAME");
+    ring = "ring_0";
 
     while ((opt = getopt_long(argc, argv, option_string, long_options, NULL)) != -1) {
         switch(opt) {
         case 'I':
             inifile = optarg;
+            break;
+        case 'r':
+            ring = optarg;
             break;
         case 'h':
         default:

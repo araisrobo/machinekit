@@ -41,10 +41,11 @@ static void quit(int sig)
     wosi_trans_exit();
     exit(0);
 }
+
 /**
  * wosi_trans(): WOSI Transceiver
  **/
-int wosi_trans_init(char *inifile)
+int wosi_trans_init(char *ring, char *inifile)
 {
     int retval;
 
@@ -56,6 +57,7 @@ int wosi_trans_init(char *inifile)
         return param.hal_comp_id;
     }
 
+    param.ring_name = ring;
     retval = hal_ring_attach(param.ring_name, &rb, NULL );
     if (retval)
     {
@@ -63,6 +65,12 @@ int wosi_trans_init(char *inifile)
                 "%s: ERROR: hal_ring_attach(%s) failed: %d\n", param.modname,
                 param.ring_name, retval);
         return retval;
+    }
+
+    if (rb.header->type != RINGTYPE_RECORD) {
+        rtapi_print_msg(RTAPI_MSG_ERR,
+                        "%s: ERROR: ring buffer type is (%d), should be RINGTYPE_RECORD(0)\n", param.modname, rb.header->type);
+        return -1;
     }
 
     rtapi_print_msg(RTAPI_MSG_INFO, "%s: attached ring '%s' size=%zu type=%d"
@@ -130,13 +138,6 @@ int wosi_trans_run()
     name = param.modname;
     ring = param.ring_name;
 
-    if (rb.header->type != RINGTYPE_RECORD)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "%s(%s): type(%d) should be RINGTYPE_RECORD(0)",
-                name, ring, rb.header->type);
-        return -1;
-    }
-
     retval = hal_ready(param.hal_comp_id);
     if (retval)
     {
@@ -145,7 +146,7 @@ int wosi_trans_run()
         return retval;
     }
 
-    /* RINGTYPE_RECORD, queue mode */
+    /* infinite loop to poll RingBuffer with RINGTYPE_RECORD, queue mode */
     while (1)
     {
         rsize = record_next_size(&rb);

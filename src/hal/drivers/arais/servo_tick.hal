@@ -1,8 +1,8 @@
-# this creates the named ring ring_0 as record ring
-loadrt ringload num_rings=1 size=16386
+# this creates the named ring ring_jcmd as record ring
+newring ring_jcmd 16384 record
 
-# attach servo_tick, which sends tick messages to ring_0
-loadrt servo_tick ring=ring_0
+# attach servo_tick, which sends tick messages to ring_jcmd
+loadrt servo_tick ring=ring_jcmd
 
 # 0.65ms thread
 loadrt threads name1=fast period1=655360
