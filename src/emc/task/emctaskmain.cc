@@ -2556,7 +2556,9 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
             break;
         }
         emcTaskCommand = NULL;
-        resume_motion_type = emcStatus->motion.traj.motion_type;
+        if (emcStatus->motion.traj.motion_type != 5){
+            resume_motion_type = emcStatus->motion.traj.motion_type;
+        }
         emcTrajPause();
 	if (emcStatus->task.interpState != EMC_TASK_INTERP_PAUSED) {
 	    interpResumeState = emcStatus->task.interpState;
