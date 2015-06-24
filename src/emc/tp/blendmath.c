@@ -1119,9 +1119,6 @@ int blendLineArcPostProcess(BlendPoints3 * const points, BlendPoints3 const * co
     double d_L; // badly named distance along line to intersection
     double A = 1;
     double B = 2.0 * c2_u;
-    if (param->R_plan*c2_n < 0) {
-            c2_n = -c2_n;
-        }
     double C = pmSq(c2_u) - pmSq(d2) + pmSq(param->R_plan - c2_n);
 
     double root0,root1;
