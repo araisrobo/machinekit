@@ -71,12 +71,12 @@ int arcInitFromPoints(SphericalArc * const arc, PmCartesian const * const start,
     // Store spiral factor as radial difference. Archimedean spiral coef. a = spiral / angle
     arc->spiral = (radius1 - radius0 );
 
-//    if (arc->angle < ARC_MIN_ANGLE) {
-//        tp_debug_print("angle %f below min angle %f, aborting arc\n",
-//                arc->angle,
-//                ARC_MIN_ANGLE);
-//        return TP_ERR_GEOM;
-//    }
+    if (arc->angle < ARC_MIN_ANGLE) {
+        tp_debug_print("angle %f below min angle %f, aborting arc\n",
+                arc->angle,
+                ARC_MIN_ANGLE);
+        return TP_ERR_GEOM;
+    }
 
     // Store sin of arc angle since it is reused many times for SLERP
     arc->Sangle = sin(arc->angle);
