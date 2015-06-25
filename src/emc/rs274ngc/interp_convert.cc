@@ -1495,8 +1495,6 @@ int Interp::convert_control_mode(int g_code,     //!< g_code being executed (G_6
 				double naivecam_tolerance,    //tolerance for the naivecam
                                 setup_pointer settings) //!< pointer to machine settings                 
 {
-  CHKS((settings->cutter_comp_side),
-       (_("Cannot change control mode with cutter radius compensation on")));
   if (g_code == G_61) {
     SET_MOTION_CONTROL_MODE(CANON_EXACT_PATH, 0);
     settings->control_mode = CANON_EXACT_PATH;
@@ -1775,9 +1773,15 @@ int Interp::convert_cutter_compensation_off(setup_pointer settings)      //!< po
       comp_get_current(settings, &cx, &cy, &cz);
       CHP(move_endpoint_and_flush(settings, cx, cy));
       dequeue_canons(settings);
-      settings->current_x = settings->program_x;
-      settings->current_y = settings->program_y;
-      settings->current_z = settings->program_z;
+      if (settings->current_x != 0 && settings->current_y != 0)
+      {
+          // we do not want do this, when we pause in the motion and resume
+          // we will in emctaskmain.cc: readahead_reading() parsing again
+          // this sync will let coordinate offset
+          settings->current_x = settings->program_x;
+          settings->current_y = settings->program_y;
+          settings->current_z = settings->program_z;
+      }
   }
 
   settings->cutter_comp_side = false;
@@ -2963,9 +2967,6 @@ int Interp::convert_m(block_pointer block,       //!< pointer to a block of RS27
 	    timeout = 0;
         }
 
-        CHKS((settings->cutter_comp_side),
-             (_("Cannot wait for digital input with cutter radius compensation on")));
-
 	int ret = WAIT(round_to_int(block->p_number), DIGITAL_INPUT, type, timeout, block->line_number);
 	//WAIT returns 0 on success, -1 for out of bounds
 	CHKS((ret == -1), NCE_DIGITAL_INPUT_INVALID_ON_M66);
@@ -3442,12 +3443,15 @@ int Interp::convert_probe(block_pointer block,   //!< pointer to a block of RS27
   double u_end;
   double v_end;
   double w_end;
+  int cutter_comp_side;
 
   /* probe_type: 
      ~1 = error if probe operation is unsuccessful (ngc default)
      |1 = suppress error, report in # instead
      ~2 = move until probe trips (ngc default)
      |2 = move until probe clears */
+  cutter_comp_side = settings->cutter_comp_side;
+  settings->cutter_comp_side = false;
 
   unsigned char probe_type = g_code - G_38_2;
   
@@ -3475,6 +3479,7 @@ int Interp::convert_probe(block_pointer block,   //!< pointer to a block of RS27
   TURN_PROBE_OFF(probe_type);
   settings->motion_mode = g_code;
   settings->probe_flag = true;
+  settings->cutter_comp_side = cutter_comp_side;
   return INTERP_OK;
 }
 
@@ -4333,8 +4338,8 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
   }
 
   if ((settings->cutter_comp_side) &&    /* ! "== true" */
-      (settings->cutter_comp_radius > 0.0)) {   /* radius always is >= 0 */
-
+      (settings->cutter_comp_radius > 0.0) &&   /* radius always is >= 0 */
+      (block->g_modes[0] != G_53)) {
     CHKS((block->g_modes[0] == G_53),
         NCE_CANNOT_USE_G53_WITH_CUTTER_RADIUS_COMP);
 
