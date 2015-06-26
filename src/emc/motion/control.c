@@ -1317,7 +1317,7 @@ static void handle_usbmot_sync(void)
             //        can not resolve all the data
             prev_pos_cmd = joint->pos_cmd;
             joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset - joint->blender_offset;
-            if(fabs(joint->pos_cmd - prev_pos_cmd) < 0.001){
+            if(fabs(joint->pos_cmd - prev_pos_cmd) <= fabs(joint->scale_recip)) {
                 joint->pos_cmd = prev_pos_cmd;
             }
             joint->coarse_pos = joint->pos_cmd;

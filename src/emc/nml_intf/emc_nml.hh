@@ -182,7 +182,7 @@ class EMC_AXIS_SET_UNITS:public EMC_AXIS_CMD_MSG {
 
 /**
  * Set the Axis backlash.
- * This command sets the backlash value.
+ * This command sets the backlash and input_scale value.
  */
 class EMC_AXIS_SET_BACKLASH:public EMC_AXIS_CMD_MSG {
   public:
@@ -195,6 +195,7 @@ class EMC_AXIS_SET_BACKLASH:public EMC_AXIS_CMD_MSG {
     void update(CMS * cms);
 
     double backlash;
+    double input_scale;
 };
 
 class EMC_AXIS_SET_MIN_POSITION_LIMIT:public EMC_AXIS_CMD_MSG {

@@ -378,7 +378,7 @@ extern int emcOperatorDisplay(int id, const char *fmt, ...) __attribute__((forma
 
 extern int emcAxisSetAxis(int axis, unsigned char axisType);
 extern int emcAxisSetUnits(int axis, double units);
-extern int emcAxisSetBacklash(int axis, double backlash);
+extern int emcAxisSetBacklash(int axis, double backlash, double input_scale);
 extern int emcAxisSetMinPositionLimit(int axis, double limit);
 extern int emcAxisSetMaxPositionLimit(int axis, double limit);
 extern int emcAxisSetMotorOffset(int axis, double offset);
