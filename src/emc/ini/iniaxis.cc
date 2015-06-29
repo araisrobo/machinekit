@@ -86,6 +86,7 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
     EmcAxisType axisType;
     double units;
     double backlash;
+    double input_scale;
     double offset;
     double limit;
     double home;
@@ -138,17 +139,20 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
             return -1;
         }
 
-        // set backlash
+        // set backlash and scale
         backlash = 0;	                // default
+        input_scale = 0;
         axisIniFile->Find(&backlash, "BACKLASH", axisString);
+        axisIniFile->Find(&input_scale, "INPUT_SCALE", axisString);
 
-        if (0 != emcAxisSetBacklash(axis, backlash)) {
+        if (0 != emcAxisSetBacklash(axis, backlash, input_scale)) {
             if (emc_debug & EMC_DEBUG_CONFIG) {
                 rcs_print_error("bad return from emcAxisSetBacklash\n");
             }
             return -1;
         }
         old_inihal_data.backlash[axis] = backlash;
+        old_inihal_data.input_scale[axis] = input_scale;
 
         // set min position limit
         limit = -1e99;	                // default

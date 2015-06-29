@@ -679,7 +679,7 @@ check_stuff ( "before command_handler()" );
 	    break;
 
 	case EMCMOT_SET_BACKLASH:
-	    /* sets backlash for a joint */
+	    /* sets backlash and scale_recip for a joint */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_BACKLASH");
 	    rtapi_print_msg(RTAPI_MSG_DBG, " %d", joint_num);
 	    emcmot_config_change();
@@ -689,6 +689,7 @@ check_stuff ( "before command_handler()" );
 		break;
 	    }
 	    joint->backlash = emcmotCommand->backlash;
+	    joint->scale_recip = 1.0 / emcmotCommand->scale;
 	    break;
 
 	    /*
