@@ -2541,6 +2541,10 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         }
         emcStatus->motion.traj.cur_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
         emcStatus->motion.traj.next_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
+        if (emcStatus->motion.traj.tp_reverse_input == TP_REVERSE)
+        {
+            emcTaskPlanClearWait();
+        }
 	emcStatus->task.interpState = EMC_TASK_INTERP_READING;
 	emcStatus->task.task_paused = 0;
 	retval = 0;
@@ -2601,7 +2605,8 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         emcStatus->task.execState = EMC_TASK_EXEC_RESUME;       // wait for TCQ finishing pending motion
         emcTaskCommand = NULL;
         emcTrajResume();
-        if (emc_debug & EMC_DEBUG_INTERP) {
+        if (emc_debug & EMC_DEBUG_INTERP)
+        {
             rcs_print("%s %s:%d-----------------------RESUME-------------------------\n", __FILE__, __FUNCTION__, __LINE__);
             rcs_print("%s %s:%d resume_startup_id(%d) emcStatus->motion.traj.id(%d)\n", __FILE__, __FUNCTION__, __LINE__,
                     resume_startup_id, emcStatus->motion.traj.id);
