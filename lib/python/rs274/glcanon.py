@@ -39,7 +39,9 @@ limiticon = array.array('B',
         [  0,   0,  128, 0,  134, 0,  140, 0,  152, 0,  176, 0,  255, 255,
          255, 255,  176, 0,  152, 0,  140, 0,  134, 0,  128, 0,    0,   0,
            0,   0,    0, 0])
-
+max_number = 99999999999
+min_number = -99999999999
+zero = 0.0
 class GLCanon(Translated, ArcsToSegmentsMixin):
     lineno = -1
     def __init__(self, colors, geometry, is_foam=0):
@@ -105,6 +107,12 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.notify_message = ""
         self.highlight_line = None
         self.pierce = 0
+        self.min_x = 0
+        self.min_y = 0
+        self.max_x = 0
+        self.max_y = 0
+        # Let graphics are always display in the center
+        self.arhmi_touchoff = True
 
     def comment(self, arg):
         if arg.startswith("AXIS,"):
@@ -171,6 +179,18 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
 
     def calc_extents(self):
         self.min_extents, self.max_extents, self.min_extents_notool, self.max_extents_notool = gcode.calc_extents(self.arcfeed, self.feed, self.traverse)
+
+        if self.arhmi_touchoff:
+            if not(self.g5x_offset_x == zero and self.g5x_offset_y == zero):
+                self.min_extents = self.min_x, self.min_y, zero
+                self.min_extents_notool = self.min_x, self.min_y, zero
+                if (self.g5x_offset_y < zero):
+                    self.max_extents = self.max_extents[0], self.max_y, zero
+                    self.max_extents_notool = self.max_extents_notool[0], self.max_y, zero
+                if (self.g5x_offset_x < zero):
+                    self.max_extents = self.max_x, self.max_extents[1], zero
+                    self.max_extents_notool = self.max_x, self.max_extents_notool[1], zero
+
         if self.is_foam:
             min_z = min(self.foam_z, self.foam_w)
             max_z = max(self.foam_z, self.foam_w)
@@ -268,6 +288,21 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
     def straight_feed(self, x,y,z, a,b,c, u, v, w):
         if self.suppress > 0: return
         self.first_move = False
+        if self.arhmi_touchoff:
+            if (self.g5x_offset_x != zero or self.g5x_offset_y != zero):
+                self.min_x = min(self.lo[0],self.min_x) 
+                self.min_y = min(self.lo[1], self.min_y)
+                self.max_x = max(self.lo[0],self.min_x)
+                self.max_y = min(self.lo[1], self.max_y)
+                if self.min_x == zero:
+                    self.min_x = max_number
+                if self.min_y == zero:
+                    self.min_y = max_number
+                if self.max_x == zero:
+                    self.max_x = min_number
+                if self.max_y == zero:
+                    self.max_y = min_number
+
         l = self.rotate_and_translate(x,y,z,a,b,c,u,v,w)
         self.feed_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo]))
         
