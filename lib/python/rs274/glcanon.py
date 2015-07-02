@@ -231,7 +231,9 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         for i in range (0, (len(l)-1)):
             length_vector.append(l[i] - self.lo[i])
         length = LA.norm(length_vector)
-        
+
+        self.catch_range()
+
         if not self.first_move:
                 self.traverse_append((self.lineno, self.lo, l, [self.xo, self.yo, self.zo]))
         
@@ -258,7 +260,23 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
             ArcsToSegmentsMixin.arc_feed(self, *args)
         finally:
             self.in_arc = False
-
+            
+    def catch_range(self):
+        if self.arhmi_touchoff:
+            if (self.g5x_offset_x != zero or self.g5x_offset_y != zero):
+                self.min_x = min(self.lo[0],self.min_x) 
+                self.min_y = min(self.lo[1], self.min_y)
+                self.max_x = max(self.lo[0],self.min_x)
+                self.max_y = min(self.lo[1], self.max_y)
+                if self.min_x == zero:
+                    self.min_x = max_number
+                if self.min_y == zero:
+                    self.min_y = max_number
+                if self.max_x == zero:
+                    self.max_x = min_number
+                if self.max_y == zero:
+                    self.max_y = min_number
+        
     def straight_arcsegments(self, segs):
         self.first_move = False
         lo = self.lo
@@ -269,7 +287,9 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         # calculate length
         length_vector = []
         length = 0.0
-
+        
+        self.catch_range()
+                    
         for l in segs:
             append((lineno, lo, l, feedrate, to))
             # calculate the length from lo to l
@@ -288,20 +308,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
     def straight_feed(self, x,y,z, a,b,c, u, v, w):
         if self.suppress > 0: return
         self.first_move = False
-        if self.arhmi_touchoff:
-            if (self.g5x_offset_x != zero or self.g5x_offset_y != zero):
-                self.min_x = min(self.lo[0],self.min_x) 
-                self.min_y = min(self.lo[1], self.min_y)
-                self.max_x = max(self.lo[0],self.min_x)
-                self.max_y = min(self.lo[1], self.max_y)
-                if self.min_x == zero:
-                    self.min_x = max_number
-                if self.min_y == zero:
-                    self.min_y = max_number
-                if self.max_x == zero:
-                    self.max_x = min_number
-                if self.max_y == zero:
-                    self.max_y = min_number
+        self.catch_range()
 
         l = self.rotate_and_translate(x,y,z,a,b,c,u,v,w)
         self.feed_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo]))
