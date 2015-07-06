@@ -86,19 +86,19 @@ extern long int simple_strtol(const char *nptr, char **endptr, int base);
 
 
 // simple interface to hal_create_thread()/hal_thread_delete()
-// through /proc/rtapi/hal/threadcmd (kernel threadstyles only)
+// through /proc/rtapi/hal/rtapicmd (kernel threadstyles only)
 //
 // to start a thread, write 'newthread' <threadname> <period> <fp> <cpu>'
 // example:
-//    echo newthread servo-thread 1000000 1 -1 >/proc/rtapi/hal/threadcmd
+//    echo newthread servo-thread 1000000 1 -1 >/proc/rtapi/hal/rtapicmd
 //
 // to delete a thread, write 'delthread <threadname>'
-//    echo delthread servo-thread >/proc/rtapi/hal/threadcmd
+//    echo delthread servo-thread >/proc/rtapi/hal/rtapicmd
 //
 // HAL return values are reflected in the return value to write()
 //
-#define PROCFS_THREADCMD "/proc/rtapi/hal/threadcmd"
-extern int procfs_threadcmd(const char *format, ...);
+#define PROCFS_RTAPICMD "/proc/rtapi/hal/rtapicmd"
+extern int procfs_cmd(const char *path, const char *format, ...);
 
 // kernel tests in rtapi_compat.c
 extern int kernel_is_xenomai();
@@ -121,6 +121,11 @@ extern flavor_t flavors[];
 extern flavor_ptr flavor_byname(const char *flavorname);
 extern flavor_ptr flavor_byid(int flavor_id);
 extern flavor_ptr default_flavor(void);
+
+// determine if this is a userland or kthreads flavor
+static inline int kernel_threads(flavor_ptr f) {
+    return (f->flags & FLAVOR_KERNEL_BUILD) != 0;
+}
 
 /*
  * Given a result buffer of PATH_MAX size and a module or shared
@@ -161,6 +166,31 @@ extern int module_path(char *result, const char *basename);
  */
 
 extern int get_rtapi_config(char *result, const char *param, int n);
+
+// diagnostics: retrieve the rpath this binary was linked with
+//
+// returns malloc'd memory - caller MUST free returned string if non-null
+// example:  cc -g -Wall -Wl,-rpath,/usr/local/lib -Wl,-rpath,/usr/lib foo.c -o foo
+// rtapi_get_rpath() will return "/usr/local/lib:/usr/lib"
+
+extern const char *rtapi_get_rpath(void);
+
+// inspection of Elf objects (.so, .ko):
+// retrieve raw data of Elf section section_name.
+// returned in *dest on success.
+// caller must free().
+// returns size, or < 0 on failure.
+int get_elf_section(const char *const fname, const char *section_name, void **dest);
+
+// split the null-delimited strings in an .rtapi_caps Elf section into an argv.
+// caller must free.
+const char **get_caps(const char *const fname);
+
+// given a path to an elf binary, and a capability name, return its value
+// or NULL if not present.
+// caller must free().
+const char *get_cap(const char *const fname, const char *cap);
+
 
 SUPPORT_END_DECLS
 

@@ -159,19 +159,20 @@ RTAPI_APP_RPATH=-Wl,-rpath,$(LIB_DIR)
 endif
 
 $(call TOOBJSDEPS, rtapi/$(threads)/rtapi_app.cc): EXTRAFLAGS = \
-	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS)
+	$(PROTOBUF_CFLAGS) $(CZMQ_CFLAGS) $(LTTNG_UST_CFLAGS)
 
 ../libexec/rtapi_app_$(threads): \
 	$(call TOOBJS, $(RTAPI_APP_SRCS)) \
 	../lib/liblinuxcncini.so.0 \
 	../lib/liblinuxcncshm.so \
 	../lib/libmtalk.so.0 \
-	../lib/liblinuxcnc-pb2++.so.0
+	../lib/liblinuxcnc-pb2++.so.0 \
+	../lib/librtapi_math.so.0
 	$(ECHO) Linking $(notdir $@)
 	@mkdir -p $(dir $@)
 	$(Q)$(CXX) -Wl,-rpath,$(EMC2_RTLIB_DIR) $(RTAPI_APP_RPATH) \
 	    -o $@ $^ $(RT_LDFLAGS) \
-	$(PROTOBUF_LIBS) $(CZMQ_LIBS) $(AVAHI_LIBS) -lstdc++ -ldl -luuid
+	$(PROTOBUF_LIBS) $(CZMQ_LIBS) $(AVAHI_LIBS) $(LTTNG_UST_LIBS) -lstdc++ -ldl -luuid
 
 #	$(LIBBACKTRACE) # already linked into libmtalk
 
@@ -191,7 +192,10 @@ rtapi-objs := \
 	$(patsubst %.c,rtapi/%.o,$(XXAPI_COMMON_SRCS)) \
 	rtapi/rtapi_main.o \
 	rtapi/rtapi_compat.o
-
+rtapi-objs += machinetalk/support/nanopb.o
+rtapi-objs += machinetalk/nanopb/pb_decode.o
+rtapi-objs += machinetalk/nanopb/pb_encode.o
+rtapi-objs += machinetalk/nanopb/pb_common.o
 
 
 ifeq ($(USERMODE_PCI),yes)
@@ -211,7 +215,6 @@ $(RTLIBDIR)/rtapi$(MODULE_EXT): EXTRA_LDFLAGS += $(RT_LDFLAGS)
 # rule for kernel module, moved from src/Makefile
 $(RTLIBDIR)/rtapi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rtapi-objs))
 
-
 endif # BUILD_THREAD_MODULES
 
 
@@ -225,6 +228,10 @@ obj-$(CONFIG_RTAPI) += rtapi.o
 rtapi-objs := \
 	$(patsubst %.c,rtapi/%.o,$(XXAPI_COMMON_SRCS)) \
 	rtapi/rtapi_module.o
+rtapi-objs += machinetalk/support/nanopb.o
+rtapi-objs += machinetalk/nanopb/pb_decode.o
+rtapi-objs += machinetalk/nanopb/pb_encode.o
+rtapi-objs += machinetalk/nanopb/pb_common.o
 
 # rule for kernel module, moved from src/Makefile
 $(RTLIBDIR)/rtapi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rtapi-objs))

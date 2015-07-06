@@ -160,6 +160,17 @@ extern int _rtapi_next_handle(void);
 
 #include <stdarg.h>		/* va_start and va_end macros */
 
+/** Take the string pointed by 's', break it up in words and
+ *  make a NULL-delimited pointer array in 'av' of up to avsize-1 pointers,
+ *
+ *  Caller is responsible for allocation of av.
+ *  Return number of 'args'.
+ *  av[ac+1] will be set to NULL.
+ *
+ *  NB: this modifies s in-place.
+ */
+int rtapi_argvize(int avsize, char **av, char *s);
+
 /** 'rtapi_snprintf()' works like 'snprintf()' from the normal
     C library, except that it may not handle long longs.
     It is provided here because some RTOS kernels don't provide
@@ -217,6 +228,78 @@ extern void rtapi_print(const char *fmt, ...)
 
 extern void rtapi_print_msg(int level, const char *fmt, ...)
     __attribute__((format(printf,2,3)));
+
+// shorthand for reporting macros
+void rtapi_print_loc(const int level,
+		     const char *func,
+		     const int line,
+		     const char *topic,
+		     const char *fmt, ...)
+    __attribute__((format(printf,5,6)));
+
+
+// checking & logging shorthands
+#define RTAPIERR(fmt, ...)					\
+    rtapi_print_loc(RTAPI_MSG_ERR,__FUNCTION__,__LINE__,	\
+		    "RTAPI error:", fmt, ## __VA_ARGS__)
+
+#define RTAPIDBG(fmt, ...)					\
+    rtapi_print_loc(RTAPI_MSG_DBG,__FUNCTION__,__LINE__,	\
+		    "RTAPI:", fmt, ## __VA_ARGS__)
+#define RTAPIINFO(fmt, ...)					\
+    rtapi_print_loc(RTAPI_MSG_INFO,__FUNCTION__,__LINE__,	\
+		    "RTAPI info:", fmt, ## __VA_ARGS__)
+
+#define RTAPIWARN(fmt, ...)					\
+    rtapi_print_loc(RTAPI_MSG_WARN,__FUNCTION__,__LINE__,	\
+		    "RTAPI WARNING:", fmt, ## __VA_ARGS__)
+
+#define ULAPIERR(fmt, ...)					\
+    rtapi_print_loc(RTAPI_MSG_ERR,__FUNCTION__,__LINE__,	\
+		    "ULAPI error:", fmt, ## __VA_ARGS__)
+
+#define ULAPIDBG(fmt, ...)					\
+    rtapi_print_loc(RTAPI_MSG_DBG,__FUNCTION__,__LINE__,	\
+		    "ULAPI:", fmt, ## __VA_ARGS__)
+
+#define ULAPIWARN(fmt, ...)					\
+    rtapi_print_loc(RTAPI_MSG_WARN,__FUNCTION__,__LINE__,	\
+		    "ULAPI WARNING:", fmt, ## __VA_ARGS__)
+
+#define RTAPI_ASSERT(x)						\
+    do {							\
+	if (!(x)) {						\
+	    rtapi_print_loc(RTAPI_MSG_ERR,			\
+			    __FUNCTION__,__LINE__,		\
+			    "RTAPI error:",			\
+			    "ASSERTION VIOLATED: '%s'", #x);	\
+	}							\
+    } while(0)
+
+#define RTAPI_CHECK_STR(name)					\
+    do {							\
+	if ((name) == NULL) {					\
+	    rtapi_print_loc(RTAPI_MSG_ERR,			\
+			    __FUNCTION__, __LINE__,		\
+			    "RTAPI error:",			\
+			    "argument '" # name  "' is NULL");	\
+	    return -EINVAL;					\
+	}							\
+    } while(0)
+
+#define RTAPI_CHECK_STRLEN(name, len)				\
+    do {							\
+	CHECK_STR(name);					\
+	if (strlen(name) > len) {				\
+	    rtapi_print_loc(RTAPI_MSG_ERR,__FUNCTION__,		\
+			    __LINE__,				\
+			    "RTAPI error:",			\
+			    "argument '%s' too long (%d/%d)",	\
+			    name, strlen(name), len);		\
+	    return -EINVAL;					\
+	}							\
+    } while(0)
+
 
 /** Set the maximum level of message to print.  In userspace code,
     each component has its own independent message level.  In realtime
@@ -891,7 +974,13 @@ extern void ulapi_cleanup(void);
 extern void ulapi_kernel_compat_check(rtapi_switch_t *rtapi_switch,
 				      char *ulapi_lib);
 extern int ulapi_loaded(void);
+
 #endif
+
+// elf section name where capability strings reside
+#define RTAPI_TAGS  ".rtapi_tags"
+
+#define RTAPI_PASTE(a,b)	a##b
 
 /***********************************************************************
 *                      MODULE PARAMETER MACROS                         *
@@ -932,9 +1021,9 @@ extern int ulapi_loaded(void);
 #define LINUX_VERSION_CODE 0
 #endif
 
-#if defined(BUILD_SYS_USER_DSO) || (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
 #define RTAPI_STRINGIFY(x)    #x
 
+#if defined(BUILD_SYS_USER_DSO) || (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0))
 
 #define RTAPI_MP_INT(var,descr)    \
   MODULE_PARM(var,"i");            \
@@ -959,6 +1048,35 @@ extern int ulapi_loaded(void);
 #define RTAPI_MP_ARRAY_STRING(var,num,descr)       \
   MODULE_PARM(var,"1-" RTAPI_STRINGIFY(num) "s");  \
   MODULE_PARM_DESC(var,descr);
+
+
+// instance parameters, userland
+// use different symnames to distinguish
+
+#define RTAPI_IP_INT(var,descr)    \
+  INSTANCE_PARM(var,"i");            \
+  INSTANCE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_LONG(var,descr)   \
+  INSTANCE_PARM(var,"l");            \
+  INSTANCE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_STRING(var,descr) \
+  INSTANCE_PARM(var,"s");            \
+  INSTANCE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_ARRAY_INT(var,num,descr)          \
+  INSTANCE_PARM(var,"1-" RTAPI_STRINGIFY(num) "i");  \
+  INSTANCE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_ARRAY_LONG(var,num,descr)         \
+  INSTANCE_PARM(var,"1-" RTAPI_STRINGIFY(num) "l");  \
+  INSTANCE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_ARRAY_STRING(var,num,descr)       \
+  INSTANCE_PARM(var,"1-" RTAPI_STRINGIFY(num) "s");  \
+  INSTANCE_PARM_DESC(var,descr);
+
 
 #else /* version 2.6 or later */
 
@@ -991,6 +1109,42 @@ extern int ulapi_loaded(void);
   module_param_array(var, charp, &(__dummy_##var), 0);  \
   MODULE_PARM_DESC(var,descr);
 
+// for kthreads, export params in
+// /sys/modules/<name>/parameters/<var>
+#define RTAPI_IP_MODE (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP)
+
+#define RTAPI_IP_INT(var,descr)    \
+  module_param(var, int, RTAPI_IP_MODE);       \
+  MODULE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_LONG(var,descr)   \
+  module_param(var, long, RTAPI_IP_MODE);      \
+  MODULE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_STRING(var,descr) \
+  module_param(var, charp, RTAPI_IP_MODE);     \
+  MODULE_PARM_DESC(var,descr);
+
+#ifdef _NOTYET
+
+// no param array support for instance params yet
+#define RTAPI_IP_ARRAY_INT(var,num,descr)                \
+  int __dummy_##var;                                     \
+  module_param_array(var, int, &(__dummy_##var), RTAPI_IP_MODE);     \
+  MODULE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_ARRAY_LONG(var,num,descr)               \
+  int __dummy_##var;                                     \
+  module_param_array(var, long, &(__dummy_##var), RTAPI_IP_MODE);    \
+  MODULE_PARM_DESC(var,descr);
+
+#define RTAPI_IP_ARRAY_STRING(var,num,descr)             \
+  int __dummy_##var;                                     \
+  module_param_array(var, charp, &(__dummy_##var), RTAPI_IP_MODE);  \
+  MODULE_PARM_DESC(var,descr);
+
+#endif // _NOTYET
+
 #endif /* version < 2.6 */
 
 #if !defined(BUILD_SYS_USER_DSO)
@@ -1000,6 +1154,20 @@ static const char __module_license[] __attribute__((section(".modinfo"))) =   \
 "license=" license
 #endif
 #endif
+
+
+// module tagging for feature inspection
+
+#define _RTAPI_TAG(line, key, value)					\
+    __attribute__((section(RTAPI_TAGS)))				\
+    const char RTAPI_PASTE(rtapi_info_,line)[] =  { key "=" #value };
+
+#define RTAPI_TAG(key, value) _RTAPI_TAG(__LINE__, #key , value)
+
+// usage:
+// RTAPI_TAG("caps=4711");
+// RTAPI_TAG("foo=815");
+// retrieved by const char **get_capv(const char *const fname);
 
 #endif /* RTAPI */
 

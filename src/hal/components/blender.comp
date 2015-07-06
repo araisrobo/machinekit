@@ -60,10 +60,10 @@ FUNCTION(_)
        avoid sqrt(negative) */
     if (pos_err > tiny_dp) {
         vel_req = -max_dv +
-                   sqrt(2.0 * max_acc * pos_err + max_dv * max_dv);
+                   rtapi_sqrt(2.0 * max_acc * pos_err + max_dv * max_dv);
     } else if (pos_err < -tiny_dp) {
         vel_req =  max_dv -
-                   sqrt(-2.0 * max_acc * pos_err + max_dv * max_dv);
+                   rtapi_sqrt(-2.0 * max_acc * pos_err + max_dv * max_dv);
     } else {
         /* within 'tiny_dp' of desired pos, no need to move */
         vel_req = pos_err;

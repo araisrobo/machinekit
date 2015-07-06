@@ -96,7 +96,7 @@ modules:
 	    -C $(KERNELDIR) \
 	    KBUILD_EXTRA_SYMBOLS="$(KBUILD_EXTRA_SYMBOLS)" \
 	    SUBDIRS=`pwd` \
-	    CC=$(CC) KBUILD_VERBOSE=$(BUILD_VERBOSE) modules
+	    CC="$(CC)" KBUILD_VERBOSE=$(BUILD_VERBOSE) modules
 
 clean:
 	rm *.ko *.mod.c *.o
@@ -128,8 +128,8 @@ IS_POWERPC = test `uname -m` = ppc -o `uname -m` = ppc64
 .PHONY: %.so
 %.so:
 	$(ECHO) Linking $@
-	$(Q)ld -d -r -o $*.tmp $^
+	$(Q)$(LD) -d -r -o $*.tmp $^
 	$(Q)if ! $(IS_POWERPC); then objcopy -j .rtapi_export -O binary $*.tmp $*.exp; fi
 	$(Q)if ! $(IS_POWERPC); then objcopy -G __x86.get_pc_thunk.bx -G __i686.get_pc_thunk.bx `xargs -r0n1 echo -G < $*.exp | grep -ve '^-G $$' | sort -u` $*.tmp; fi
-	$(Q)$(CC) -shared -Bsymbolic $(LDFLAGS) -o $@ $*.tmp -lm
+	$(Q)$(CC) -shared -Bsymbolic $(LDFLAGS) -o $@ $*.tmp
 endif

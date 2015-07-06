@@ -76,7 +76,7 @@ static int
 process_ping(htself_t *self, const std::string &from,  void *socket)
 {
     self->tx.set_type( pb::MT_PING_ACKNOWLEDGE);
-    self->tx.set_uuid(&self->process_uuid, sizeof(uuid_t));
+    self->tx.set_uuid(&self->netopts.proc_uuid, sizeof(uuid_t));
     return send_pbcontainer(from, self->tx, socket);
 }
 
@@ -225,7 +225,7 @@ create_rcomp(htself_t *self,  const pb::Component *pbcomp,
     if (pbcomp->has_userarg2()) arg2 = pbcomp->userarg2();
 
     // create the remote component
-    comp_id = hal_init_mode(cname, TYPE_REMOTE, arg1, arg2);
+    comp_id = hal_xinit(TYPE_REMOTE, arg1, arg2, NULL, NULL, cname);
     if (comp_id < 0) {
 	note_printf(self->tx, "hal_init_mode(%s): %s",
 		    cname, strerror(-comp_id));
@@ -313,7 +313,7 @@ process_rcomp_bind(htself_t *self, const std::string &from,
 
     // assume failure until proven otherwise
     self->tx.set_type( pb::MT_HALRCOMP_BIND_REJECT);
-    self->tx.set_uuid(&self->process_uuid, sizeof(uuid_t));
+    self->tx.set_uuid(&self->netopts.proc_uuid, sizeof(uuid_t));
 
     // fail if comp.name not present
     if (!pbcomp->has_name()) {
@@ -321,6 +321,7 @@ process_rcomp_bind(htself_t *self, const std::string &from,
 		    self->rx.type(), from.c_str());
 	return send_pbcontainer(from, self->tx, socket);
     }
+
     cname = pbcomp->name().c_str();
 
     // validate pinlist attributes if pins are present -
@@ -349,6 +350,15 @@ process_rcomp_bind(htself_t *self, const std::string &from,
     }
 
     if (self->rcomps.count(cname) == 0) {
+        
+    // fail if no_create flag is set in Component submessage
+    // meaning: bind succeeds only if the component exists
+    if (pbcomp->has_no_create() && pbcomp->no_create()) {
+    note_printf(self->tx,
+            "request %d from '%s': Component not created since no_create flag set",
+            self->rx.type(), from.c_str());
+    return send_pbcontainer(from, self->tx, socket);
+    }
 
 	// see if component already exists
 	// there might be a comp but user might have
@@ -414,7 +424,7 @@ process_rcomp_bind(htself_t *self, const std::string &from,
 	hal_comp_t *comp = halpr_find_comp_by_name(cname);
 	assert(comp != NULL);
 	self->tx.set_type(pb::MT_HALRCOMP_BIND_CONFIRM);
-	self->tx.set_uuid(&self->process_uuid, sizeof(uuid_t));
+	self->tx.set_uuid(&self->netopts.proc_uuid, sizeof(uuid_t));
 	retval = halpr_describe_component(comp, c);
 	assert(retval == 0);
     }

@@ -17,7 +17,7 @@ endif
 ifeq ($(MAKECMDGOALS),)
 TRIVIAL_BUILD=no
 else
-ifeq ($(filter-out docclean clean setuid install tags swish,$(MAKECMDGOALS)),)
+ifeq ($(filter-out clean setuid install tags swish,$(MAKECMDGOALS)),)
 TRIVIAL_BUILD=yes
 else
 TRIVIAL_BUILD=no
@@ -164,6 +164,8 @@ default: configs userspace modules
 # Print 'entering' all the time
 MAKEFLAGS += w
 
+INCLUDE_PREFIX = .
+
 # Create the variables with := so that subsequent += alterations keep it
 # as a "substitute at assignment time" variable
 TARGETS :=
@@ -183,6 +185,10 @@ SUBDIRS := \
 	machinetalk/webtalk \
 	machinetalk/haltalk \
 	machinetalk/mkwrapper \
+	machinetalk/mklauncher \
+	machinetalk/videoserver \
+	\
+	rtapi/rtapi_math \
 	\
 	libnml/linklist \
 	libnml/cms \
@@ -201,7 +207,10 @@ SUBDIRS := \
 	rtapi/userpci \
 	\
 	hal/lib \
+	hal/i_components \
 	hal/components \
+	hal/vtable-example \
+	hal/userfunct-example \
 	hal/drivers \
 	hal/user_comps/devices \
 	hal/user_comps/mb2hal \
@@ -241,8 +250,6 @@ SUBDIRS := \
 	module_helper \
 	\
 	po \
-	\
-	../docs/src
 
 ## Begin: WOSI - wishbone over serial interface
 ifneq ($(WOSI_VER),)
@@ -274,12 +281,12 @@ PROGRAMS :=
 # file names, but this is what allows 'make src.i' to produce proper
 # preprocessed source when src.c needs a customized compile flag.
 # See Submakefile.skel for an example.
-TOOBJS = $(patsubst %.cc,objects/%.o,$(patsubst %.c,objects/%.o,$(1)))
-TODEPS = $(patsubst %.cc,depends/%.d,$(patsubst %.c,depends/%.d,$(1)))
+TOOBJS = $(patsubst %.cc,objects/%$(2).o,$(patsubst %.c,objects/%$(2).o,$(1)))
+TODEPS = $(patsubst %.cc,depends/%$(2).d,$(patsubst %.c,depends/%$(2).d,$(1)))
 #-not sure, something fishy here -mah
 #TODEPS = $(patsubst %.cc,objects/%.d,$(patsubst %.c,objects/%.d,$(1)))
 
-TOOBJSDEPS = $(call TOOBJS,$(1)) $(call TODEPS, $(1)) $(patsubst %.cc,%.ii,$(patsubst %.c,%.i,$(1)))
+TOOBJSDEPS = $(call TOOBJS,$(1),$(2)) $(call TODEPS, $(1),$(2))
 
 SUBMAKEFILES := $(patsubst %,%/Submakefile,$(SUBDIRS))
 -include $(wildcard $(SUBMAKEFILES))
@@ -303,8 +310,12 @@ endif
 # Find the list of object files for each type of source file
 CUSERSRCS := $(filter %.c,$(USERSRCS))
 CXXUSERSRCS := $(filter %.cc,$(USERSRCS))
-CUSEROBJS := $(call TOOBJS,$(CUSERSRCS))
+CUSEROBJS = $(call TOOBJS,$(CUSERSRCS))
 CXXUSEROBJS += $(call TOOBJS,$(CXXUSERSRCS))
+
+# Find the list of build-arch object files for C sources
+CUSERSRCS_BUILD := $(filter %.c,$(USERSRCS_BUILD))
+CUSEROBJS_BUILD := $(call TOOBJS,$(CUSERSRCS_BUILD),_build)
 
 ifeq ($(TRIVIAL_BUILD),no)
 
@@ -324,7 +335,8 @@ endif
 endif
 
 # Find the dependency filenames, then include them all
-DEPS := $(sort $(patsubst %.o,%.d,$(CUSEROBJS) $(CXXUSEROBJS)))
+DEPS := $(sort $(patsubst %.o,%.d,$(CUSEROBJS) $(CXXUSEROBJS) \
+	$(CUSEROBJS_BUILD)))
 READ_DEPS = $(wildcard $(DEPS))
 $(shell echo 1>&2 Reading $(words $(READ_DEPS))/$(words $(DEPS)) dependency files)
 -include $(READ_DEPS)
@@ -383,6 +395,15 @@ $(sort $(CUSEROBJS)) : objects/%.o: %.c
 		-MP -MD -MF "${@:.o=.d}" -MT "$@" \
 		$< -o $@
 
+# Rules to make .o (object) files, build arch
+$(sort $(CUSEROBJS_BUILD)) : objects/%_build.o: %.c
+	$(ECHO) Compiling $<
+	@mkdir -p $(dir $@)
+	@rm -f $@
+	$(Q)$(CC_FOR_BUILD) -c $(CFLAGS) $(EXTRAFLAGS) \
+		-MP -MD -MF "${@:.o=.d}" -MT "$@" \
+		$< -o $@
+
 $(sort $(CXXUSEROBJS)) : objects/%.o: %.cc
 	$(ECHO) Compiling $<
 	@mkdir -p $(dir $@)
@@ -391,18 +412,9 @@ $(sort $(CXXUSEROBJS)) : objects/%.o: %.cc
 		-MP -MD -MF "${@:.o=.d}" -MT "$@" \
 		$< -o $@
 
-# Rules to make .i (preprocessed) files
-$(sort $(patsubst %.c,%.i,$(CUSERSRCS))): %.i: %.c
-	$(ECHO) Preprocessing $< to $@
-	$(Q)$(CC) -dD $(CFLAGS) $(EXTRAFLAGS) -E $< -o $@
-
-$(sort $(patsubst %.cc,%.ii,$(CXXUSERSRCS))): %.ii: %.cc
-	$(ECHO) Preprocessing $< to $@
-	$(Q)$(CXX) -dD $(CXXFLAGS) $(EXTRAFLAGS) -E $< -o $@
-
 ifeq ($(TRIVIAL_BUILD),no)
-configure config.h.in: configure.in
-	@echo "*** configure.in has changed ***" >&2
+configure config.h.in: configure.ac
+	@echo "*** configure.ac has changed ***" >&2
 	@echo "Not running autoconf to avoid tainting universal build" >&2
 	@echo "Please investigate or start from scratch:" >&2
 	@echo "./autogen.sh && ./configure --your-configure-args..." >&2
@@ -465,10 +477,14 @@ HEADERS := \
     emc/tp/tp_types.h \
     emc/tp/spherical_arc.h \
     emc/tp/blendmath.h \
+    emc/tp/tp_shared.h \
+    emc/tp/tp_private.h \
     emc/motion/emcmotcfg.h \
     emc/motion/emcmotglb.h \
     emc/motion/motion.h \
+    emc/motion/motion_id.h \
     emc/motion/usrmotintf.h \
+    emc/motion/state_tag.h \
     emc/nml_intf/canon.hh \
     emc/nml_intf/canon_position.hh \
     emc/nml_intf/emctool.h \
@@ -477,21 +493,27 @@ HEADERS := \
     emc/nml_intf/emccfg.h \
     emc/nml_intf/emcglb.h \
     emc/nml_intf/emcpos.h \
+    emc/nml_intf/emcpose.h \
     emc/nml_intf/interp_return.hh \
     emc/nml_intf/interpl.hh \
     emc/nml_intf/motion_types.h \
     emc/nml_intf/debugflags.h \
     emc/rs274ngc/interp_internal.hh \
     emc/rs274ngc/interp_base.hh \
+    emc/rs274ngc/modal_state.hh \
     emc/rs274ngc/rs274ngc.hh \
-    hal/lib/hal.h \
-    hal/lib/hal_priv.h \
-    hal/lib/hal_parport.h \
-    hal/lib/hal_group.h \
-    hal/lib/hal_ring.h \
-    hal/lib/hal_rcomp.h \
-    hal/lib/hal_iter.h \
     hal/lib/config_module.h \
+    hal/lib/hal_group.h \
+    hal/lib/hal.h \
+    hal/lib/hal_internal.h \
+    hal/lib/hal_iter.h \
+    hal/lib/hal_list.h \
+    hal/lib/hal_logging.h \
+    hal/lib/hal_parport.h \
+    hal/lib/hal_priv.h \
+    hal/lib/hal_rcomp.h \
+    hal/lib/hal_ring.h \
+    hal/lib/vtable.h \
     hal/drivers/hal_gpiomap.h \
     hal/drivers/hal_spi.h \
     libnml/buffer/locmem.hh \
@@ -549,7 +571,6 @@ HEADERS := \
     rtapi/rtapi_int.h \
     rtapi/rtapi_limits.h \
     rtapi/rtapi_math.h \
-    rtapi/rtapi_math_i386.h \
     rtapi/rtapi_math64.h \
     rtapi/rtapi_common.h \
     rtapi/rtapi_exception.h \
@@ -634,7 +655,7 @@ pythonclean:
 	find ../lib/python -name '*.so' -exec rm {} +
 python: $(PYTARGETS)
 userspace: python
-clean: docclean pythonclean cscopeclean
+clean: pythonclean cscopeclean
 endif
 
 # This is the gateway into the crazy world of "kbuild", the linux 2.6 system
@@ -649,7 +670,7 @@ modules:  $(OBJDIR)/.separate-kbuild-artifacts-hack.stamp
 	$(PYTHON) modsilent.py $(MAKE) \
 	    -C $(KERNELDIR) \
 	    SUBDIRS=$(BASEPWD)/$(OBJDIR) \
-	    CC=$(CC) KBUILD_VERBOSE=$(BUILD_VERBOSE) modules
+	    CC="$(CC)" KBUILD_VERBOSE=$(BUILD_VERBOSE) modules
 	cp $(OBJDIR)/Module.symvers $(OBJDIR)/*$(MODULE_EXT) $(RTLIBDIR)
 endif  # BUILD_SYS == 'kbuild'
 
@@ -665,7 +686,9 @@ MODULE_SOURCE_DIRS = emc hal libnml rtapi workaround machinetalk
 MODULE_SOURCES = Makefile* config* modsilent.py
 $(OBJDIR)/.separate-kbuild-artifacts-hack.stamp:
 	mkdir -p $(OBJDIR)
-	cp -rlf $(MODULE_SOURCE_DIRS) $(OBJDIR)
+	# hard-link contents of $(MODULE_SOURCE_DIRS) to # $(OBJDIR)
+	# never follow symbolic links
+	cp -rlfd $(MODULE_SOURCE_DIRS) $(OBJDIR)
 	cp -lf $(MODULE_SOURCES) $(OBJDIR)
 ifeq ($(BUILD_SYS),kbuild)
 	# kbuild needs a full copy of this tree with
@@ -690,18 +713,21 @@ modclean:
 depclean:
 	-rm -rf depends
 
-clean: depclean modclean webtalk-clean
+clean: depclean modclean
 	find . -name '*.o' |xargs rm -f
 	-rm -rf objects
 	-rm -f $(TARGETS)
 	for flav in $(BUILD_THREAD_FLAVORS); do \
 	    rm -rf ../lib/$$flav; \
 	done
-	-rm -rf ../rtlib
+	-rm -rf ../rtlib ../libexec
+	rm -f ../etc/linuxcnc/rtapi.ini
 	-rm -f $(COPY_CONFIGS)
 	-rm -f $(RTLIBDIR)/*.$(MODULE_EXT)
 	-rm -f hal/components/conv_*.comp
 	-rm -f hal/components/*_bin.h   # generated by pasm for bb platform
+	rm -rf ../share/linuxcnc/stepconf
+	-rm -rf ../libexec
 
 # So that nothing is built as root, this rule does not depend on the touched
 # files (Note that files in depends/ might be rebuilt, and there's little that
@@ -763,9 +789,7 @@ install-menus install-menu: $(MENUS)
 	cp $< $(HOME)/.config/menus/applications-merged
 else
 
-DOCS=NEWS README AUTHORS
-
-DOCS_HELP=$(call GLOB,../docs/help/*)
+DOCS_HELP=$(call GLOB,../help/*)
 NC_FILES=$(filter-out %/butterfly.ngc,$(call GLOB,../nc_files/*))
 TCL=$(call GLOB,../tcl/*.tcl)
 TCL_BIN=$(call GLOB,../tcl/bin/*.tcl) ../tcl/bin/popimage
@@ -787,7 +811,6 @@ install-dirs:
 	$(DIR)  $(DESTDIR)$(EMC2_RTLIB_DIR) \
 		$(DESTDIR)$(sysconfdir)/linuxcnc $(DESTDIR)$(bindir) \
 		$(DESTDIR)$(includedir)/linuxcnc \
-		$(DESTDIR)$(includedir)/linuxcnc/userpci \
 		$(DESTDIR)$(docdir) $(DESTDIR)$(ncfilesdir) \
 		$(DESTDIR)$(EMC2_LIBEXEC_DIR) \
 		$(DESTDIR)/etc/X11/app-defaults $(DESTDIR)$(tcldir)/bin \
@@ -815,21 +838,24 @@ install-dirs:
 ifeq ($(BUILD_EMCWEB),yes)
 	$(DIR)	$(DESTDIR)$(datadir)/linuxcnc/doc-root/css/images \
 		$(DESTDIR)$(datadir)/linuxcnc/doc-root/js \
-		$(DESTDIR)$(datadir)/linuxcnc/doc-root/res 
+		$(DESTDIR)$(datadir)/linuxcnc/doc-root/res
+endif
+ifeq ($(USERMODE_PCI),yes)
+	$(DIR)	$(DESTDIR)$(includedir)/linuxcnc/userpci
 endif
 
 install-kernel-indep: install-dirs
-	$(FILE) ../docs/man/man1/*.1 $(DESTDIR)$(mandir)/man1
-	$(FILE) $(filter-out %/skeleton.3hal, $(wildcard ../docs/man/man3/*.3hal)) $(DESTDIR)$(mandir)/man3
-	$(FILE) $(filter-out %/skeleton.3rtapi, $(wildcard ../docs/man/man3/*.3rtapi)) $(DESTDIR)$(mandir)/man3
-	$(FILE) $(filter-out %/skeleton.9, $(wildcard ../docs/man/man9/*.9)) $(DESTDIR)$(mandir)/man9
+	$(FILE) ../man/man1/*.1 $(DESTDIR)$(mandir)/man1
+	$(FILE) ../man/man9/*.9 $(DESTDIR)$(mandir)/man9
+	$(FILE) $(filter-out %/skeleton.3hal, $(wildcard ../man/man3/*.3hal)) $(DESTDIR)$(mandir)/man3
+	$(FILE) $(filter-out %/skeleton.3rtapi, $(wildcard ../man/man3/*.3rtapi)) $(DESTDIR)$(mandir)/man3
+	$(FILE) $(filter-out %/skeleton.9comp, $(wildcard ../man/man9/*.9comp)) $(DESTDIR)$(mandir)/man9
 	$(FILE) objects/*.msg $(DESTDIR)$(tcldir)/msgs
 	$(EXE) ../scripts/realtime $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/halrun $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/haltcl $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/simulate_probe $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/sim_pin $(DESTDIR)$(bindir)
-	$(FILE) ../docs/UPDATING $(DESTDIR)$(docdir)/UPDATING
 	$(FILE) ../*.png ../*.gif $(DESTDIR)$(datadir)/linuxcnc
 
 	# install all the sample configs, including subdirs (tar is required on debian systems, and common on others)
@@ -837,6 +863,7 @@ install-kernel-indep: install-dirs
 
 	$(EXE) $(filter ../bin/%,$(TARGETS)) $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/linuxcnc $(DESTDIR)$(bindir)
+	$(EXE) ../scripts/machinekit $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/linuxcnc_info $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/linuxcnc_var $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/latency-test $(DESTDIR)$(bindir)
@@ -852,8 +879,9 @@ endif
 	$(FILE) ../rtlib/ulapi-*.so $(DESTDIR)$(EMC2_RTLIB_BASE_DIR)
 	-ldconfig $(DESTDIR)$(libdir)
 	$(FILE) $(HEADERS) $(DESTDIR)$(includedir)/linuxcnc/
+ifeq ($(USERMODE_PCI),yes)
 	$(FILE) $(USERPCI_HEADERS) $(DESTDIR)$(includedir)/linuxcnc/userpci
-	$(FILE) $(addprefix ../docs/,$(DOCS)) $(DESTDIR)$(docdir)
+endif
 	$(FILE) $(DOCS_HELP) $(DESTDIR)$(docdir)
 	$(TREE) $(NC_FILES) $(DESTDIR)$(ncfilesdir)
 	$(EXE) ../nc_files/M101 $(DESTDIR)$(ncfilesdir)
@@ -910,6 +938,9 @@ install-python: install-dirs
 	$(DIR) $(DESTDIR)$(SITEPY)/gladevcp
 	$(DIR) $(DESTDIR)$(SITEPY)/stepconf
 	$(DIR) $(DESTDIR)$(SITEPY)/machinekit
+	$(DIR) $(DESTDIR)$(SITEPY)/fdm
+	$(DIR) $(DESTDIR)$(datadir)/fdm/thermistor_tables
+	$(DIR) $(DESTDIR)$(SITEPY)/drivers
 	$(FILE) ../lib/python/*.py ../lib/python/*.so $(DESTDIR)$(SITEPY)
 	$(FILE) ../lib/python/rs274/*.py $(DESTDIR)$(SITEPY)/rs274
 	$(FILE) ../lib/python/touchy/*.py $(DESTDIR)$(SITEPY)/touchy
@@ -920,9 +951,16 @@ install-python: install-dirs
 	$(FILE) ../lib/python/stepconf/*.py $(DESTDIR)$(SITEPY)/stepconf
 	$(FILE) ../lib/python/machinekit/*.py $(DESTDIR)$(SITEPY)/machinekit/
 	$(FILE) ../lib/python/machinekit/*.so $(DESTDIR)$(SITEPY)/machinekit/
+	$(FILE) ../lib/python/fdm/*.py $(DESTDIR)$(SITEPY)/fdm
+	$(FILE) ../lib/python/drivers/*.py $(DESTDIR)$(SITEPY)/drivers
 	$(EXE) ../bin/stepconf $(DESTDIR)$(bindir)
 	$(EXE) ../bin/pncconf $(DESTDIR)$(bindir)
 	$(EXE) ../bin/hal_input $(DESTDIR)$(bindir)
+	$(EXE) ../bin/hal_gpio_mcp23017 $(DESTDIR)$(bindir)
+	$(EXE) ../bin/hal_pwm_pca9685 $(DESTDIR)$(bindir)
+	$(EXE) ../bin/hal_storage $(DESTDIR)$(bindir)
+	$(EXE) ../bin/hal_temp_ads7828 $(DESTDIR)$(bindir)
+	$(EXE) ../bin/hal_temp_bbb $(DESTDIR)$(bindir)
 	$(EXE) ../bin/pyvcp $(DESTDIR)$(bindir)
 	$(EXE) ../bin/gladevcp $(DESTDIR)$(bindir)
 	$(EXE) ../bin/axis $(DESTDIR)$(bindir)
@@ -936,7 +974,7 @@ install-python: install-dirs
 	$(EXE) ../bin/gscreen $(DESTDIR)$(bindir)
 	$(EXE) ../bin/gmoccapy $(DESTDIR)$(bindir)
 	$(EXE) $(patsubst %.py,../bin/%,$(VISMACH_PY)) $(DESTDIR)$(bindir)
-	$(FILE) ../share/linuxcnc/linuxcnc-wizard.gif $(DESTDIR)$(prefix)/share/linuxcnc
+	$(FILE) ../share/linuxcnc/machinekit-wizard.gif $(DESTDIR)$(prefix)/share/linuxcnc
 	$(FILE) emc/usr_intf/axis/etc/axis_light_background $(DESTDIR)$(docdir)
 	$(FILE) emc/usr_intf/axis/README $(DESTDIR)$(docdir)/README.axis
 	$(FILE) ../share/axis/images/*.png ../share/axis/images/*.gif ../share/axis/images/*.xbm ../share/axis/images/*.ngc $(DESTDIR)$(datadir)/axis/images
@@ -944,13 +982,18 @@ install-python: install-dirs
 	$(FILE) ../share/gscreen/images/*.gif $(DESTDIR)$(datadir)/gscreen/images
 	$(TREE) ../share/gscreen/skins/* $(DESTDIR)$(datadir)/gscreen/skins
 	$(FILE) ../share/gmoccapy/images/*.png ../share/gmoccapy/images/*.gif ../share/gmoccapy/images/*.svg $(DESTDIR)$(datadir)/gmoccapy/images
+	$(FILE) ../share/fdm/thermistor_tables/*.txt $(DESTDIR)$(datadir)/fdm/thermistor_tables
 	$(EXE) ../bin/configserver $(DESTDIR)$(bindir)
+	$(EXE) ../bin/videoserver $(DESTDIR)$(bindir)
 	$(EXE) ../bin/mkwrapper $(DESTDIR)$(bindir)
+	$(EXE) ../bin/mklauncher $(DESTDIR)$(bindir)
 	$(EXE) ../bin/gremlin $(DESTDIR)$(bindir)
 	$(EXE) ../bin/lintini $(DESTDIR)$(bindir)
 	$(EXE) ../bin/teach-in $(DESTDIR)$(bindir)
 	$(EXE) ../bin/tracking-test $(DESTDIR)$(bindir)
 	$(EXE) ../bin/yapps $(DESTDIR)$(bindir)
+	$(EXE) ../scripts/gcode-to-ngc $(DESTDIR)$(bindir)
+	$(EXE) ../scripts/g1-to-g23 $(DESTDIR)$(bindir)
 endif
 
 install-kernel-dep: install-dirs
@@ -1053,46 +1096,52 @@ ifneq ($(KERNELRELEASE),)
 # KERNELRELEASE is non-empty, therefore we are building modules using
 # the "kbuild" system.
 #
+INCLUDE_PREFIX = $(BASEPWD)
+
+
 # When the Submakefile is included in the kbuild Makefile, the
 # module's obj-m and foo-objs definitions may remain in the Submakefile
+include $(BASEPWD)/hal/lib/Submakefile
 include $(BASEPWD)/machinetalk/Submakefile
+include $(BASEPWD)/hal/i_components/Submakefile
 include $(BASEPWD)/hal/components/Submakefile
+include $(BASEPWD)/hal/vtable-example/Submakefile
+include $(BASEPWD)/hal/userfunct-example/Submakefile
 include $(BASEPWD)/machinetalk/msgcomponents/Submakefile
 include $(BASEPWD)/rtapi/Submakefile
 include $(BASEPWD)/rtapi/shmdrv/Submakefile
-include $(BASEPWD)/rtapi/xeno_math/Submakefile
+include $(BASEPWD)/rtapi/rtapi_math/Submakefile
 endif # KERNELRELEASE non-empty
-
 
 # $(BASEPWD) is used here, instead of relative paths, because that's
 # what kbuild seems to require
 
 EXTRA_CFLAGS += $(RTFLAGS) \
 	-D__MODULE__ \
-	-I$(BASEPWD) \
-	-I$(BASEPWD)/libnml/linklist \
-	-I$(BASEPWD)/libnml/cms \
-	-I$(BASEPWD)/libnml/rcs \
-	-I$(BASEPWD)/libnml/inifile \
-	-I$(BASEPWD)/libnml/os_intf \
-	-I$(BASEPWD)/libnml/nml \
-	-I$(BASEPWD)/libnml/buffer \
-	-I$(BASEPWD)/libnml/posemath \
-	-I$(BASEPWD)/protobuf/nanopb \
-	-I$(BASEPWD)/rtapi \
-	-I$(BASEPWD)/hal/lib \
-	-I$(BASEPWD)/emc/nml_intf \
-	-I$(BASEPWD)/emc/kinematics \
-	-I$(BASEPWD)/emc/motion \
-	-I$(BASEPWD)/emc/tp \
-	-I$(BASEPWD)/machinetalk/nanopb \
+	-I$(INCLUDE_PREFIX) \
+	-I$(INCLUDE_PREFIX)/libnml/linklist \
+	-I$(INCLUDE_PREFIX)/libnml/cms \
+	-I$(INCLUDE_PREFIX)/libnml/rcs \
+	-I$(INCLUDE_PREFIX)/libnml/inifile \
+	-I$(INCLUDE_PREFIX)/libnml/os_intf \
+	-I$(INCLUDE_PREFIX)/libnml/nml \
+	-I$(INCLUDE_PREFIX)/libnml/buffer \
+	-I$(INCLUDE_PREFIX)/libnml/posemath \
+	-I$(INCLUDE_PREFIX)/protobuf/nanopb \
+	-I$(INCLUDE_PREFIX)/rtapi \
+	-I$(INCLUDE_PREFIX)/hal/lib \
+	-I$(INCLUDE_PREFIX)/emc/nml_intf \
+	-I$(INCLUDE_PREFIX)/emc/kinematics \
+	-I$(INCLUDE_PREFIX)/emc/motion \
+	-I$(INCLUDE_PREFIX)/emc/tp \
+	-I$(INCLUDE_PREFIX)/machinetalk/nanopb \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
 	$(KERNEL_MATH_CFLAGS)
 
 ifdef TARGET_PLATFORM_BEAGLEBONE
-EXTRA_CFLAGS += -I$(BASEPWD)/hal/support/pru
+EXTRA_CFLAGS += -I$(INCLUDE_PREFIX)/hal/support/pru
 endif
 ifeq ($(BUILD_SYS),kbuild)
 EXTRA_CFLAGS += $(call cc-option,-Wframe-larger-than=2560) $(call cc-option,-Wno-declaration-after-statement)
@@ -1147,8 +1196,6 @@ endif
 # Subdirectory: hal/components
 obj-$(CONFIG_BOSS_PLC) += boss_plc.o
 boss_plc-objs := hal/components/boss_plc.o $(MATHSTUB)
-obj-$(CONFIG_DEBOUNCE) += debounce.o
-debounce-objs := hal/components/debounce.o $(MATHSTUB)
 obj-$(CONFIG_ENCODER) += encoder.o
 encoder-objs := hal/components/encoder.o $(MATHSTUB)
 obj-$(CONFIG_COUNTER) += counter.o
@@ -1167,18 +1214,12 @@ obj-$(CONFIG_PWMGEN) += pwmgen.o
 pwmgen-objs := hal/components/pwmgen.o $(MATHSTUB)
 obj-$(CONFIG_SIGGEN) += siggen.o
 siggen-objs := hal/components/siggen.o $(MATHSTUB)
-obj-$(CONFIG_PID) += pid.o
-pid-objs := hal/components/pid.o $(MATHSTUB)
-obj-$(CONFIG_AT_PID) += at_pid.o
-at_pid-objs := hal/components/at_pid.o $(MATHSTUB)
 obj-$(CONFIG_PID) += threads.o
 threads-objs := hal/components/threads.o $(MATHSTUB)
 obj-$(CONFIG_SUPPLY) += supply.o
 supply-objs := hal/components/supply.o $(MATHSTUB)
 obj-$(CONFIG_SIM_ENCODER) += sim_encoder.o
 sim_encoder-objs := hal/components/sim_encoder.o $(MATHSTUB)
-obj-$(CONFIG_WEIGHTED_SUM) += weighted_sum.o
-weighted_sum-objs := hal/components/weighted_sum.o $(MATHSTUB)
 obj-$(CONFIG_WATCHDOG) += watchdog.o
 watchdog-objs := hal/components/watchdog.o $(MATHSTUB)
 obj-$(CONFIG_MODMATH) += modmath.o
@@ -1224,17 +1265,24 @@ hal_skeleton-objs := hal/drivers/hal_skeleton.o $(MATHSTUB)
 
 ifdef TARGET_PLATFORM_RASPBERRY
 obj-$(CONFIG_HAL_GPIO) += hal_gpio.o
-hal_gpio-objs := hal/drivers/hal_gpio.o 
+hal_gpio-objs := hal/drivers/hal_gpio.o
 obj-$(CONFIG_HAL_SPI) += hal_spi.o
-hal_spi-objs := hal/drivers/hal_spi.o 
+hal_spi-objs := hal/drivers/hal_spi.o
 endif
 
 ifdef TARGET_PLATFORM_BEAGLEBONE
 ifeq ($(BUILD_SYS),user-dso)
 obj-$(CONFIG_HAL_GPIO) += hal_bb_gpio.o
-hal_bb_gpio-objs := hal/drivers/hal_bb_gpio.o 
+hal_bb_gpio-objs := hal/drivers/hal_bb_gpio.o
 obj-$(CONFIG_PEPPER) += pepper.o
 pepper-objs := hal/components/pepper.o $(MATHSTUB)
+endif
+
+ifdef TARGET_PLATFORM_ZEDBOARD
+obj-$(CONFIG_HAL_GPIO) += hal_zed_gpio.o
+hal_zed_gpio-objs := hal/drivers/hal_zed_gpio.o
+obj-$(CONFIG_HAL_CAN) += hal_zed_can.o
+hal_zed_can-objs := hal/drivers/hal_zed_can.o
 endif
 
 obj-m += hal_arm335xQEP.o
@@ -1244,9 +1292,9 @@ endif
 
 ifeq ($(BUILD_SYS),user-dso)
 obj-m += gpiomap.o
-gpiomap-objs := hal/drivers/hal_gpiomap.o 
+gpiomap-objs := hal/drivers/hal_gpiomap.o
 obj-m += gpiouse.o
-gpiouse-objs := hal/drivers/hal_gpiouse.o 
+gpiouse-objs := hal/drivers/hal_gpiouse.o
 endif
 
 # hal_pru_generic driver
@@ -1291,6 +1339,12 @@ endif
 
 ifeq ($(BUILD_HOSTMOT2),yes)
 obj-$(CONFIG_HOSTMOT2) += hostmot2.o hm2_7i43.o hm2_7i90.o hm2_pci.o hm2_test.o
+ifeq ($(BUILD_SYS),user-dso)
+obj-$(CONFIG_HOSTMOT2) += hm2_eth.o
+hm2_eth-objs  :=			  \
+    hal/drivers/mesa-hostmot2/hm2_eth.o   \
+    $(MATHSTUB)
+endif
 #obj-$(CONFIG_HOSTMOT2) += hostmot2.o hm2_pci.o hm2_7i43.o
 hostmot2-objs +=			  \
     hal/drivers/mesa-hostmot2/hostmot2.o  \
@@ -1363,15 +1417,6 @@ endif
 obj-m += scope_rt.o
 scope_rt-objs := hal/utils/scope_rt.o $(MATHSTUB)
 
-obj-m += hal_lib.o
-hal_lib-objs := hal/lib/hal_lib.o $(MATHSTUB)
-hal_lib-objs += hal/lib/hal_group.o
-hal_lib-objs += hal/lib/hal_ring.o
-hal_lib-objs += hal/lib/hal_rcomp.o
-hal_lib-objs += machinetalk/support/nanopb.o
-hal_lib-objs += machinetalk/nanopb/pb_decode.o
-hal_lib-objs += machinetalk/nanopb/pb_encode.o
-hal_lib-objs += machinetalk/nanopb/pb_common.o
 
 obj-m += trivkins.o
 trivkins-objs := emc/kinematics/trivkins.o
@@ -1419,25 +1464,53 @@ scarakins-objs += libnml/posemath/sincos.o $(MATHSTUB)
 
 obj-$(CONFIG_MOTMOD) += motmod.o
 motmod-objs := emc/kinematics/cubic.o
-motmod-objs += emc/tp/tc.o
-motmod-objs += emc/tp/tcq.o
-motmod-objs += emc/tp/tp.o
-motmod-objs += emc/tp/spherical_arc.o
-motmod-objs += emc/tp/blendmath.o
 motmod-objs += emc/motion/motion.o
 motmod-objs += emc/motion/command.o
 motmod-objs += emc/motion/control.o
 motmod-objs += emc/motion/homing.o
-motmod-objs += emc/motion/usb_homing.o
 motmod-objs += emc/motion/emcmotglb.o
 motmod-objs += emc/motion/emcmotutil.o
 motmod-objs += emc/motion/stashf.o
 motmod-objs += emc/motion/dbuf.o
-motmod-objs += emc/nml_intf/emcpose.o
 motmod-objs += libnml/posemath/_posemath.o
 motmod-objs += libnml/posemath/sincos.o $(MATHSTUB)
 
+## Begin: WOSI - wishbone over serial interface
+ifneq ($(WOSI_VER),)
+motmod-objs += emc/motion/usb_homing.o
+endif
+## End: WOSI - wishbone over usb
+
+# obj-m += vtexport.o
+# vtexport-objs := hal/vtable-example/vtexport.o
+# vtexport-objs += hal/vtable-example/vcode.o
+
+obj-m += icomp.o
+icomp-objs := hal/icomp-example/icomp.o
+
+# clashes with component in i_components
+#obj-m += lutn.o
+#lutn-objs := hal/icomp-example/lutn.o
+
+obj-m += ufdemo.o
+ufdemo-objs := hal/userfunct-example/ufdemo.o
+
+obj-m += tp.o
+tp-objs := $(addprefix emc/tp/, \
+	tc.o 		\
+	tcq.o 		\
+	tp.o 		\
+	tpmain.o 	\
+	blendmath.o 	\
+	spherical_arc.o 	\
+	) 		\
+	emc/nml_intf/emcpose.o \
+	libnml/posemath/_posemath.o \
+	libnml/posemath/sincos.o $(MATHSTUB)
+
+
 TORTOBJS = $(foreach file,$($(patsubst %.o,%,$(1))-objs), $(OBJDIR)/$(file))
+
 
 # USER_DSO module building
 # (don't build when 'BUILD_ALL_FLAVORS' or 'BUILD_THREADS_MODULES' are set;
@@ -1453,14 +1526,16 @@ modules: $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-m))
 $(RTLIBDIR)/%.so:
 	$(ECHO) Linking $@
 	@mkdir -p $(dir $@)
-	$(Q)ld -r -o $(OBJDIR)/$*.tmp $^
-	@if ! $(IS_POWERPC); then objcopy -j .rtapi_export -O binary \
+	$(Q)$(LD) -r -o $(OBJDIR)/$*.tmp \
+	    $^
+	@if ! $(IS_POWERPC); then $(OBJCOPY) -j .rtapi_export -O binary \
 	    $(OBJDIR)/$*.tmp $(OBJDIR)/$*.exp; fi
-	@if ! $(IS_POWERPC); then objcopy  -G __x86.get_pc_thunk.bx -G __i686.get_pc_thunk.bx \
+	@if ! $(IS_POWERPC); then $(OBJCOPY) \
+	    -G __x86.get_pc_thunk.bx -G __i686.get_pc_thunk.bx \
 	    `xargs -r0n1 echo -G < $(OBJDIR)/$*.exp | grep -ve '^-G $$' | \
 	        sort -u` $(OBJDIR)/$*.tmp; fi
 	$(Q)$(CC) -shared -Bsymbolic $(LDFLAGS) -o $@ $(OBJDIR)/$*.tmp \
-	    -lm $(EXTRA_LDFLAGS)
+	$(EXTRA_LDFLAGS)
 
 $(sort $(RTDEPS)): $(DEPDIR)/%.d: %.c
 	@mkdir -p $(dir $@)
@@ -1507,7 +1582,6 @@ ifneq "$(filter normal user-dso,$(BUILD_SYS))" ""
 #$(RTLIBDIR)/rtapi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(rtapi-objs))
 $(RTLIBDIR)/classicladder_rt$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(classicladder_rt-objs))
 $(RTLIBDIR)/boss_plc$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(boss_plc-objs))
-$(RTLIBDIR)/debounce$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(debounce-objs))
 $(RTLIBDIR)/encoder$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(encoder-objs))
 $(RTLIBDIR)/counter$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(counter-objs))
 $(RTLIBDIR)/encoder_ratio$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(encoder_ratio-objs))
@@ -1519,11 +1593,9 @@ $(RTLIBDIR)/freqgen$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(freqgen-objs))
 $(RTLIBDIR)/pwmgen$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pwmgen-objs))
 $(RTLIBDIR)/siggen$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(siggen-objs))
 $(RTLIBDIR)/at_pid$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(at_pid-objs))
-$(RTLIBDIR)/pid$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pid-objs))
 $(RTLIBDIR)/threads$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(threads-objs))
 $(RTLIBDIR)/supply$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(supply-objs))
 $(RTLIBDIR)/sim_encoder$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(sim_encoder-objs))
-$(RTLIBDIR)/weighted_sum$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(weighted_sum-objs))
 $(RTLIBDIR)/watchdog$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(watchdog-objs))
 $(RTLIBDIR)/modmath$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(modmath-objs))
 $(RTLIBDIR)/streamer$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(streamer-objs))
@@ -1543,7 +1615,10 @@ $(RTLIBDIR)/hostmot2$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hostmot2-objs))
 $(RTLIBDIR)/hm2_7i43$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_7i43-objs))
 $(RTLIBDIR)/hm2_7i90$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_7i90-objs))
 $(RTLIBDIR)/hm2_pci$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_pci-objs))
-$(RTLIBDIR)/hm2_test$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_test-objs)) 
+ifeq ($(BUILD_SYS),user-dso)
+$(RTLIBDIR)/hm2_eth$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_eth-objs))
+endif
+$(RTLIBDIR)/hm2_test$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_test-objs))
 endif
 
 ifdef TARGET_PLATFORM_BEAGLEBONE
@@ -1564,6 +1639,11 @@ $(RTLIBDIR)/hal_gpio$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gpio-objs))
 $(RTLIBDIR)/hal_spi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_spi-objs))
 endif
 
+ifdef TARGET_PLATFORM_ZEDBOARD
+$(RTLIBDIR)/hal_zed_gpio$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_zed_gpio-objs))
+$(RTLIBDIR)/hal_zed_can$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_zed_can-objs))
+endif
+
 $(RTLIBDIR)/pci_8255$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pci_8255-objs))
 $(RTLIBDIR)/hal_tiro$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_tiro-objs))
 $(RTLIBDIR)/hal_stg$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_stg-objs))
@@ -1576,7 +1656,6 @@ $(RTLIBDIR)/hal_skeleton$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_skeleton-obj
 $(RTLIBDIR)/hal_speaker$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_speaker-objs))
 $(RTLIBDIR)/opto_ac5$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(opto_ac5-objs))
 $(RTLIBDIR)/scope_rt$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(scope_rt-objs))
-$(RTLIBDIR)/hal_lib$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_lib-objs))
 $(RTLIBDIR)/motmod$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(motmod-objs))
 $(RTLIBDIR)/trivkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(trivkins-objs))
 $(RTLIBDIR)/5axiskins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(5axiskins-objs))
@@ -1591,6 +1670,11 @@ $(RTLIBDIR)/genserkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(genserkins-objs))
 $(RTLIBDIR)/pumakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pumakins-objs))
 $(RTLIBDIR)/scarakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(scarakins-objs))
 $(RTLIBDIR)/hal_gm$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gm-objs))
+
+$(RTLIBDIR)/tp$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tp-objs))
+$(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
+$(RTLIBDIR)/icomp$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(icomp-objs))
+$(RTLIBDIR)/lutn$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutn-objs))
 
 ifeq ($(TRIVIAL_BUILD),no)
 READ_RTDEPS = $(wildcard $(RTDEPS))
@@ -1608,7 +1692,6 @@ endif  # build kernel RTAPI modules
 NOTAGSIN := \
 	depends \
 	objects \
-	machinetalk/ring \
 	machinetalk/generated \
 	machinetalk/nanopb
 
@@ -1660,8 +1743,7 @@ swish:
 		$(dir $(BASEPWD))lib/python \
 		$(dir $(BASEPWD))scripts \
 		$(dir $(BASEPWD))configs \
-		$(dir $(BASEPWD))docs/src \
-		$(dir $(BASEPWD))docs/man/man1
+		$(dir $(BASEPWD))man/man1
 
 # When you depend on objects/var-ZZZ you are depending on the contents of the
 # variable ZZZ, which is assumed to depend on a Makefile, a Submakefile, or
@@ -1677,10 +1759,9 @@ objects/var-%: Makefile $(wildcard $(SUBMAKEFILES)) Makefile.inc
 cscope:
 	cscope -Rb
 
-cscopeclean:
+cscope/man/:
 	bash -c 'for f in `find ./ -name "cscope.*out"`;do rm $$f;done'
 
 NOSETESTS := $(wildcard ../nosetests/*.py)
 nosetest:
 	$(foreach var,$(NOSETESTS),nosetests -v $(var);)
-

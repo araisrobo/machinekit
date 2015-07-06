@@ -1,4 +1,8 @@
 // fundamental types
+import "nanopb.proto";
+
+// see README.msgid
+// msgid base: 1400
 
 package pb;
 
@@ -61,12 +65,19 @@ enum ObjectType {
     RING_RECORD       = 16;
     RING_STREAM       = 17;
 
-    VALUE             = 20;
-    INSTANCE          = 21;
-    ORIGINATOR        = 22;
-    NAMED_VALUE       = 25;
 
-    OT_ERROR          = 30;
+    HAL_VTABLE        = 18;
+    HAL_INST          = 19;
+
+    RING_MULTIFRAME   = 20;
+
+    // used at all?
+    VALUE             = 120;
+    INSTANCE          = 121;
+    ORIGINATOR        = 122;
+    NAMED_VALUE       = 125;
+
+    OT_ERROR          = 130;
 }
 
 enum RCS_STATUS {
@@ -313,6 +324,7 @@ enum ContainerType {
     MT_RTAPI_APP_CALLFUNC = 309;
 
     MT_RTAPI_APP_REPLY = 310;
+    MT_RTAPI_APP_DELINST= 311;
 
 
     // application discovery
@@ -623,6 +635,18 @@ enum ContainerType {
     MT_EMC_NML_ERROR = 12510;
     MT_EMC_NML_TEXT = 12511;
     MT_EMC_NML_DISPLAY = 12512;
+
+    // launcher pub-sub
+    MT_LAUNCHER_FULL_UPDATE = 12600;
+    MT_LAUNCHER_INCREMENTAL_UPDATE = 12601;
+    MT_LAUNCHER_ERROR = 12602;
+    // launcher command
+    MT_LAUNCHER_START = 12610;
+    MT_LAUNCHER_TERMINATE = 12611;
+    MT_LAUNCHER_KILL = 12612;
+    MT_LAUNCHER_WRITE_STDIN = 12613;
+    MT_LAUNCHER_CALL = 12614;
+    MT_LAUNCHER_SHUTDOWN = 12615;
 }
 
 enum OriginIndex {

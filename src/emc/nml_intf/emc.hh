@@ -19,6 +19,8 @@
 #include "emcglb.h"		// EMC_AXIS_MAX
 #include "nml_type.hh"
 #include "motion_types.h"
+#include <stdint.h>
+#include "modal_state.hh"
 
 // Forward class declarations
 class EMC_AXIS_STAT;
@@ -413,6 +415,7 @@ extern int emcAxisUpdate(EMC_AXIS_STAT stat[], int numAxes);
 
 // implementation functions for EMC_TRAJ types
 
+extern int emcTrajUpdateTag(StateTag const &tag);
 extern int emcTrajSetAxes(int axes, int axismask);
 extern int emcTrajSetUnits(double linearUnits, double angularUnits);
 extern int emcTrajSetCycleTime(double cycleTime);
@@ -468,9 +471,9 @@ extern int emcMotionInit();
 extern int emcMotionHalt();
 extern int emcMotionAbort();
 extern int emcMotionSetDebug(int debug);
-extern int emcMotionSetAout(unsigned char index, double start, double end,
+extern int emcMotionSetAout(unsigned int index, double start, double end,
                             unsigned char now);
-extern int emcMotionSetDout(unsigned char index, unsigned char start,
+extern int emcMotionSetDout(unsigned int index, unsigned char start,
 			    unsigned char end, unsigned char now);
 
 extern int emcMotionUpdate(EMC_MOTION_STAT * stat);
@@ -558,7 +561,7 @@ int emcSetMaxFeedOverride(double maxFeedScale);
 int emcSetupArcBlends(int arcBlendEnable,
         int arcBlendFallbackEnable,
         int arcBlendOptDepth,
-        double arcBlendGapCycles,
+        int arcBlendGapCycles,
         double arcBlendRampFreq);
 int emcSetupUsbMot(int usbmotEnable);
 

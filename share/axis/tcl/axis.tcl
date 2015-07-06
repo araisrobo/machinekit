@@ -1,4 +1,4 @@
-#    This is a component of AXIS, a front-end for LinuxCNC
+#    This is a component of AXIS, a front-end for Machinekit
 #    Copyright 2004, 2005, 2006, 2007, 2008, 2009
 #    Jeff Epler <jepler@unpythonic.net> and Chris Radek <chris@timeguy.com>
 #
@@ -35,6 +35,9 @@ menu .menu.machine.home \
 menu .menu.machine.unhome \
 	-tearoff 0
 menu .menu.view \
+	-tearoff 0
+#  added	
+menu .menu.user \
 	-tearoff 0
 menu .menu.help \
 	-tearoff 0
@@ -179,7 +182,7 @@ setup_menu_accel .menu.machine end [_ "Ha_l Scope"]
 
 .menu.machine add command \
 	-command {exec linuxcnctop -ini $emcini &}
-setup_menu_accel .menu.machine end [_ "Sho_w LinuxCNC Status"]
+setup_menu_accel .menu.machine end [_ "Sho_w Machinekit Status"]
 
 .menu.machine add command \
 	-command {exec debuglevel -ini $emcini &}
@@ -433,6 +436,49 @@ setup_menu_accel .menu.view.grid end [_ "_Off"]
         -command set_grid_size_custom
 setup_menu_accel .menu.view.grid end [_ "_Custom"]
 
+#- Added User Menu-----------------------------------------------------------------------
+
+.menu.user add command \
+	-command user0
+setup_menu_accel .menu.user end [_ "User_0"]
+
+.menu.user add command \
+	-command user1
+setup_menu_accel .menu.user end [_ "User_1"]
+
+.menu.user add command \
+	-command user2
+setup_menu_accel .menu.user end [_ "User_2"]
+
+.menu.user add command \
+	-command user3
+setup_menu_accel .menu.user end [_ "User_3"]
+
+.menu.user add command \
+	-command user4
+setup_menu_accel .menu.user end [_ "User_4"]
+
+.menu.user add command \
+	-command user5
+setup_menu_accel .menu.user end [_ "User_5"]
+
+.menu.user add command \
+	-command user6
+setup_menu_accel .menu.user end [_ "User_6"]
+
+.menu.user add command \
+	-command user7
+setup_menu_accel .menu.user end [_ "User_7"]
+
+.menu.user add command \
+	-command user8
+setup_menu_accel .menu.user end [_ "User_8"]
+
+.menu.user add command \
+	-command user9
+setup_menu_accel .menu.user end [_ "User_9"]
+
+
 
 # ----------------------------------------------------------------------
 .menu.help add command \
@@ -461,6 +507,10 @@ setup_menu_accel .menu end [_ _Machine]
 .menu add cascade \
 	-menu .menu.view
 setup_menu_accel .menu end [_ _View]
+
+.menu add cascade \
+	-menu .menu.user
+setup_menu_accel .menu end [_ _User]
 
 .menu add cascade \
 	-menu .menu.help
@@ -1728,7 +1778,7 @@ text .about.message \
 	.about.message configure -cursor hand2
 	.about.message tag configure link -foreground red}
 .about.message tag bind link <ButtonPress-1><ButtonRelease-1> {launch_website}
-.about.message insert end [subst [_ "LinuxCNC/AXIS version \$version\n\nCopyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012 Jeff Epler and Chris Radek.\n\nThis is free software, and you are welcome to redistribute it under certain conditions.  See the file COPYING, included with LinuxCNC.\n\nVisit the LinuxCNC web site: "]] {} {http://www.linuxcnc.org/} link
+.about.message insert end [subst [_ "Machinekit/AXIS version \$version\n\nCopyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012 Jeff Epler and Chris Radek.\n\nThis is free software, and you are welcome to redistribute it under certain conditions.  See the file COPYING, included with Machinekit.\n\nVisit the Machinekit web site: "]] {} {http://www.machinekit.io/} link
 .about.message configure -state disabled
 
 button .about.ok \
@@ -1920,7 +1970,7 @@ proc relief {e args} {
 }
 
 proc update_title {args} {
-    set basetitle [subst [_ "AXIS \$::version on \$::machine"]]
+    set basetitle [subst [_ "AXIS with MachineKit \$::version on \$::machine"]]
     if {$::taskfile == ""} {
         set nofile [_ "(no file)"]
         wm ti . "$basetitle $nofile"
@@ -1932,6 +1982,7 @@ proc update_title {args} {
 }
 
 proc update_state {args} {
+    set mytest "Hooray!"
     switch $::task_state \
         $::STATE_ESTOP { set ::task_state_string [_ "ESTOP"] } \
         $::STATE_ESTOP_RESET { set ::task_state_string [_ "OFF"] } \
@@ -2414,4 +2465,4 @@ proc show_menu_available {m} {
     }
 }
 
-# vim:ts=8:sts=4:et:sw=4:
+# vim:ts=8:sts=4:et:sw=4:   -value 0 \

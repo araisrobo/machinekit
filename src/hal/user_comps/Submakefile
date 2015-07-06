@@ -1,4 +1,11 @@
-USER_COMP_PY = pyvcp hal_input gladevcp
+USER_COMP_PY = \
+	pyvcp hal_input \
+	hal_gpio_mcp23017 \
+	hal_pwm_pca9685 \
+	hal_storage \
+	hal_temp_ads7828 \
+	hal_temp_bbb \
+	gladevcp
 
 $(patsubst %, ../bin/%, $(USER_COMP_PY)) : ../bin/%: hal/user_comps/%.py
 	@$(ECHO) Syntax checking python script $(notdir $@)
@@ -35,9 +42,9 @@ ifdef HAVE_LIBUSB10
 XHC_HB04_SRC = hal/user_comps/xhc-hb04.cc
 USERSRCS += $(XHC_HB04_SRC)
 $(call TOOBJSDEPS, $(XHC_HB04_SRC)) : EXTRAFLAGS += $(LIBUSB10_CFLAGS)
-../bin/xhc-hb04: $(call TOOBJS, $(XHC_HB04_SRC)) ../lib/liblinuxcnchal.so.0 ../lib/liblinuxcncini.so.0
+../bin/xhc-hb04: $(call TOOBJS, $(XHC_HB04_SRC)) ../lib/liblinuxcnchal.so.0 ../lib/liblinuxcncini.so.0 ../lib/librtapi_math.so.0
 	$(ECHO) Linking $(notdir $@)
-	$(Q)$(CC) $(LDFLAGS) -o $@ $^ -lm -lstdc++ $(LIBUSB10_LIBS)
+	$(Q)$(CC) $(LDFLAGS) -o $@ $^ -lstdc++ $(LIBUSB10_LIBS)
 TARGETS += ../bin/xhc-hb04
 endif # HAVE_LIBUSB10
 

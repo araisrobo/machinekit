@@ -44,6 +44,7 @@
 #include "halcmd.h"
 #include "halcmd_commands.h"
 #include "halcmd_completion.h"
+#include "halcmd_rtapiapp.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,7 +68,7 @@ static int propose_completion(char *all, char *fragment, int start);
 
 static const char *inifile;
 static FILE *inifp;
-
+extern char *logpath;
 /***********************************************************************
 *                   LOCAL FUNCTION DEFINITIONS                         *
 ************************************************************************/
@@ -84,6 +85,8 @@ int main(int argc, char **argv)
     char *cf=NULL, *cw=NULL, *cl=NULL;
     char *uri = NULL; // NULL - use service discovery
     char *service_uuid = NULL; // must have a global uuid
+
+    autoloading = false;  // flag to check where a do_loadrt_cmd() is coming from
 
     inifile = getenv("MACHINEKIT_INI");
     /* use default if not specified by user */
@@ -102,7 +105,7 @@ int main(int argc, char **argv)
     keep_going = 0;
     /* start parsing the command line, options first */
     while(1) {
-        c = getopt(argc, argv, "+RCfi:kqQsvVhu:U:");
+        c = getopt(argc, argv, "+RCfi:kqQsvVhu:U:P");
         if(c == -1) break;
         switch(c) {
             case 'R':
@@ -151,6 +154,9 @@ int main(int argc, char **argv)
 		break;
 	    case 'f':
                 filemode = 1;
+		break;
+	    case 'P':
+                proto_debug = 1;
 		break;
 
 

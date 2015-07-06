@@ -1912,6 +1912,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	break;
 
     case EMC_TRAJ_LINEAR_MOVE_TYPE:
+    emcTrajUpdateTag(((EMC_TRAJ_LINEAR_MOVE *) cmd)->tag);
 	emcTrajLinearMoveMsg = (EMC_TRAJ_LINEAR_MOVE *) cmd;
 
 	if (emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) {
@@ -1930,6 +1931,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         break;
 
     case EMC_TRAJ_CIRCULAR_MOVE_TYPE:
+    emcTrajUpdateTag(((EMC_TRAJ_LINEAR_MOVE *) cmd)->tag);
 	emcTrajCircularMoveMsg = (EMC_TRAJ_CIRCULAR_MOVE *) cmd;
         if (emcStatus->motion.traj.next_tp_reversed == TP_FORWARD) {
             target = emcTrajCircularMoveMsg->end;
@@ -2045,6 +2047,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	break;
 
     case EMC_TRAJ_RIGID_TAP_TYPE:
+    emcTrajUpdateTag(((EMC_TRAJ_LINEAR_MOVE *) cmd)->tag);
 	retval = emcTrajRigidTap(((EMC_TRAJ_RIGID_TAP *) cmd)->pos,
 	        ((EMC_TRAJ_RIGID_TAP *) cmd)->vel,
         	((EMC_TRAJ_RIGID_TAP *) cmd)->ini_maxvel,  
@@ -2067,7 +2070,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	break;
 
     case EMC_MOTION_SET_AOUT_TYPE:
-	retval = emcMotionSetAout(((EMC_MOTION_SET_AOUT *) cmd)->index,
+	retval = emcMotionSetAout((unsigned int)(((EMC_MOTION_SET_AOUT *) cmd)->index), /* widening of the index data type */
 				  ((EMC_MOTION_SET_AOUT *) cmd)->start,
 				  ((EMC_MOTION_SET_AOUT *) cmd)->end,
 				  ((EMC_MOTION_SET_AOUT *) cmd)->now);
@@ -2207,6 +2210,11 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
     case EMC_TASK_ABORT_TYPE:
 	// abort everything
+    // KLUDGE call motion abort before state restore to make absolutely sure no
+    // stray restore commands make it down to motion
+	emcMotionAbort();
+    // Then call state restore to update the interpreter
+    emcTaskStateRestore();
 	emcTaskAbort();
         emcIoAbort(EMC_ABORT_TASK_ABORT);
         emcSpindleAbort();

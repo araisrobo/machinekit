@@ -231,7 +231,7 @@ int inRange(EmcPose pos, int id, char *move_type)
     }
 
     /* now fill in with real values, for joints that are used */
-    kinematicsInverse(&pos, joint_pos, &iflags, &fflags);
+    emcmotConfig->vtk->kinematicsInverse(&pos, joint_pos, &iflags, &fflags);
 
     for (joint_num = 0; joint_num < num_joints; joint_num++) {
 	/* point to joint data */
@@ -296,11 +296,11 @@ void clearHomes(int joint_num)
 }
 
 
-void emcmotSetRotaryUnlock(int axis, int unlock) {
+void emcmotSetRotaryUnlock(int axis, hal_bit_t unlock) {
     *(emcmot_hal_data->joint[axis].unlock) = unlock;
 }
 
-int emcmotGetRotaryIsUnlocked(int axis) {
+hal_bit_t emcmotGetRotaryIsUnlocked(int axis) {
     return *(emcmot_hal_data->joint[axis].is_unlocked);
 }
 
@@ -312,16 +312,13 @@ int emcmotGetRotaryIsUnlocked(int axis) {
   index is valid from 0 to num_dio <= EMCMOT_MAX_DIO, defined in emcmotcfg.h
   
 */
-void emcmotDioWrite(int index, char value)
+void emcmotDioWrite(unsigned int index, hal_bit_t value)
 {
-    if ((index >= num_dio) || (index < 0)) {
+    if (index >= num_dio) {
 	rtapi_print_msg(RTAPI_MSG_ERR, "ERROR: index out of range, %d not in [0..%d] (increase num_dio/EMCMOT_MAX_DIO=%d)\n", index,num_dio, EMCMOT_MAX_DIO);
     } else {
-	if (value != 0) {
-	    *(emcmot_hal_data->synch_do[index])=1;
-	} else {
-	    *(emcmot_hal_data->synch_do[index])=0;
-	}
+	*(emcmot_hal_data->synch_do[index]) = value;
+	*(emcmot_hal_data->synch_do_io[index]) = value;;
     }
 }
 
@@ -334,12 +331,13 @@ void emcmotDioWrite(int index, char value)
   RS274NGC doesn't support it now, only defined/used in emccanon.cc
   
 */
-void emcmotAioWrite(int index, double value)
+void emcmotAioWrite(unsigned int index, hal_float_t value)
 {
-    if ((index >= num_aio) || (index < 0)) {
+    if (index >= num_aio) {
 	rtapi_print_msg(RTAPI_MSG_ERR, "ERROR: index out of range, %d not in [0..%d] (increase num_aio/EMCMOT_MAX_AIO=%d)\n", index, num_aio, EMCMOT_MAX_AIO);
     } else {
         *(emcmot_hal_data->analog_output[index]) = value;
+        *(emcmot_hal_data->analog_output_io[index]) = value;
     }
 }
 
@@ -368,22 +366,22 @@ STATIC int is_feed_type(int motion_type)
 // gets reported on next tpRunCycle
 // clear pins, state and signal to task the paused motion
 // is now 'done' (otherwise task will hang in RCS_EXEC).
-int abort_and_switchback()
+int abort_and_switchback(void)
 {
     if (emcmotQueue == emcmotAltQueue) {
 	EmcPose where;
-	tpGetPos(emcmotAltQueue, &where);
+	emcmotConfig->vtp->tpGetPos(emcmotAltQueue, &where);
 	rtapi_print_msg(RTAPI_MSG_DBG, "\nabort_and_switchback at x=%f y=%f z=%f\n",
 				    where.tran.x,where.tran.y,where.tran.z);
-	tpAbort(emcmotAltQueue);
+	emcmotConfig->vtp->tpAbort(emcmotAltQueue);
 	emcmotQueue = emcmotPrimQueue;
-	tpClear(emcmotQueue);
-	tpSetPos(emcmotQueue, &where);
+	emcmotConfig->vtp->tpClear(emcmotQueue);
+	emcmotConfig->vtp->tpSetPos(emcmotQueue, &where);
 	*emcmot_hal_data->pause_state = PS_RUNNING;
 	*emcmot_hal_data->paused_at_motion_type = 0; // valid motions start at 1
 	emcmotStatus->depth = 0; // end task wait
     }
-    return tpAbort(emcmotQueue);
+    return emcmotConfig->vtp->tpAbort(emcmotQueue);
 }
 
 /*
@@ -611,8 +609,8 @@ check_stuff ( "before command_handler()" );
 	    if (joint == 0) {
 		break;
 	    }
-	    joint->home_offset = emcmotCommand->offset;
-	    joint->home = emcmotCommand->home;
+	    *(joint->home_offset) = emcmotCommand->offset;
+	    *(joint->home) = emcmotCommand->home;
 	    joint->home_final_vel = emcmotCommand->home_final_vel;
 	    joint->home_search_vel = emcmotCommand->search_vel;
 	    joint->home_latch_vel = emcmotCommand->latch_vel;
@@ -770,7 +768,7 @@ check_stuff ( "before command_handler()" );
 		joint->free_pos_cmd = joint->min_jog_limit;
 	    }
 	    /* set velocity of jog */
-	    joint->free_vel_lim = fabs(emcmotCommand->vel);
+	    joint->free_vel_lim = rtapi_fabs(emcmotCommand->vel);
 	    /* lock out other jog sources */
 	    joint->kb_jog_active = 1;
 	    /* and let it go */
@@ -845,7 +843,7 @@ check_stuff ( "before command_handler()" );
 	    /* set target position */
 	    joint->free_pos_cmd = tmp1;
 	    /* set velocity of jog */
-	    joint->free_vel_lim = fabs(emcmotCommand->vel);
+	    joint->free_vel_lim = rtapi_fabs(emcmotCommand->vel);
 	    /* lock out other jog sources */
 	    joint->kb_jog_active = 1;
 	    /* and let it go */
@@ -907,7 +905,7 @@ check_stuff ( "before command_handler()" );
 		joint->free_pos_cmd = joint->min_jog_limit;
 	    }
 	    /* set velocity of jog */
-	    joint->free_vel_lim = fabs(emcmotCommand->vel);
+	    joint->free_vel_lim = rtapi_fabs(emcmotCommand->vel);
 	    /* lock out other jog sources */
 	    joint->kb_jog_active = 1;
 	    /* and let it go */
@@ -923,11 +921,13 @@ check_stuff ( "before command_handler()" );
 	case EMCMOT_SET_TERM_COND:
 	    /* sets termination condition for motion emcmotDebug->tp */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_TERM_COND");
-	    tpSetTermCond(emcmotQueue, emcmotCommand->termCond, emcmotCommand->tolerance);
+	    emcmotConfig->vtp->tpSetTermCond(emcmotQueue, emcmotCommand->termCond,
+					     emcmotCommand->tolerance);
 	    break;
 
         case EMCMOT_SET_SPINDLESYNC:
-            tpSetSpindleSync(emcmotQueue, emcmotCommand->spindlesync, emcmotCommand->flags);
+            emcmotConfig->vtp->tpSetSpindleSync(emcmotQueue, emcmotCommand->spindlesync,
+						emcmotCommand->flags);
             break;
 
 	case EMCMOT_SET_LINE:
@@ -959,21 +959,34 @@ check_stuff ( "before command_handler()" );
             if(!is_feed_type(emcmotCommand->motion_type) && emcmotStatus->spindle.css_factor) {
                 emcmotStatus->atspeed_next_feed = 1;
             }
-	    /* append it to the emcmotDebug->queue */
-	    tpSetId(emcmotQueue, emcmotCommand->id);
-
-	    if (-1 == tpAddLine(emcmotQueue, emcmotCommand->pos, emcmotCommand->motion_type,
-                                emcmotCommand->vel, emcmotCommand->ini_maxvel, 
-                                emcmotCommand->acc, emcmotCommand->ini_maxjerk,
-                                emcmotStatus->enables_new, issue_atspeed,
-                                emcmotCommand->turn)) {
-		reportError(_("can't add linear move"));
-		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
-		abort_and_switchback(); // tpAbort(emcmotQueue);
-
-		SET_MOTION_ERROR_FLAG(1);
-		break;
-	    } else {
+	    /* append it to the emcmotDebug->tp */
+	    emcmotConfig->vtp->tpSetId(&emcmotDebug->tp, emcmotCommand->id);
+	    int res_addline = emcmotConfig->vtp->tpAddLine(&emcmotDebug->tp,
+							   emcmotCommand->pos,
+							   emcmotCommand->motion_type,
+							   emcmotCommand->vel,
+							   emcmotCommand->ini_maxvel,
+							   emcmotCommand->acc,
+							   emcmotCommand->ini_maxjerk,
+							   emcmotStatus->enables_new,
+							   issue_atspeed,
+							   emcmotCommand->turn,
+							   emcmotCommand->tag);
+        if (res_addline != 0) {
+            reportError(_("can't add linear move at line %d, error code %d"),
+                    emcmotCommand->id, res_addline);
+            emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
+            emcmotConfig->vtp->tpAbort(&emcmotDebug->tp);
+            SET_MOTION_ERROR_FLAG(1);
+            break;
+        } else if (res_addline != 0) {
+            //TODO make this hand-shake more explicit
+            //KLUDGE Non fatal error, need to restore state so that the next
+            //line properly handles at_speed
+            if (issue_atspeed) {
+                emcmotStatus->atspeed_next_feed = 1;
+            }
+        } else {
 		SET_MOTION_ERROR_FLAG(0);
 		/* set flag that indicates all joints need rehoming, if any
 		   joint is moved in joint mode, for machines with no forward
@@ -1011,22 +1024,33 @@ check_stuff ( "before command_handler()" );
                 emcmotStatus->atspeed_next_feed = 0;
             }
 	    /* append it to the emcmotDebug->queue */
-	    tpSetId(emcmotQueue, emcmotCommand->id);
+	    emcmotConfig->vtp->tpSetId(emcmotQueue, emcmotCommand->id);
 
-	    if (-1 ==
-		tpAddCircle(emcmotQueue, emcmotCommand->pos,
+	    int res_addcircle = 
+		emcmotConfig->vtp->tpAddCircle(emcmotQueue, emcmotCommand->pos,
                             emcmotCommand->center, emcmotCommand->normal,
                             emcmotCommand->turn, emcmotCommand->motion_type,
                             emcmotCommand->vel, emcmotCommand->ini_maxvel,
                             emcmotCommand->acc, emcmotCommand->ini_maxjerk,
-                            emcmotStatus->enables_new, issue_atspeed)) {
-		reportError(_("can't add circular move"));
+                            emcmotStatus->enables_new,
+                            issue_atspeed, emcmotCommand->tag);
+        if (res_addcircle < 0) {
+            reportError(_("can't add circular move at line %d, error code %d"),
+                    emcmotCommand->id, res_addcircle);
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
 
 		SET_MOTION_ERROR_FLAG(1);
 		break;
-	    } else {
+        } else if (res_addcircle != 0) {
+            //FIXME! This is a band-aid for a single issue, but there may be
+            //other consequences of non-fatal errors from AddXXX functions. We
+            //either need to fix the root cause (subtle position error after
+            //homing), or have a full restore here.
+            if (issue_atspeed) {
+                emcmotStatus->atspeed_next_feed = 1;
+            }
+        } else {
 		SET_MOTION_ERROR_FLAG(0);
 		/* set flag that indicates all joints need rehoming, if any
 		   joint is moved in joint mode, for machines with no forward
@@ -1040,8 +1064,8 @@ check_stuff ( "before command_handler()" );
 	    /* can do it at any time */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_VEL");
 	    emcmotStatus->vel = emcmotCommand->vel;
-	    tpSetVmax(emcmotPrimQueue, emcmotStatus->vel,
-		      emcmotCommand->ini_maxvel);
+	    emcmotConfig->vtp->tpSetVmax(emcmotPrimQueue, emcmotStatus->vel,
+					 emcmotCommand->ini_maxvel);
 	    break;
 
 	case EMCMOT_SET_VEL_LIMIT:
@@ -1050,7 +1074,7 @@ check_stuff ( "before command_handler()" );
 	    /* set the absolute max velocity for all subsequent moves */
 	    /* can do it at any time */
 	    emcmotConfig->limitVel = emcmotCommand->vel;
-	    tpSetVlimit(emcmotPrimQueue, emcmotConfig->limitVel);
+	    emcmotConfig->vtp->tpSetVlimit(emcmotPrimQueue, emcmotConfig->limitVel);
 	    break;
 
 	case EMCMOT_SET_JOINT_VEL_LIMIT:
@@ -1081,7 +1105,7 @@ check_stuff ( "before command_handler()" );
 	    /* can do it at any time */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_ACCEL");
 	    emcmotStatus->acc = emcmotCommand->acc;
-	    tpSetAmax(emcmotPrimQueue, emcmotStatus->acc);
+	    emcmotConfig->vtp->tpSetAmax(emcmotPrimQueue, emcmotStatus->acc);
 	    break;
 
 	case EMCMOT_SET_JOINT_JERK_LIMIT:
@@ -1108,7 +1132,7 @@ check_stuff ( "before command_handler()" );
 	    /* pause the motion */
 	    /* can happen at any time */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "PAUSE");
-	    tpPause(emcmotQueue);
+	    emcmotConfig->vtp->tpPause(emcmotQueue);
 	    // trigger pause FSM
 	    *(emcmot_hal_data->pause_state) = PS_PAUSING;
 	    emcmotStatus->resuming = 0;
@@ -1524,16 +1548,17 @@ check_stuff ( "before command_handler()" );
                 }
             }
 	    /* append it to the emcmotDebug->queue */
-	    tpSetId(emcmotQueue, emcmotCommand->id);
-	    if (-1 == tpAddLine(emcmotQueue,
-	                        emcmotCommand->pos,
-                                emcmotCommand->motion_type,
-                                emcmotCommand->vel,
-                                emcmotCommand->ini_maxvel,
-                                emcmotCommand->acc,
-                                emcmotCommand->ini_maxjerk,
-                                emcmotStatus->enables_new, 0, -1)) {
-
+	    emcmotConfig->vtp->tpSetId(emcmotQueue, emcmotCommand->id);
+	    if (-1 == emcmotConfig->vtp->tpAddLine(emcmotQueue,
+						   emcmotCommand->pos,
+						   emcmotCommand->motion_type,
+						   emcmotCommand->vel,
+						   emcmotCommand->ini_maxvel,
+						   emcmotCommand->acc,
+						   emcmotCommand->ini_maxjerk,
+						   emcmotStatus->enables_new,
+						   0, -1,
+						   emcmotCommand->tag)) {
 		reportError(_("can't add probe move"));
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
@@ -1578,9 +1603,14 @@ check_stuff ( "before command_handler()" );
 	    }
 
 	    /* append it to the emcmotDebug->queue */
-	    tpSetId(emcmotQueue, emcmotCommand->id);
-	    if (-1 == tpAddRigidTap(emcmotQueue, emcmotCommand->pos, emcmotCommand->vel, emcmotCommand->ini_maxvel, emcmotCommand->acc, emcmotStatus->enables_new)) {
-
+	    emcmotConfig->vtp->tpSetId(emcmotQueue, emcmotCommand->id);
+	    if (-1 == emcmotConfig->vtp->tpAddRigidTap(emcmotQueue,
+						       emcmotCommand->pos,
+						       emcmotCommand->vel,
+						       emcmotCommand->ini_maxvel,
+						       emcmotCommand->acc,
+						       emcmotStatus->enables_new,
+						       emcmotCommand->tag)) {
                 emcmotStatus->atspeed_next_feed = 0; /* rigid tap always waits for spindle to be at-speed */
 		reportError(_("can't add rigid tap move"));
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
@@ -1602,14 +1632,14 @@ check_stuff ( "before command_handler()" );
 		double velmag;
 		emcmotDebug->teleop_data.desiredVel = emcmotCommand->pos;
 		pmCartMag(&emcmotDebug->teleop_data.desiredVel.tran, &velmag);
-		if (fabs(emcmotDebug->teleop_data.desiredVel.a) > velmag) {
-		    velmag = fabs(emcmotDebug->teleop_data.desiredVel.a);
+		if (rtapi_fabs(emcmotDebug->teleop_data.desiredVel.a) > velmag) {
+		    velmag = rtapi_fabs(emcmotDebug->teleop_data.desiredVel.a);
 		}
-		if (fabs(emcmotDebug->teleop_data.desiredVel.b) > velmag) {
-		    velmag = fabs(emcmotDebug->teleop_data.desiredVel.b);
+		if (rtapi_fabs(emcmotDebug->teleop_data.desiredVel.b) > velmag) {
+		    velmag = rtapi_fabs(emcmotDebug->teleop_data.desiredVel.b);
 		}
-		if (fabs(emcmotDebug->teleop_data.desiredVel.c) > velmag) {
-		    velmag = fabs(emcmotDebug->teleop_data.desiredVel.c);
+		if (rtapi_fabs(emcmotDebug->teleop_data.desiredVel.c) > velmag) {
+		    velmag = rtapi_fabs(emcmotDebug->teleop_data.desiredVel.c);
 		}
 		if (velmag > emcmotConfig->limitVel) {
 		    pmCartScalMult(&emcmotDebug->teleop_data.desiredVel.tran,
@@ -1640,8 +1670,10 @@ check_stuff ( "before command_handler()" );
 	    if (emcmotCommand->now) { //we set it right away
 		emcmotAioWrite(emcmotCommand->out, emcmotCommand->minLimit);
 	    } else { // we put it on the TP queue, warning: only room for one in there, any new ones will overwrite
-		tpSetAout(emcmotQueue, emcmotCommand->out,
-			  emcmotCommand->minLimit, emcmotCommand->maxLimit);
+		emcmotConfig->vtp->tpSetAout(emcmotQueue,
+					     emcmotCommand->out,
+					     emcmotCommand->minLimit,
+					     emcmotCommand->maxLimit);
 	    }
 	    break;
 
@@ -1650,8 +1682,10 @@ check_stuff ( "before command_handler()" );
 	    if (emcmotCommand->now) { //we set it right away
 		emcmotDioWrite(emcmotCommand->out, emcmotCommand->start);
 	    } else { // we put it on the TP queue, warning: only room for one in there, any new ones will overwrite
-		tpSetDout(emcmotQueue, emcmotCommand->out,
-			  emcmotCommand->start, emcmotCommand->end);
+		emcmotConfig->vtp->tpSetDout(emcmotQueue,
+					     emcmotCommand->out,
+					     emcmotCommand->start,
+					     emcmotCommand->end);
 	    }
 	    break;
 

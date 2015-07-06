@@ -114,7 +114,7 @@ typedef struct {
     __u32   userflags : 27;  // not interpreted by ringbuffer code
 
     __s32   refcount;        // number of referencing entities (modules, threads..)
-    __s32   reader, writer;  // HAL module id's - informational
+    __s32   reader, writer;  // HAL comp or instance id's - informational
     __s32   reader_instance, writer_instance; // RTAPI instance id's
     rtapi_atomic_type rmutex, wmutex; // optional use - if used by multiple readers/writers
     size_t  trailer_size;   // sizeof(ringtrailer_t) + scratchpad size
@@ -457,6 +457,21 @@ static inline size_t record_write_space(const ringheader_t *h)
     else
         avail = MAXIMUM(h->head, h->size - t->tail);
     return MAXIMUM(0, avail - (2 * RB_ALIGN));
+}
+
+/* helper for sizing a record mode ringbuffer
+ * given the size of an record, it will return the space used
+ * in the ring buffer, including any overhead and
+ * alignment requirements
+ *
+ * example: to hold 1000 records of struct foo a ringbuffer will need
+ * a size of at least record_space(sizeof(struct foo)) * 1000
+ *
+ * (to be on the safe side, add some headroom to that)
+ */
+static inline size_t record_space(size_t element)
+{
+    return size_aligned(element + sizeof(ring_size_t));
 }
 
 

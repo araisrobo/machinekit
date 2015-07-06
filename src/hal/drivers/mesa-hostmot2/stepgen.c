@@ -45,7 +45,7 @@ void hm2_stepgen_process_tram_read(hostmot2_t *hm2, long l_period_ns) {
         s64 acc_delta;
 
         // those tricky users are always trying to get us to divide by zero
-        if (fabs(hm2->stepgen.instance[i].hal.param.position_scale) < 1e-6) {
+        if (rtapi_fabs(hm2->stepgen.instance[i].hal.param.position_scale) < 1e-6) {
             if (hm2->stepgen.instance[i].hal.param.position_scale >= 0.0) {
                 hm2->stepgen.instance[i].hal.param.position_scale = 1.0;
                 HM2_ERR("stepgen %d position_scale is too close to 0, resetting to 1.0\n", i);
@@ -182,7 +182,7 @@ static void hm2_stepgen_instance_position_control(hostmot2_t *hm2, long l_period
         dp = dv * seconds_to_vel_match;
 
         /* decide which way to ramp */
-        if (fabs(error_at_match + (dp * 2.0)) < fabs(error_at_match)) {
+        if (rtapi_fabs(error_at_match + (dp * 2.0)) < rtapi_fabs(error_at_match)) {
             match_accel = -match_accel;
         }
 
@@ -223,12 +223,12 @@ static void hm2_stepgen_instance_prepare_tram_write(hostmot2_t *hm2, long l_peri
         double min_ns_per_step = s->hal.param.steplen + s->hal.param.stepspace;
         double max_steps_per_s = 1.0e9 / min_ns_per_step;
 
-        physical_maxvel = max_steps_per_s / fabs(s->hal.param.position_scale);
+        physical_maxvel = max_steps_per_s / rtapi_fabs(s->hal.param.position_scale);
         physical_maxvel = force_precision(physical_maxvel);
 
         if (s->hal.param.maxvel < 0.0) {
             HM2_ERR("stepgen.%02d.maxvel < 0, setting to its absolute value\n", i);
-            s->hal.param.maxvel = fabs(s->hal.param.maxvel);
+            s->hal.param.maxvel = rtapi_fabs(s->hal.param.maxvel);
         }
 
         if (s->hal.param.maxvel > physical_maxvel) {
@@ -246,7 +246,7 @@ static void hm2_stepgen_instance_prepare_tram_write(hostmot2_t *hm2, long l_peri
     // maxaccel may not be negative
     if (s->hal.param.maxaccel < 0.0) {
         HM2_ERR("stepgen.%02d.maxaccel < 0, setting to its absolute value\n", i);
-        s->hal.param.maxaccel = fabs(s->hal.param.maxaccel);
+        s->hal.param.maxaccel = rtapi_fabs(s->hal.param.maxaccel);
     }
 
 
@@ -385,6 +385,20 @@ static void hm2_stepgen_update_mode(hostmot2_t *hm2, int i) {
 }
 
 
+static void hm2_stepgen_set_dpll_timer(hostmot2_t *hm2) {
+    u32 data = 0;
+
+    if ((*hm2->stepgen.hal->pin.dpll_timer_num < -1) || (*hm2->stepgen.hal->pin.dpll_timer_num > 4)) {
+        *hm2->stepgen.hal->pin.dpll_timer_num = 0;
+    }
+    if (*hm2->stepgen.hal->pin.dpll_timer_num > -1) {
+        data = (*hm2->stepgen.hal->pin.dpll_timer_num << 12) | (1 << 15);
+    }
+    hm2->llio->write(hm2->llio, hm2->stepgen.dpll_timer_num_addr, &data, sizeof(u32));
+    hm2->stepgen.written_dpll_timer_num = *hm2->stepgen.hal->pin.dpll_timer_num;
+}
+
+
 void hm2_stepgen_write(hostmot2_t *hm2) {
     int i;
 
@@ -417,6 +431,11 @@ void hm2_stepgen_write(hostmot2_t *hm2) {
                  != inst->hal.param.table[4]) {
             hm2_stepgen_update_mode(hm2, i);
             hm2->llio->write(hm2->llio, hm2->stepgen.mode_addr + (i * sizeof(u32)), &hm2->stepgen.mode_reg[i], sizeof(u32));
+        }
+    }
+    if (hm2->dpll_module_present) {
+        if (*hm2->stepgen.hal->pin.dpll_timer_num != hm2->stepgen.written_dpll_timer_num) {
+            hm2_stepgen_set_dpll_timer(hm2);
         }
     }
 }
@@ -504,6 +523,13 @@ static void hm2_stepgen_force_write_master_dds(hostmot2_t *hm2) {
 }
 
 
+static void hm2_stepgen_force_write_dpll_timer(hostmot2_t *hm2) {
+    if (hm2->dpll_module_present) {
+        hm2_stepgen_set_dpll_timer(hm2);
+    }
+}
+
+
 void hm2_stepgen_force_write(hostmot2_t *hm2) {
     if (hm2->stepgen.num_instances == 0) return;
     hm2_stepgen_force_write_mode(hm2);
@@ -512,6 +538,7 @@ void hm2_stepgen_force_write(hostmot2_t *hm2) {
     hm2_stepgen_force_write_pulse_width_time(hm2);
     hm2_stepgen_force_write_pulse_idle_width(hm2);
     hm2_stepgen_force_write_master_dds(hm2);
+    hm2_stepgen_force_write_dpll_timer(hm2);
 }
 
 
@@ -612,6 +639,13 @@ int hm2_stepgen_parse_md(hostmot2_t *hm2, int md_index) {
         hm2->stepgen.num_instances = hm2->config.num_stepgens;
     }
 
+    // allocate the module-global HAL shared memory
+    hm2->stepgen.hal = (hm2_stepgen_module_global_t *)hal_malloc(sizeof(hm2_stepgen_module_global_t));
+    if (hm2->stepgen.hal == NULL) {
+        HM2_ERR("out of memory!\n");
+        r = -ENOMEM;
+        goto fail0;
+    }
 
     hm2->stepgen.instance = (hm2_stepgen_instance_t *)hal_malloc(hm2->stepgen.num_instances * sizeof(hm2_stepgen_instance_t));
     if (hm2->stepgen.instance == NULL) {
@@ -633,6 +667,7 @@ int hm2_stepgen_parse_md(hostmot2_t *hm2, int md_index) {
     hm2->stepgen.table_sequence_data_setup_addr = md->base_address + (7 * md->register_stride);
     hm2->stepgen.table_sequence_length_addr = md->base_address + (8 * md->register_stride);
     hm2->stepgen.master_dds_addr = md->base_address + (9 * md->register_stride);
+    hm2->stepgen.dpll_timer_num_addr = md->base_address + (10 * md->register_stride);
 
     r = hm2_register_tram_write_region(hm2, hm2->stepgen.step_rate_addr, (hm2->stepgen.num_instances * sizeof(u32)), &hm2->stepgen.step_rate_reg);
     if (r < 0) {
@@ -687,6 +722,17 @@ int hm2_stepgen_parse_md(hostmot2_t *hm2, int md_index) {
     {
         int i;
         char name[HAL_NAME_LEN + 1];
+
+        if (hm2->dpll_module_present) {
+            rtapi_snprintf(name, sizeof(name), "%s.stepgen.timer-number", hm2->llio->name);
+            r = hal_pin_s32_new(name, HAL_IN, &(hm2->stepgen.hal->pin.dpll_timer_num), hm2->llio->comp_id);
+            if (r < 0) {
+                HM2_ERR("error adding timer number param, aborting\n");
+                return -EINVAL;
+            }
+            *(hm2->stepgen.hal->pin.dpll_timer_num) = -1;
+        }
+
         for (i = 0; i < hm2->stepgen.num_instances; i ++) {
             
             // Work out if table setup registers are needed. 

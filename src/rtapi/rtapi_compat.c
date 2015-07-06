@@ -31,10 +31,14 @@
 #include <strings.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mman.h>
 #include <sys/utsname.h>
 #include <limits.h>		/* PATH_MAX */
 #include <stdlib.h>		/* exit() */
 #include <grp.h>                // getgroups
+
+#include <elf.h>                // get_rpath()
+#include <link.h>
 
 // really in nucleus/heap.h but we rather get away with minimum include files
 #ifndef XNHEAP_DEV_NAME
@@ -468,16 +472,14 @@ int run_module_helper(const char *format, ...)
     return system(mod_helper);
 }
 
-
-
-int procfs_threadcmd(const char *format, ...)
+int procfs_cmd(const char *path, const char *format, ...)
 {
     va_list args;
     int fd;
     int retval = 0;
-    char buffer[100];
+    char buffer[4096];
 
-    if ((fd = open(PROCFS_THREADCMD,O_WRONLY)) > -1) {
+    if ((fd = open(path,O_WRONLY)) > -1) {
 	int len;
 	va_start(args, format);
 	len = vsnprintf(buffer, sizeof(buffer), format, args);
@@ -487,4 +489,158 @@ int procfs_threadcmd(const char *format, ...)
 	return retval;
     } else
 	return -ENOENT;
+}
+
+const char *rtapi_get_rpath(void)
+{
+  const ElfW(Dyn) *dyn = _DYNAMIC;
+  const ElfW(Dyn) *rpath = NULL;
+  const char *strtab = NULL;
+  for (; dyn->d_tag != DT_NULL; ++dyn) {
+    if (dyn->d_tag == DT_RPATH) {
+      rpath = dyn;
+    } else if (dyn->d_tag == DT_STRTAB) {
+      strtab = (const char *)dyn->d_un.d_val;
+    }
+  }
+
+  if (strtab != NULL && rpath != NULL) {
+      return strdup(strtab + rpath->d_un.d_val);
+  }
+  return NULL;
+}
+
+int get_elf_section(const char *const fname, const char *section_name, void **dest)
+{
+    int size = -1, i;
+    struct stat st;
+
+    if (stat(fname, &st) != 0) {
+	perror("stat");
+	return -1;
+    }
+    int fd = open(fname, O_RDONLY);
+    if (fd < 0) {
+	perror("open");
+	return fd;
+    }
+    char *p = mmap(0, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (p == NULL) {
+	perror("mmap");
+	return -1;
+    }
+
+    switch (p[EI_CLASS]) 	{
+    case ELFCLASS32:
+	{
+	    Elf32_Ehdr *ehdr = (Elf32_Ehdr*)p;
+	    Elf32_Shdr *shdr = (Elf32_Shdr *)(p + ehdr->e_shoff);
+	    int shnum = ehdr->e_shnum;
+
+	    Elf32_Shdr *sh_strtab = &shdr[ehdr->e_shstrndx];
+	    const char *const sh_strtab_p = p + sh_strtab->sh_offset;
+	    for (i = 0; i < shnum; ++i) {
+		if (strcmp(sh_strtab_p + shdr[i].sh_name, section_name) == 0) {
+		    size  = shdr[i].sh_size;
+		    if (!size)
+			continue;
+		    if (dest) {
+			*dest = malloc(size);
+			if (*dest == NULL) {
+			    perror("malloc");
+			    size = -1;
+			    break;
+			}
+			memcpy(*dest, p + shdr[i].sh_offset, size);
+			break;
+		    }
+		}
+	    }
+	}
+	break;
+
+    case ELFCLASS64:
+	{
+	    Elf64_Ehdr *ehdr = (Elf64_Ehdr*)p;
+	    Elf64_Shdr *shdr = (Elf64_Shdr *)(p + ehdr->e_shoff);
+	    int shnum = ehdr->e_shnum;
+
+	    Elf64_Shdr *sh_strtab = &shdr[ehdr->e_shstrndx];
+	    const char *const sh_strtab_p = p + sh_strtab->sh_offset;
+	    for (i = 0; i < shnum; ++i) {
+		if (strcmp(sh_strtab_p + shdr[i].sh_name, section_name) == 0) {
+		    size  = shdr[i].sh_size;
+		    if (!size)
+			continue;
+		    if (dest) {
+			*dest = malloc(size);
+			if (*dest == NULL) {
+			    perror("malloc");
+			    size = -1;
+			    break;
+			}
+			memcpy(*dest, p + shdr[i].sh_offset, size);
+			break;
+		    }
+		}
+	    }
+	}
+	break;
+    default:
+	fprintf(stderr, "%s: Unknown ELF class %d\n", fname, p[EI_CLASS]);
+    }
+    munmap(p, st.st_size);
+    close(fd);
+    return size;
+}
+
+const char **get_caps(const char *const fname)
+{
+    void  *dest;
+    int n = 0;
+    char *s;
+
+    int csize = get_elf_section(fname, RTAPI_TAGS, &dest);
+    if (csize < 0)
+	return 0;
+
+    for (s = dest; s < ((char *)dest + csize); s += strlen(s) + 1)
+	n++;
+
+    const char **rv = malloc(sizeof(char*) * (n+1));
+    if (rv == NULL) {
+	perror("malloc");
+	return NULL;
+    }
+    n = 0;
+    for (s = dest;
+	 s < ((char *)dest+csize);
+	 s += strlen(s)+1)
+	rv[n++] = s;
+
+    rv[n] = NULL;
+    return rv;
+}
+
+const char *get_cap(const char *const fname, const char *cap)
+{
+    if ((cap == NULL) || (fname == NULL))
+	return NULL;
+
+    const char **cv = get_caps(fname);
+    if (cv == NULL)
+	return NULL;
+
+    const char **p = cv;
+    size_t len = strlen(cap);
+
+    while (p && *p && strlen(*p)) {
+	if (strncasecmp(*p, cap, len) == 0) {
+	    const char *result = strdup(*p + len + 1); // skip over '='
+	    free(cv);
+	    return result;
+	}
+    }
+    free(cv);
+    return NULL;
 }
