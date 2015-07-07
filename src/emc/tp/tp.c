@@ -1547,7 +1547,7 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
             return TP_ERR_OK;
         }
         
-        rtapi_print_msg(RTAPI_MSG_DBG, "FIXME: emcmotStatus->net_feed_scale = 100 %, will let velocity down to zero");
+        rtapi_print_msg(RTAPI_MSG_DBG, "FIXME: emcmotStatus->net_feed_scale = 100%%, will let velocity down to zero\n");
         // for circular motion, its maxvel is limited by tangential velocity
         if (((tc->motion_type == TC_CIRCULAR) || (tc->motion_type == TC_SPHERICAL)) &&
             ((get_net_feed_scale(tp->shared) * tc->reqvel * tc->cycle_time) > tc->maxvel))
@@ -2862,6 +2862,7 @@ STATIC int tpUpdateMovementStatus(TP_STRUCT * const tp, TC_STRUCT const * const 
     tc_debug_print("tc id = %u canon_type = %u mot type = %u\n",
             tc->id, tc->canon_motion_type, tc->motion_type);
     tp->motionType = tc->canon_motion_type;
+    tp->accelState = tc->accel_state;
     tp->activeDepth = tc->active_depth;
     tp->distance_to_go = tc->target - tc->progress;
     set_distance_to_go(tp->shared, tp->distance_to_go);
@@ -3414,7 +3415,6 @@ STATIC int tpCheckEndCondition(
     tc_debug_print("tpCheckEndCondition: dx = %e\n",dx);
 
     if (dx <= TP_POS_EPSILON) {
-        printf("TODO: if (emcmotStatus->probing && *(emcmot_hal_data->rtp_running))\n");
         if (get_probing(tp->shared) && get_rtp_running(tp->shared))
         {
             // G38.X: 等待 RISC 處理完所有 TP 命令才結束
@@ -3670,9 +3670,6 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
     }
 
     tpHandleRegularCycle(tp, tc, nexttc);
-    printf("TODO: handeling motion_type and motionState (accel_state)\n");
-    set_motion_type(tp->shared, tc->motion_type);
-    set_accel_state(tp->shared, tc->accel_state);
 
 #ifdef TC_DEBUG
     double mag;
@@ -3746,6 +3743,11 @@ int tpAbort(TP_STRUCT * const tp)
 int tpGetMotionType(TP_STRUCT * const tp)
 {
     return tp->motionType;
+}
+
+int tpGetAccelState(TP_STRUCT * const tp)
+{
+    return tp->accelState;
 }
 
 int tpGetPos(TP_STRUCT const * const tp, EmcPose * const pos)
@@ -3835,8 +3837,6 @@ int tpIsPaused(TP_STRUCT * tp)
         return 0;
     }
 
-//orig:    return (tp->pausing && (!tc->synchronized || tp->velocity_mode) && (*emcmot_hal_data->update_pos_req == 0));
-    printf("TODO: deal with *emcmot_hal_data->update_pos_req\n");
     return (tp->pausing && (!tc->synchronized || tp->velocity_mode) && (get_update_pos_req(tp->shared) == 0));
 }
 
