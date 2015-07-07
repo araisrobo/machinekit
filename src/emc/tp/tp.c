@@ -2977,6 +2977,7 @@ STATIC int tpCompleteSegment(TP_STRUCT * const tp,
 
     // done with this move
     tcqRemove(&tp->queue, 1);
+    tp->depth = tcqLen(&tp->queue);
     tp_debug_print("Finished tc id %d\n", tc->id);
 
     return TP_ERR_OK;
@@ -3724,6 +3725,18 @@ int tpResume(TP_STRUCT * const tp)
     }
     tp->pausing = 0;
     return TP_ERR_OK;
+}
+
+int tpTcqInit(TP_STRUCT * const tp)
+{
+    int ret;
+
+    if (0 == tp) {
+        return TP_ERR_FAIL;
+    }
+
+    ret = tcqInit(&tp->queue);
+    return ret;
 }
 
 int tpAbort(TP_STRUCT * const tp)

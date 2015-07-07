@@ -26,6 +26,8 @@ int tpSetVlimit(TP_STRUCT * tp, double limit);
 
 int tpSetAmax(TP_STRUCT * tp, double amax);
 
+int tpSetJmax(TP_STRUCT * tp, double jmax);
+
 int tpSetId(TP_STRUCT * tp, int id);
 
 int tpGetExecId(TP_STRUCT * tp);
@@ -57,6 +59,8 @@ int tpRunCycle(TP_STRUCT * tp, long period);
 int tpPause(TP_STRUCT * tp);
 
 int tpResume(TP_STRUCT * tp);
+
+int tpTcqInit(TP_STRUCT * tp);
 
 int tpAbort(TP_STRUCT * tp);
 

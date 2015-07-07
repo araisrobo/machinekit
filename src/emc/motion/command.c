@@ -1125,7 +1125,7 @@ check_stuff ( "before command_handler()" );
 	    /* can do it at any time */
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_JERK");
 	    emcmotStatus->jerk = emcmotCommand->jerk;
-	    tpSetJmax(emcmotPrimQueue, emcmotStatus->jerk);
+	    emcmotConfig->vtp->tpSetJmax(emcmotPrimQueue, emcmotStatus->jerk);
 
 	    break;
 

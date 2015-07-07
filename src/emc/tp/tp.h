@@ -74,6 +74,7 @@ typedef int (*tpAddCircle_t)(TP_STRUCT * tp,
 typedef int (*tpRunCycle_t)(TP_STRUCT * tp, long period);
 typedef int (*tpPause_t)(TP_STRUCT * tp);
 typedef int (*tpResume_t)(TP_STRUCT * tp);
+typedef int (*tpTcqInit_t)(TP_STRUCT * tp);
 typedef int (*tpAbort_t)(TP_STRUCT * tp);
 typedef int (*tpGetPos_t)(TP_STRUCT const  * const tp, EmcPose * const pos);
 typedef int (*tpIsDone_t)(TP_STRUCT * tp);
@@ -121,6 +122,7 @@ typedef struct {
     tpRunCycle_t	tpRunCycle;
     tpPause_t	        tpPause;
     tpResume_t	        tpResume;
+    tpTcqInit_t         tpTcqInit;
     tpAbort_t	        tpAbort;
     tpGetPos_t          tpGetPos;
     tpIsDone_t          tpIsDone;

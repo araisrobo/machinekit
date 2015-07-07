@@ -404,7 +404,7 @@ static void process_probe_inputs(void)
                 emcmotConfig->vtp->tpAbort(emcmotQueue);
                 emcmotStatus->probing = 0;
             }
-            else if (tcqLen(&(emcmotQueue->queue)) == 0)
+            else if (emcmotConfig->vtp->tpQueueDepth(emcmotQueue) == 0)
             {
                 emcmotStatus->probing = 0;
             }
@@ -633,9 +633,10 @@ static void process_inputs(void)
 	    // a resume was signalled.
 
 	    /**
-             * truncate all TC commands from primary queue
+             * truncate all TC commands from primary queue,
+             * and keep all its status variables, such as progress, ... etc.
              */
-            tcqRemove(&(emcmotPrimQueue->queue), tcqLen(&(emcmotPrimQueue->queue)));
+            emcmotConfig->vtp->tpTcqInit(emcmotPrimQueue);
 
 	    // switch to primary queue and resume.
 	    rtapi_print_msg(RTAPI_MSG_DBG, "resuming\n");
@@ -663,7 +664,7 @@ static void process_inputs(void)
             emcmotStatus->resuming ||
             emcmotDebug->stepping)
         {
-            if (tcqLen(&(emcmotQueue->queue)) == 0)
+            if (emcmotConfig->vtp->tpQueueDepth(emcmotQueue) == 0)
             {
                 EmcPose here;
                 emcmotConfig->vtp->tpGetPos(emcmotQueue, &here);

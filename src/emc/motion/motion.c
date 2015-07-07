@@ -490,7 +490,7 @@ static int init_hal_io(void)
 	return retval;
     }
 
-    if ((retval = hal_pin_s32_newf(HAL_OUT, &(emcmot_hal_data->motion_state), mot_comp_id, "motion.motion-state")) != 0) goto error;
+    if ((retval = hal_pin_s32_newf(HAL_OUT, &(emcmot_hal_data->accel_state), mot_comp_id, "motion.accel-state")) != 0) goto error;
 
     /* export debug parameters */
     /* these can be used to view any internal variable, simply change a line
@@ -1302,6 +1302,7 @@ static int init_comm_buffers(void)
     emcmotConfig->vtp->tpSetPos(emcmotQueue, &emcmotStatus->carte_pos_cmd);
     emcmotConfig->vtp->tpSetVmax(emcmotQueue, emcmotStatus->vel, emcmotStatus->vel);
     emcmotConfig->vtp->tpSetAmax(emcmotQueue, emcmotStatus->acc);
+    emcmotConfig->vtp->tpSetJmax(emcmotQueue, emcmotStatus->jerk);
 
     // the emcmotAltQueue parameters as per above are cloned
     // by tpSnapshot() during switching queues
