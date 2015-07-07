@@ -56,10 +56,9 @@ typedef struct tp_shared_t {
     hal_u32_t   *enables_queued;
     hal_u32_t   *tcqlen;
 
+    // for RISC@FPGA
     hal_bit_t   *rtp_running;           //!< there's still tp cmds running inside RISC
     hal_bit_t   *probing;               //!< doing G38.X probing command
-    hal_u32_t   *motion_type;           //!< TC_LINEAR, TC_CIRCULAR, TC_RIGIDTAP, TC_SPHERICAL
-    hal_u32_t   *accel_state;           //!< the S-curve acceleration state
     hal_bit_t   *update_pos_req;        //!< there's still tp cmds running inside RISC
 
     // upcalls by the tp into using code to set pin values:
@@ -71,8 +70,9 @@ typedef struct tp_shared_t {
 
 } tp_shared_t;
 
-static inline void set_motion_type(tp_shared_t *ts, hal_u32_t type) { *(ts->motion_type) = type;};
-static inline void set_accel_state(tp_shared_t *ts, hal_u32_t state) { *(ts->accel_state) = state;};
+static inline hal_bit_t get_rtp_running(tp_shared_t *ts) { return *(ts->rtp_running); }
+static inline hal_bit_t get_probing(tp_shared_t *ts) { return *(ts->probing); }
+static inline hal_bit_t get_update_pos_req(tp_shared_t *ts) { return *(ts->update_pos_req); }
 
 static inline int get_num_dio(tp_shared_t *ts)  { return *(ts->num_dio); }
 static inline void set_num_dio(tp_shared_t *ts, int n)  { *(ts->num_dio) = n; }

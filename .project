@@ -37,4 +37,24 @@
 			<location>/home/ysli/proj/arm/bbeth/proj/machinekit/lib/python</location>
 		</link>
 	</linkedResources>
+	<filteredResources>
+		<filter>
+			<id>1436236348212</id>
+			<name></name>
+			<type>26</type>
+			<matcher>
+				<id>org.eclipse.ui.ide.multiFilter</id>
+				<arguments>1.0-name-matches-false-false-debian</arguments>
+			</matcher>
+		</filter>
+		<filter>
+			<id>1436236348221</id>
+			<name></name>
+			<type>26</type>
+			<matcher>
+				<id>org.eclipse.ui.ide.multiFilter</id>
+				<arguments>1.0-name-matches-false-false-include</arguments>
+			</matcher>
+		</filter>
+	</filteredResources>
 </projectDescription>

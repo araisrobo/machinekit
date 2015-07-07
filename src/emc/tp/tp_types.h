@@ -129,6 +129,7 @@ typedef struct {
     int aborting;
     int pausing;
     int motionType;
+    int accelState;             //!< acceleration state for S-curve velocity profile
     double tolerance;           /* for subsequent motions, stay within this
                                    distance of the programmed path during
                                    blends */

@@ -41,6 +41,7 @@ static vtp_t vtp = {
     .tpQueueDepth      = tpQueueDepth,
     .tpActiveDepth     = tpActiveDepth,
     .tpGetMotionType   = tpGetMotionType,
+    .tpGetAccelState   = tpGetAccelState,
     .tpSetSpindleSync  = tpSetSpindleSync,
     .tpToggleDIOs      = tpToggleDIOs,
     .tpSetAout         = tpSetAout,

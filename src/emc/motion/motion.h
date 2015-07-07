@@ -707,7 +707,7 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double analog_input[EMCMOT_MAX_AIO]; /* inputs to the motion controller, queried by g-code */
 	double analog_output[EMCMOT_MAX_AIO]; /* outputs to the motion controller, queried by g-code */
 
-    struct state_tag_t tag; /* Current interp state corresponding to motion line */
+        struct state_tag_t tag; /* Current interp state corresponding to motion line */
 
 /*! \todo FIXME - all structure members beyond this point are in limbo */
 
@@ -727,19 +727,17 @@ Suggestion: Split this in to an Error and a Status flag register..
 				/* 1 << (joint-num*2) = ignore neg limit */
 				/* 2 << (joint-num*2) = ignore pos limit */
 
-
 	/* static status-- only changes upon input commands, e.g., config */
 	double vel;		/* scalar max vel */
 	double acc;		/* scalar max accel */
 	double jerk;	        /* scalar max jerk */
-        int32_t motionState;    /* s-curve motion state */
+        int32_t accelState;     /* s-curve acceleration state */
 
 	int level;
-        int motionType;
+        int motionType;         /* line, arc, tap, ... */
         double distance_to_go;  /* in this move */
         double prim_dtg;        /* distance_to_go of emcmotPrimQueue */
         double prim_progress;   //!< progress of current-tc of emcmotPrimQueue
-        char motion_type;       /* motion_type of current tc */
         EmcPose dtg;
         double current_vel;
         double requested_vel;

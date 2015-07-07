@@ -396,12 +396,12 @@ static void process_probe_inputs(void)
                     joint = &joints[joint_num];
                     joint_pos[joint_num] = joint->probed_pos - (joint->backlash_filt + joint->motor_offset + joint->blender_offset);
                 }
-                kinematicsForward(joint_pos, &emcmotStatus->probedPos, &fflags, &iflags);
+                emcmotConfig->vtk->kinematicsForward(joint_pos, &emcmotStatus->probedPos, &fflags, &iflags);
                 emcmotStatus->probeTripped = 1; // interp_internal.cc: Interp::set_probe_data() #[5070]
             }
             else if (emcmotStatus->probeTripped)
             {
-                tpAbort(emcmotQueue);
+                emcmotConfig->vtp->tpAbort(emcmotQueue);
                 emcmotStatus->probing = 0;
             }
             else if (tcqLen(&(emcmotQueue->queue)) == 0)
@@ -501,15 +501,15 @@ static void process_probe_inputs(void)
 }
 
 #define EQUAL_EMC_POSE(p1,p2) \
-    ((fabs((p1).tran.x - (p2).tran.x) < TP_POS_EPSILON) && \
-     (fabs((p1).tran.y - (p2).tran.y) < TP_POS_EPSILON) && \
-     (fabs((p1).tran.z - (p2).tran.z) < TP_POS_EPSILON) && \
-     (fabs((p1).a      - (p2).a)      < TP_POS_EPSILON) && \
-     (fabs((p1).b      - (p2).b)      < TP_POS_EPSILON) && \
-     (fabs((p1).c      - (p2).c)      < TP_POS_EPSILON) && \
-     (fabs((p1).u      - (p2).u)      < TP_POS_EPSILON) && \
-     (fabs((p1).v      - (p2).v)      < TP_POS_EPSILON) && \
-     (fabs((p1).w      - (p2).w)      < TP_POS_EPSILON))
+    ((rtapi_fabs((p1).tran.x - (p2).tran.x) < TP_POS_EPSILON) && \
+     (rtapi_fabs((p1).tran.y - (p2).tran.y) < TP_POS_EPSILON) && \
+     (rtapi_fabs((p1).tran.z - (p2).tran.z) < TP_POS_EPSILON) && \
+     (rtapi_fabs((p1).a      - (p2).a)      < TP_POS_EPSILON) && \
+     (rtapi_fabs((p1).b      - (p2).b)      < TP_POS_EPSILON) && \
+     (rtapi_fabs((p1).c      - (p2).c)      < TP_POS_EPSILON) && \
+     (rtapi_fabs((p1).u      - (p2).u)      < TP_POS_EPSILON) && \
+     (rtapi_fabs((p1).v      - (p2).v)      < TP_POS_EPSILON) && \
+     (rtapi_fabs((p1).w      - (p2).w)      < TP_POS_EPSILON))
 
 extern int inRange(EmcPose pos, int id, char *move_type); // from command.c
 
@@ -666,7 +666,7 @@ static void process_inputs(void)
             if (tcqLen(&(emcmotQueue->queue)) == 0)
             {
                 EmcPose here;
-                tpGetPos(emcmotQueue, &here);
+                emcmotConfig->vtp->tpGetPos(emcmotQueue, &here);
                 if (EQUAL_EMC_POSE(emcmotStatus->pause_carte_pos,here)) {
                     // at initial pause position.
                     *emcmot_hal_data->pause_state = PS_PAUSED;
@@ -1328,7 +1328,7 @@ static void handle_usbmot_sync(void)
             //        can not resolve all the data
             prev_pos_cmd = joint->pos_cmd;
             joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset - joint->blender_offset;
-            if(fabs(joint->pos_cmd - prev_pos_cmd) <= fabs(joint->scale_recip)) {
+            if(rtapi_fabs(joint->pos_cmd - prev_pos_cmd) <= rtapi_fabs(joint->scale_recip)) {
                 joint->pos_cmd = prev_pos_cmd;
             }
             joint->coarse_pos = joint->pos_cmd;
@@ -1364,9 +1364,9 @@ static void handle_usbmot_sync(void)
         }
 
         /* update carte_pos_cmd for RISC-JOGGING */
-        kinematicsForward(positions, &emcmotStatus->carte_pos_cmd, &fflags, &iflags);
+        emcmotConfig->vtk->kinematicsForward(positions, &emcmotStatus->carte_pos_cmd, &fflags, &iflags);
         /* preset traj planner to current position */
-        tpSetPos(emcmotQueue, &emcmotStatus->carte_pos_cmd); // for EMCMOT_MOTION_COORD mode
+        emcmotConfig->vtp->tpSetPos(emcmotQueue, &emcmotStatus->carte_pos_cmd); // for EMCMOT_MOTION_COORD mode
     }
 
 //    // if spindle position get updated by spindle.comp
@@ -2261,8 +2261,7 @@ static void output_to_hal(void)
     *(emcmot_hal_data->spindle_brake) = (emcmotStatus->spindle.brake != 0) ? 1 : 0;
 
     *(emcmot_hal_data->program_line) = emcmotStatus->id;
-    *(emcmot_hal_data->motion_state) = emcmotStatus->motionState;
-    *(emcmot_hal_data->motion_type) = emcmotStatus->motion_type;
+    *(emcmot_hal_data->accel_state) = emcmotStatus->accelState;
     *(emcmot_hal_data->current_motion_type) = emcmotStatus->motionType;
     *(emcmot_hal_data->distance_to_go) = emcmotStatus->distance_to_go;
 
@@ -2440,15 +2439,12 @@ static void update_status(void)
         emcmotStatus->tag = emcmotConfig->vtp->tpGetExecTag(&emcmotDebug->tp);
         emcmotStatus->prim_progress = emcmotQueue->progress;  //FIXME: figure out how to tpGet...
     } else {
-	// pretend we're doing something so task keeps
-	// waiting for motion
-//	emcmotStatus->depth = 1;
-        emcmotStatus->depth = tpQueueDepth(emcmotQueue);
-
+        emcmotStatus->depth = emcmotConfig->vtp->tpQueueDepth(emcmotQueue);
     }
     emcmotStatus->tp_reverse_input = *(emcmot_hal_data->tp_reverse_input);
     emcmotStatus->pause_state = *(emcmot_hal_data->pause_state);
     emcmotStatus->motionType = emcmotConfig->vtp->tpGetMotionType(emcmotQueue);
+    emcmotStatus->accelState = emcmotConfig->vtp->tpGetAccelState(emcmotQueue);
     emcmotStatus->queueFull = emcmotConfig->vtp->tcqFull(&emcmotQueue->queue);
 
     /* check to see if we should pause in order to implement

@@ -38,7 +38,6 @@ bool print_container(pb_istream_t *stream)
     uint64_t length;
     uint64_t taghdr;
     pb_wire_type_t wiretype;
-    bool eof;
 
 #if 1
     if (!pb_decode_varint(stream, &taghdr)) {

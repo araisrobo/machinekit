@@ -491,7 +491,6 @@ static int init_hal_io(void)
     }
 
     if ((retval = hal_pin_s32_newf(HAL_OUT, &(emcmot_hal_data->motion_state), mot_comp_id, "motion.motion-state")) != 0) goto error;
-    if ((retval = hal_pin_s32_newf(HAL_OUT, &(emcmot_hal_data->motion_type), mot_comp_id, "motion.motion-type")) != 0) goto error;
 
     /* export debug parameters */
     /* these can be used to view any internal variable, simply change a line
@@ -1542,5 +1541,10 @@ static int init_shared(tp_shared_t *tps,
     // rotary setter/getters
     tps->SetRotaryUnlock = emcmotSetRotaryUnlock;
     tps->GetRotaryIsUnlocked = emcmotGetRotaryIsUnlocked;
+
+    // RISC@FPGA signals
+    tps->rtp_running = hal->rtp_running;        //!< for G38.X
+    tps->probing = hal->probing;                //!< for G38.X
+    tps->update_pos_req = hal->update_pos_req;  //!< for RISC-JOG, AHC, etc
     return 0;
 }

@@ -80,6 +80,7 @@ typedef int (*tpIsDone_t)(TP_STRUCT * tp);
 typedef int (*tpQueueDepth_t)(TP_STRUCT * tp);
 typedef int (*tpActiveDepth_t)(TP_STRUCT * tp);
 typedef int (*tpGetMotionType_t)(TP_STRUCT * tp);
+typedef int (*tpGetAccelState_t)(TP_STRUCT * tp);
 typedef int (*tpSetSpindleSync_t)(TP_STRUCT * tp, double sync, int wait);
 typedef int (*tcqFull_t)(TC_QUEUE_STRUCT const * const tcq);
 
@@ -126,6 +127,7 @@ typedef struct {
     tpQueueDepth_t	tpQueueDepth;
     tpActiveDepth_t	tpActiveDepth;
     tpGetMotionType_t   tpGetMotionType;
+    tpGetAccelState_t   tpGetAccelState;
     tpSetSpindleSync_t  tpSetSpindleSync;
     tpToggleDIOs_t	tpToggleDIOs;
     tpSetAout_t	        tpSetAout;
