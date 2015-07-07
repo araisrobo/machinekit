@@ -446,7 +446,7 @@ void do_usb_homing(void)
 		   error comp will be appropriate for this portion of the
 		   screw (previously we didn't know where we were at all). */
                 /* set the current position to 'home_offset' */
-                offset = joint->home_offset -
+                offset = *(joint->home_offset) -
                          (joint->risc_pos_cmd - joint->motor_offset);
                 /* this moves the internal position but does not affect the
 		   motor position */
@@ -604,7 +604,7 @@ void do_usb_homing(void)
 		   location of the home switch in joint coordinates. */
 
                 /* set the current position to 'home_offset' */
-                joint->motor_offset =  (-joint->home_offset + joint->probed_pos);
+                joint->motor_offset =  (-(*(joint->home_offset)) + joint->probed_pos);
                 /* this moves the internal position but does not affect the
                    motor position */
                 joint->pos_cmd = joint->risc_pos_cmd - joint->motor_offset;
@@ -615,7 +615,7 @@ void do_usb_homing(void)
 //                printf (
 //                         _("HOME_SET_SWITCH_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
 //                         joint_num,
-//                         joint->home_offset,
+//                         *(joint->home_offset),
 //                         joint->risc_pos_cmd,
 //                         joint->probed_pos,
 //                         joint->pos_cmd,
@@ -643,7 +643,7 @@ void do_usb_homing(void)
 		   (previously we didn't know where we were at all). */
 
                 /* set the current position to 'home_offset' */
-                offset = joint->home_offset -
+                offset = *(joint->home_offset) -
                          (joint->risc_pos_cmd - joint->motor_offset);
                 /* this moves the internal position but does not affect the
                    motor position */
@@ -719,16 +719,9 @@ void do_usb_homing(void)
 		   the index pulse position.  It sets the current joint
 		   position to 'home_offset', which is the location of the
 		   index pulse in joint coordinates. */
-//                /* set the current position to 'home_offset' */
-//                offset = joint->home_offset;
-//                /* this moves the internal position but does not affect the
-//                   motor position */
-//                joint->pos_cmd = (joint->risc_pos_cmd - joint->probed_pos) + offset;
-//                joint->free_pos_cmd = joint->pos_cmd;
-//                joint->motor_offset = joint->risc_pos_cmd - ((joint->risc_pos_cmd - joint->probed_pos) + offset);
 
                 /* set the current position to 'home_offset' */
-                joint->motor_offset =  (-joint->home_offset + joint->probed_pos);
+                joint->motor_offset =  (-(*(joint->home_offset)) + joint->probed_pos);
                 /* this moves the internal position but does not affect the
                    motor position */
                 joint->pos_cmd = joint->risc_pos_cmd - joint->motor_offset;
@@ -739,7 +732,7 @@ void do_usb_homing(void)
 //                 printf (
 //                          _("HOME_SET_INDEX_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
 //                          joint_num,
-//                          joint->home_offset,
+//                          *(joint->home_offset),
 //                          joint->risc_pos_cmd,
 //                          joint->probed_pos,
 //                          joint->pos_cmd,
@@ -752,7 +745,7 @@ void do_usb_homing(void)
 //                     printf (
 //                             _("HOME_SET_INDEX_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
 //                             joint_num,
-//                             joint->home_offset,
+//                             *(joint->home_offset),
 //                             joint->risc_pos_cmd,
 //                             joint->probed_pos,
 //                             joint->pos_cmd,
@@ -798,10 +791,10 @@ void do_usb_homing(void)
 
                 /* plan a move to home position */
                 rtapi_print ("comment out the next line to calculate GANTRY joints offset\n");
-                joint->free_pos_cmd = joint->home;
+                joint->free_pos_cmd = *(joint->home);
                 /* if home_vel is set (>0) then we use that, otherwise we rapid there */
                 if (joint->home_final_vel > 0) {
-                    joint->free_vel_lim = fabs(joint->home_final_vel);
+                    joint->free_vel_lim = rtapi_fabs(joint->home_final_vel);
                 } else {
                     joint->free_vel_lim = joint->vel_limit;
                 }
