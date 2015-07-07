@@ -191,9 +191,8 @@ typedef struct
     hal_float_t *ahc_level;
     hal_bit_t *motion_s3; // synchronize AHC with S3, 0: disable 1:enable
     double prev_ahc_level;
-    /* motion state tracker */
-    hal_s32_t *motion_state;
-    hal_s32_t prev_motion_state;
+    hal_s32_t *accel_state;
+    hal_s32_t prev_accel_state;
     hal_u32_t *jog_sel;
     hal_s32_t *jog_vel_scale;
 
@@ -1490,7 +1489,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     assert(abs(*machine_control->jog_vel_scale) < 8);
     tmp = (*machine_control->jog_vel_scale << 28)
             | (*machine_control->jog_sel << 8)
-            | (*machine_control->motion_state << 4) | (homing << 3)
+            | (*machine_control->accel_state << 4) | (homing << 3)
             | (*machine_control->coord_mode << 2)
             | (*machine_control->teleop_mode << 1)
             | (*machine_control->machine_on);
@@ -1539,28 +1538,27 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 
     // motion_s3 is set by M103 Q_word
     if (*machine_control->motion_s3)
-    { // AHC has to synchronize with motion_state.S3
+    { // AHC has to synchronize with accel_state.S3
         if ((*machine_control->ahc_state)
-                && (machine_control->prev_motion_state
-                        != *machine_control->motion_state))
+                && (machine_control->prev_accel_state != *machine_control->accel_state))
         { // to synchronize AHC with motion.S3
-            if ((*machine_control->motion_state == 3)
+            if ((*machine_control->accel_state == 3)
                     && (*machine_control->current_vel != 0))
-            { // to enable AHC only when motion_state is
+            { // to enable AHC only when accel_state is
                 write_machine_param(AHC_STATE, 1);
             } else
             { // to disable AHC
                 write_machine_param(AHC_STATE, 0);
             }
-            machine_control->prev_motion_state = *machine_control->motion_state;
+            machine_control->prev_accel_state = *machine_control->accel_state;
         }
         if ((*machine_control->ahc_state == 0)
-                && (machine_control->prev_motion_state
-                        == *machine_control->motion_state))
+                && (machine_control->prev_accel_state
+                        == *machine_control->accel_state))
         { // in motion stable, but we suddenly closed ahc
             immediate_data = (*(machine_control->ahc_state));
             write_machine_param(AHC_STATE, immediate_data);
-            machine_control->prev_motion_state = 255;
+            machine_control->prev_accel_state = 255;
         }
     } else
     { // AHC is judged by ahc_state only
@@ -2358,14 +2356,14 @@ static int export_machine_control(machine_control_t * machine_control)
         return retval;
     }
 
-    retval = hal_pin_s32_newf(HAL_IN, &(machine_control->motion_state), comp_id,
-            "wosi.motion-state");
+    retval = hal_pin_s32_newf(HAL_IN, &(machine_control->accel_state), comp_id,
+            "wosi.accel-state");
     if (retval != 0)
     {
         return retval;
     }
-    *(machine_control->motion_state) = 0;
-    machine_control->prev_motion_state = 0;
+    *(machine_control->accel_state) = 0;
+    machine_control->prev_accel_state = 0;
 
     retval = hal_pin_u32_newf(HAL_IN, &(machine_control->jog_sel), comp_id,
             "wosi.motion.jog-sel");
