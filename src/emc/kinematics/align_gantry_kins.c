@@ -12,12 +12,12 @@
 *
 ********************************************************************/
 
-#include "motion.h"		/* these decls */
+#include "kinematics.h"         /* these decls */
+#include "rtapi.h"              /* RTAPI realtime OS API */
+#include "rtapi_app.h"          /* RTAPI realtime module decls */
 #include "hal.h"
-#include "rtapi.h"
-#include "rtapi_math.h"
-#include "rtapi_string.h"
-#include "rtapi_app.h"		/* RTAPI realtime module decls */
+
+#define VTVERSION VTKINEMATICS_VERSION1
 
 typedef struct {
     hal_float_t *yy_offset;
@@ -26,14 +26,6 @@ typedef struct {
 static align_pins_t *align_pins;
 
 #define YY_OFFSET       (*(align_pins->yy_offset))
-
-const char *machine_type = "";
-RTAPI_MP_STRING(machine_type, "Gantry Machine Type");
-
-EXPORT_SYMBOL(kinematicsType);
-EXPORT_SYMBOL(kinematicsForward);
-EXPORT_SYMBOL(kinematicsInverse);
-MODULE_LICENSE("GPL");
 
 int kinematicsForward(const double *joints,
 		      EmcPose * pos,
@@ -90,40 +82,48 @@ KINEMATICS_TYPE kinematicsType()
     return KINEMATICS_BOTH;
 }
 
+MODULE_LICENSE("GPL");
 
-int comp_id;
+static vtkins_t vtk = {
+    .kinematicsForward = kinematicsForward,
+    .kinematicsInverse  = kinematicsInverse,
+    // .kinematicsHome = kinematicsHome,
+    .kinematicsType = kinematicsType
+};
+
+static int comp_id, vtable_id;
+static const char *name = "align_gantry_kins";
+
 int rtapi_app_main(void) 
 {
-    int res = 0;
+    comp_id = hal_init(name);
+    if(comp_id > 0) {
+        vtable_id = hal_export_vtable(name, VTVERSION, &vtk, comp_id);
 
-// #if (TRACE!=0)
-//     dptrace = fopen("kins.log","w");
-// #endif
-    
-//    DP("begin\n");
-    comp_id = hal_init("align_gantry_kins");
-    if (comp_id < 0) {
-        // ERROR
-//        DP("ABORT\n");
-        return comp_id;
-    }
-    
-    align_pins = hal_malloc(sizeof(align_pins_t));
-    if (!align_pins) goto error;
-    if ((res = hal_pin_float_new("align-gantry-kins.yy-offset", HAL_IN, &(align_pins->yy_offset), comp_id)) < 0) goto error;
-    YY_OFFSET = 0;
+        if (vtable_id < 0) {
+            rtapi_print_msg(RTAPI_MSG_ERR,
+                            "%s: ERROR: hal_export_vtable(%s,%d,%p) failed: %d\n",
+                            name, name, VTVERSION, &vtk, vtable_id );
+            return -ENOENT;
+        }
 
-    hal_ready(comp_id);
-//    DP ("success\n");
-    return 0;
-    
+        align_pins = hal_malloc(sizeof(align_pins_t));
+        if (!align_pins) goto error;
+        if ((hal_pin_float_new("align-gantry-kins.yy-offset", HAL_IN, &(align_pins->yy_offset), comp_id)) < 0) goto error;
+        YY_OFFSET = 0;
+
+        hal_ready(comp_id);
+        return 0;
+
 error:
-//    DP("ERROR\n");
-    hal_exit(comp_id);
-#if (TRACE!=0)
-    fclose(dptrace);
-#endif
-    return res;
+        hal_exit(comp_id);
+    }
+    return comp_id;
+    
 }
 
-void rtapi_app_exit(void) { hal_exit(comp_id); }
+void rtapi_app_exit(void)
+{
+    hal_remove_vtable(vtable_id);
+    hal_exit(comp_id);
+}
