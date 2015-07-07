@@ -1270,6 +1270,7 @@ int blendLineArcPostProcess(BlendPoints3 * const points, BlendPoints3 const * co
     double A = 1;
     double B = 2.0 * c2_u;
     double C = pmSq(c2_u) - pmSq(d2) + pmSq(param->R_plan - c2_n);
+
     double root0,root1;
     int res_dist = quadraticFormula(A, B, C, &root0, &root1);
     if (res_dist) {

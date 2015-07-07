@@ -57,6 +57,7 @@ int ini_hal_init_pins(void);
     FIELD(hal_float_t,traj_max_jerk) \
 \
     ARRAY(hal_float_t,backlash,EMCMOT_MAX_JOINTS) \
+    ARRAY(hal_float_t,input_scale,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,min_limit,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,max_limit,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,max_velocity,EMCMOT_MAX_JOINTS) \

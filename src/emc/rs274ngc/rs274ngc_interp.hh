@@ -76,6 +76,9 @@ public:
 // restore internal current_* positions from saved ones
  int restore_cur_pos();
 
+ int get_cutter_comp_firstmove(bool *cutter_comp_firstmove);
+ int set_cutter_comp_firstmove(bool *cutter_comp_firstmove);
+
  int get_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
  int set_cur_pos(double *x, double *y, double *z, double *a, double *b, double *c, double *u, double *v, double *w);
 

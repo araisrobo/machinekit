@@ -521,7 +521,13 @@ int Interp::convert_arc(int move,        //!< either G_2 (cw arc) or G_3 (ccw ar
                    block->j_number, block->k_number);
     CHP(status);
   } else
+  {
     ERS(NCE_BUG_PLANE_NOT_XY_YZ_OR_XZ);
+  }
+  dequeue_canons(settings);
+  comp_get_current(settings, &end_x, &end_y, &end_z);
+  set_endpoint(end_x, end_y);
+
   return INTERP_OK;
 }
 
@@ -899,7 +905,6 @@ int Interp::convert_arc_comp2(int move,  //!< either G_2 (cw arc) or G_3 (ccw ar
           
             midx = centerx + dist_from_center * rtapi_cos(angle_from_center);
             midy = centery + dist_from_center * rtapi_sin(angle_from_center);
-
             CHP(move_endpoint_and_flush(settings, midx, midy));
         } else {
             // arc->arc
@@ -918,7 +923,6 @@ int Interp::convert_arc_comp2(int move,  //!< either G_2 (cw arc) or G_3 (ccw ar
             CHKS((oldrad == 0 || arc_cc == 0), _("Arc to arc motion is invalid because the arcs have the same center"));
             a = (SQ(oldrad) + SQ(arc_cc) - SQ(newrad)) / (2 * oldrad * arc_cc);
             
-            CHKS((a > 1.0 || a < -1.0), (_("Arc to arc motion makes a corner the compensated tool can't fit in without gouging")));
             pullback = rtapi_acos(a);
             cc_dir = rtapi_atan2(centery - prev.center2, centerx - prev.center1);
 
@@ -937,7 +941,6 @@ int Interp::convert_arc_comp2(int move,  //!< either G_2 (cw arc) or G_3 (ccw ar
           
             midx = prev.center1 + oldrad * rtapi_cos(dir);
             midy = prev.center2 + oldrad * rtapi_sin(dir);
-          
             CHP(move_endpoint_and_flush(settings, midx, midy));
         }
         enqueue_ARC_FEED(settings, block->line_number, 
@@ -1505,8 +1508,6 @@ int Interp::convert_control_mode(int g_code,     //!< g_code being executed (G_6
 				double naivecam_tolerance,    //tolerance for the naivecam
                                 setup_pointer settings) //!< pointer to machine settings                 
 {
-  CHKS((settings->cutter_comp_side),
-       (_("Cannot change control mode with cutter radius compensation on")));
   if (g_code == G_61) {
     SET_MOTION_CONTROL_MODE(CANON_EXACT_PATH, 0);
     settings->control_mode = CANON_EXACT_PATH;
@@ -1775,18 +1776,30 @@ int Interp::convert_cutter_compensation_off(setup_pointer settings)      //!< po
 #ifdef DEBUG_EMC
   enqueue_COMMENT("interpreter: cutter radius compensation off");
 #endif
-  if(settings->cutter_comp_side && settings->cutter_comp_radius > 0.0) {
+  if(settings->cutter_comp_side && settings->cutter_comp_radius > 0.0
+//#ifdef USB_MOTION_ENABLE
+          && settings->call_level < 2
+//#endif
+  )
+  {
       double cx, cy, cz;
       comp_get_current(settings, &cx, &cy, &cz);
       CHP(move_endpoint_and_flush(settings, cx, cy));
       dequeue_canons(settings);
-      settings->current_x = settings->program_x;
-      settings->current_y = settings->program_y;
-      settings->current_z = settings->program_z;
-      settings->arc_not_allowed = true;
+      if (settings->current_x != 0 && settings->current_y != 0)
+      {
+          // we do not want do this, when we pause in the motion and resume
+          // we will in emctaskmain.cc: readahead_reading() parsing again
+          // this sync will let coordinate offset
+          settings->current_x = settings->program_x;
+          settings->current_y = settings->program_y;
+          settings->current_z = settings->program_z;
+      }
   }
+
   settings->cutter_comp_side = false;
   settings->cutter_comp_firstmove = true;
+
   return INTERP_OK;
 }
 
@@ -1903,6 +1916,7 @@ int Interp::convert_cutter_compensation_on(int side,     //!< side of path cutte
   settings->cutter_comp_radius = radius;
   settings->cutter_comp_orientation = orientation;
   settings->cutter_comp_side = side;
+
   return INTERP_OK;
 }
 
@@ -3010,23 +3024,23 @@ int Interp::convert_m(block_pointer block,       //!< pointer to a block of RS27
       return convert_remapped_code(block, settings, STEP_M_5, 'm',
 				   block->m_modes[5]);
   } else if ((block->m_modes[5] == 62) && ONCE_M(5)) {
-      CHKS((settings->cutter_comp_side),
-           (_("Cannot set motion output with cutter radius compensation on")));  // XXX
+//      CHKS((settings->cutter_comp_side),
+//           (_("Cannot set motion output with cutter radius compensation on")));  // XXX
       CHKS((!block->p_flag), _("No valid P word with M62"));
       SET_MOTION_OUTPUT_BIT(round_to_int(block->p_number), block->line_number);
   } else if ((block->m_modes[5] == 63) && ONCE_M(5)) {
-      CHKS((settings->cutter_comp_side),
-           (_("Cannot set motion digital output with cutter radius compensation on")));  // XXX
+//      CHKS((settings->cutter_comp_side),
+//           (_("Cannot set motion digital output with cutter radius compensation on")));  // XXX
       CHKS((!block->p_flag), _("No valid P word with M63"));
       CLEAR_MOTION_OUTPUT_BIT(round_to_int(block->p_number), block->line_number);
   } else if ((block->m_modes[5] == 64) && ONCE_M(5)){
-      CHKS((settings->cutter_comp_side),
-           (_("Cannot set auxiliary digital output with cutter radius compensation on")));  // XXX
+//      CHKS((settings->cutter_comp_side),
+//           (_("Cannot set auxiliary digital output with cutter radius compensation on")));  // XXX
       CHKS((!block->p_flag), _("No valid P word with M64"));
       SET_AUX_OUTPUT_BIT(round_to_int(block->p_number), block->line_number);
   } else if ((block->m_modes[5] == 65) && ONCE_M(5)) {
-      CHKS((settings->cutter_comp_side),
-           (_("Cannot set auxiliary digital output with cutter radius compensation on")));  // XXX
+//      CHKS((settings->cutter_comp_side),
+//           (_("Cannot set auxiliary digital output with cutter radius compensation on")));  // XXX
       CHKS((!block->p_flag), _("No valid P word with M65"));
       CLEAR_AUX_OUTPUT_BIT(round_to_int(block->p_number), block->line_number);
   } else if ((block->m_modes[5] == 66) && ONCE_M(5)){
@@ -3074,9 +3088,6 @@ int Interp::convert_m(block_pointer block,       //!< pointer to a block of RS27
 	    timeout = 0;
         }
 
-        CHKS((settings->cutter_comp_side),
-             (_("Cannot wait for digital input with cutter radius compensation on")));
-
 	int ret = WAIT(round_to_int(block->p_number), DIGITAL_INPUT, type, timeout, block->line_number);
 	//WAIT returns 0 on success, -1 for out of bounds
 	CHKS((ret == -1), NCE_DIGITAL_INPUT_INVALID_ON_M66);
@@ -3101,15 +3112,15 @@ int Interp::convert_m(block_pointer block,       //!< pointer to a block of RS27
 
     //E-word = analog channel
     //Q-word = analog value
-      CHKS((settings->cutter_comp_side),
-           (_("Cannot set motion analog output with cutter radius compensation on")));  // XXX
+//      CHKS((settings->cutter_comp_side),
+//           (_("Cannot set motion analog output with cutter radius compensation on")));  // XXX
       CHKS((!block->e_flag) || (round_to_int(block->e_number) < 0), (_("Invalid analog index with M67")));
       SET_MOTION_OUTPUT_VALUE(round_to_int(block->e_number), block->q_number);
   } else if ((block->m_modes[5] == 68)  && ONCE_M(5)) {
     //E-word = analog channel
     //Q-word = analog value
-      CHKS((settings->cutter_comp_side),
-           (_("Cannot set auxiliary analog output with cutter radius compensation on")));  // XXX
+//      CHKS((settings->cutter_comp_side),
+//           (_("Cannot set auxiliary analog output with cutter radius compensation on")));  // XXX
       CHKS((!block->e_flag) || (round_to_int(block->e_number) < 0), (_("Invalid analog index with M68")));
       SET_AUX_OUTPUT_VALUE(round_to_int(block->e_number), block->q_number);
   }
@@ -3560,12 +3571,15 @@ int Interp::convert_probe(block_pointer block,   //!< pointer to a block of RS27
   double u_end;
   double v_end;
   double w_end;
+  int cutter_comp_side;
 
   /* probe_type: 
      ~1 = error if probe operation is unsuccessful (ngc default)
      |1 = suppress error, report in # instead
      ~2 = move until probe trips (ngc default)
      |2 = move until probe clears */
+  cutter_comp_side = settings->cutter_comp_side;
+  settings->cutter_comp_side = false;
 
   unsigned char probe_type = g_code - G_38_2;
   
@@ -3593,6 +3607,7 @@ int Interp::convert_probe(block_pointer block,   //!< pointer to a block of RS27
   TURN_PROBE_OFF(probe_type);
   settings->motion_mode = g_code;
   settings->probe_flag = true;
+  settings->cutter_comp_side = cutter_comp_side;
   return INTERP_OK;
 }
 
@@ -4456,8 +4471,8 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
   update_tag(tag);
 
   if ((settings->cutter_comp_side) &&    /* ! "== true" */
-      (settings->cutter_comp_radius > 0.0)) {   /* radius always is >= 0 */
-
+      (settings->cutter_comp_radius > 0.0) &&   /* radius always is >= 0 */
+      (block->g_modes[0] != G_53)) {
     CHKS((block->g_modes[0] == G_53),
         NCE_CANNOT_USE_G53_WITH_CUTTER_RADIUS_COMP);
 
@@ -4808,7 +4823,6 @@ int Interp::convert_straight_comp1(int move,     //!< either G_0 or G_1
 
     end_x = (px + (radius * rtapi_cos(alpha)));
     end_y = (py + (radius * rtapi_sin(alpha)));
-
     // with these moves we don't need to record the direction vector.
     // they cannot get reversed because they are guaranteed to be long
     // enough.
@@ -4955,7 +4969,6 @@ int Interp::convert_straight_comp2(int move,     //!< either G_0 or G_1
         radius = settings->cutter_comp_radius;      /* will always be positive */
         theta = rtapi_atan2(cy - opy, cx - opx);
         alpha = rtapi_atan2(py - opy, px - opx);
-
         if (side == LEFT) {
             if (theta < alpha)
                 theta = (theta + (2 * M_PIl));
@@ -5082,6 +5095,7 @@ int Interp::convert_straight_comp2(int move,     //!< either G_0 or G_1
             dequeue_canons(settings);
             set_endpoint(cx, cy);
         }
+
         (move == G_0? enqueue_STRAIGHT_TRAVERSE: enqueue_STRAIGHT_FEED)
             (settings, block->line_number, 
              px - opx, py - opy, pz - opz, 

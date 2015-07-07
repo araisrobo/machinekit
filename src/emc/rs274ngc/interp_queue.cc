@@ -65,9 +65,9 @@ void qc_reset(void) {
 }
 
 void enqueue_SET_FEED_RATE(double feed) {
+    SET_FEED_RATE(feed);
     if(qc().empty()) {
         if(debug_qc) printf("immediate set feed rate %f\n", feed);
-        SET_FEED_RATE(feed);
         return;
     }
     queued_canon q;
@@ -629,12 +629,12 @@ int Interp::move_endpoint_and_flush(setup_pointer settings, double x, double y) 
                        rtapi_atan2(y1,x1), rtapi_atan2(y2,x2),
                        dot, endpoint_valid);
 
-            if(endpoint_valid && dot<0) {
-                // oops, the move is the wrong way.  this means the
-                // path has crossed because we backed up further
-                // than the line is long.  this will gouge.
-                ERS(_("Straight traverse in concave corner cannot be reached by the tool without gouging"));
-            }
+//            if(endpoint_valid && dot<0) {
+//                // oops, the move is the wrong way.  this means the
+//                // path has crossed because we backed up further
+//                // than the line is long.  this will gouge.
+//                ERS(_("Straight traverse in concave corner cannot be reached by the tool without gouging"));
+//            }
             switch(settings->plane) {
             case CANON_PLANE_XY:
                 q.data.straight_traverse.x = x;
@@ -664,19 +664,12 @@ int Interp::move_endpoint_and_flush(setup_pointer settings, double x, double y) 
                 ERS(_("BUG: Unsupported plane [%d] in cutter compensation"),
 			settings->plane);
             }
-
             dot = x1 * x2 + y1 * y2;
             if(debug_qc)
                 printf("moving endpoint of feed old dir %f new dir %f dot %f endpoint_valid %d\n",
                        rtapi_atan2(y1,x1), rtapi_atan2(y2,x2),
                        dot, endpoint_valid);
 
-            if(endpoint_valid && dot<0) {
-                // oops, the move is the wrong way.  this means the
-                // path has crossed because we backed up further
-                // than the line is long.  this will gouge.
-                ERS(_("Straight feed in concave corner cannot be reached by the tool without gouging"));
-            }
             switch(settings->plane) {
             case CANON_PLANE_XY:
                 q.data.straight_feed.x = x;

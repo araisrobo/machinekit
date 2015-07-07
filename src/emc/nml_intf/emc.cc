@@ -2281,7 +2281,7 @@ void EMC_AXIS_SET_BACKLASH::update(CMS * cms)
 
     EMC_AXIS_CMD_MSG::update(cms);
     cms->update(backlash);
-
+    cms->update(input_scale);
 }
 
 /*

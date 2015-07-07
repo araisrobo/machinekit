@@ -485,6 +485,7 @@ class GlCanonDraw:
         self.cached_tool = -1
         self.initialised = 0
         self.fix_tool_size = False  # set to True to disable tool_size scaling
+        # self.fix_tool_size = True  # set to True to disable tool_size scaling
 
     def realize(self):
         self.hershey = hershey.Hershey()
@@ -1381,7 +1382,7 @@ class GlCanonDraw:
                     dia = current_tool.diameter 
                 r = self.to_internal_linear_unit(dia) / 2.
                 q = gluNewQuadric()
-#                 glEnable(GL_LIGHTING)
+                glEnable(GL_LIGHTING)
                 gluCylinder(q, r, r, 8*r, 32, 1)
                 glPushMatrix()
                 glRotatef(180, 1, 0, 0)
@@ -1389,7 +1390,7 @@ class GlCanonDraw:
                 glPopMatrix()
                 glTranslatef(0,0,8*r)
                 gluDisk(q, 0, r, 32, 1)
-#                 glDisable(GL_LIGHTING)
+                glDisable(GL_LIGHTING)
                 gluDeleteQuadric(q)
         glEndList()
 

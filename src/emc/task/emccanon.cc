@@ -625,7 +625,6 @@ void SET_FEED_RATE(double rate)
 	/* convert to traj units (mm & deg) if needed */
 	double newLinearFeedRate = FROM_PROG_LEN(rate),
 	       newAngularFeedRate = FROM_PROG_ANG(rate);
-
 	if(newLinearFeedRate != currentLinearFeedRate
 		|| newAngularFeedRate != currentAngularFeedRate)
 	    flush_segments();
@@ -1075,6 +1074,11 @@ static void flush_segments(void) {
     linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
     AccelData lineaccdata = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
     double acc = lineaccdata.acc;
+    if (acc <= 0){
+        printf("%s %s:%d FIXME: vel(%f) acc(%f) synched(%d) line_no(%d)\n", __FILE__, __FUNCTION__, __LINE__,
+                vel, acc, synched,line_no);
+        acc = FROM_EXT_LEN(MAX3(axis_max_acceleration[0], axis_max_acceleration[1], axis_max_acceleration[2]));
+    }
     linearMoveMsg.acc = toExtAcc(acc);
 
     linearMoveMsg.type = EMC_MOTION_TYPE_FEED;
@@ -1143,22 +1147,12 @@ see_segment(int line_number,
 	    double x, double y, double z, 
             double a, double b, double c,
             double u, double v, double w) {
-    bool changed_abc = (a != canonEndPoint.a)
-        || (b != canonEndPoint.b)
-        || (c != canonEndPoint.c);
-
-    bool changed_uvw = (u != canonEndPoint.u)
-        || (v != canonEndPoint.v)
-        || (w != canonEndPoint.w);
-
     if(!chained_points.empty() && !linkable(x, y, z, a, b, c, u, v, w)) {
         flush_segments();
     }
     pt pos = {x, y, z, a, b, c, u, v, w, line_number, tag};
     chained_points.push_back(pos);
-    if(changed_abc || changed_uvw) {
-        flush_segments();
-    }
+    flush_segments();
 }
 
 void FINISH() {
@@ -1651,17 +1645,18 @@ void ARC_FEED(int line_number,
         double fa=FROM_PROG_LEN(first_axis), sa=FROM_PROG_LEN(second_axis);
         rotate_and_offset_pos(fe, se, ae, unused, unused, unused, unused, unused, unused);
         rotate_and_offset_pos(fa, sa, unused, unused, unused, unused, unused, unused, unused);
-        if (chord_deviation(lx, ly, fe, se, fa, sa, rotation, mx, my) < canonNaivecamTolerance) {
+        if (chord_deviation(lx, ly, fe, se, fa, sa, rotation, mx, my) < canonNaivecamTolerance/10000) {
             rotate_and_offset_pos(unused, unused, unused, a, b, c, u, v, w);
-            see_segment(line_number, _tag, mx, my,
-                        (lz + ae)/2, 
-                        (canonEndPoint.a + a)/2, 
-                        (canonEndPoint.b + b)/2, 
-                        (canonEndPoint.c + c)/2, 
-                        (canonEndPoint.u + u)/2, 
-                        (canonEndPoint.v + v)/2, 
+            printf("%s (%s:%d) FIXME: why see_segment(line_number-1,...)?\n", __FILE__, __FUNCTION__, __LINE__);
+            see_segment(line_number-1, _tag, mx, my,
+                        (lz + ae)/2,
+                        (canonEndPoint.a + a)/2,
+                        (canonEndPoint.b + b)/2,
+                        (canonEndPoint.c + c)/2,
+                        (canonEndPoint.u + u)/2,
+                        (canonEndPoint.v + v)/2,
                         (canonEndPoint.w + w)/2);
-            see_segment(line_number, _tag, fe, se, ae, a, b, c, u, v, w);
+            see_segment(line_number-1, _tag, fe, se, ae, a, b, c, u, v, w);
             return;
         }
     }

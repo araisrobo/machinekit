@@ -1074,11 +1074,23 @@ static void check_for_faults(void)
 			/* report the error just this once */
 			reportError(_("joint %d on limit switch error"),
 			    joint_num);
+                        // override limit automatically.
+                        emcmotStatus->overrideLimitMask |= ( 2 << (joint_num*2));
+                        emcmotStatus->overrideLimitMask |= ( 1 << (joint_num*2));
 		    }
 		    SET_JOINT_ERROR_FLAG(joint, 1);
-		    emcmotDebug->enabling = 0;
+                    SET_MOTION_ERROR_FLAG(1);
+		    // We don't want it to stop motion when PHL or NHL are toggled
+		    // emcmotDebug->enabling = 0;
 		}
-	    }
+	    } else {
+                // clean override mask after leave hard limits.
+                if ((!GET_JOINT_PHL_FLAG(joint)) && (!GET_JOINT_NHL_FLAG(joint))) {
+                    emcmotStatus->overrideLimitMask &= ~( 2 << (joint_num*2));
+                    emcmotStatus->overrideLimitMask &= ~( 1 << (joint_num*2));
+                }
+            }
+
 	    /* check for amp fault */
 	    if (GET_JOINT_FAULT_FLAG(joint)) {
 		/* joint is faulted, trip */
@@ -1304,12 +1316,21 @@ static void handle_usbmot_sync(void)
         int joint_num;
         emcmot_joint_t *joint;
         double positions[EMCMOT_MAX_JOINTS];
+        double prev_pos_cmd;
 
         for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++) {
             /* point to joint struct */
             joint = &joints[joint_num];
             /* copy risc_pos_cmd feedback */
+
+            // FIXME: we just update probed joint don't update other joints.
+            //        risc_pos_cmd is (*stepgen->cmd_fbs) multiply stepgen->scale_recip
+            //        can not resolve all the data
+            prev_pos_cmd = joint->pos_cmd;
             joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset - joint->blender_offset;
+            if(fabs(joint->pos_cmd - prev_pos_cmd) <= fabs(joint->scale_recip)) {
+                joint->pos_cmd = prev_pos_cmd;
+            }
             joint->coarse_pos = joint->pos_cmd;
             joint->free_pos_cmd = joint->pos_cmd;
             /* to reset cubic parameters */

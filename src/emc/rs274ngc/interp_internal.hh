@@ -78,7 +78,7 @@
 #define SPIRAL_RELATIVE_TOLERANCE 0.75
 
 /* angle threshold for concavity for cutter compensation, in radians */
-#define TOLERANCE_CONCAVE_CORNER 0.05  
+#define TOLERANCE_CONCAVE_CORNER 0.000005
 #define TOLERANCE_EQUAL 0.0001 /* two numbers compare EQ if the
 				  difference is less than this */
 
