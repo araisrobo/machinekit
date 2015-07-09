@@ -178,12 +178,12 @@ STATIC int jog_ok(int joint_num, double vel)
 	return 0;
     }
     refresh_jog_limits(joint);
-    if ( vel > 0.0 && (joint->pos_cmd > joint->max_jog_limit) ) {
+    if ( vel > 0.0 && (joint->pos_cmd > joint->max_jog_limit) && joint->en_soft_limit ) {
 	reportError(_("Can't jog joint %d further past max soft limit."),
 	    joint_num);
 	return 0;
     }
-    if ( vel < 0.0 && (joint->pos_cmd < joint->min_jog_limit) ) {
+    if ( vel < 0.0 && (joint->pos_cmd < joint->min_jog_limit) && joint->en_soft_limit ) {
 	reportError(_("Can't jog joint %d further past min soft limit."),
 	    joint_num);
 	return 0;
@@ -201,15 +201,23 @@ void refresh_jog_limits(emcmot_joint_t *joint)
 {
     double range;
 
-    if (GET_JOINT_HOMED_FLAG(joint)) {
-	/* if homed, set jog limits using soft limits */
-	joint->max_jog_limit = joint->max_pos_limit;
-	joint->min_jog_limit = joint->min_pos_limit;
-    } else {
-	/* not homed, set limits based on current position */
-	range = joint->max_pos_limit - joint->min_pos_limit;
-	joint->max_jog_limit = joint->pos_fb + range;
-	joint->min_jog_limit = joint->pos_fb - range;
+    if (joint->en_soft_limit == 1)
+    {
+        if (GET_JOINT_HOMED_FLAG(joint)) {
+            /* if homed, set jog limits using soft limits */
+            joint->max_jog_limit = joint->max_pos_limit;
+            joint->min_jog_limit = joint->min_pos_limit;
+        } else {
+            /* not homed, set limits based on current position */
+            range = joint->max_pos_limit - joint->min_pos_limit;
+            joint->max_jog_limit = joint->pos_fb + range;
+            joint->min_jog_limit = joint->pos_fb - range;
+        }
+    } else
+    {
+        // software limit is disabled
+        joint->max_jog_limit = DBL_MAX;
+        joint->min_jog_limit = -DBL_MAX;
     }
 }
 
@@ -243,7 +251,7 @@ int inRange(EmcPose pos, int id, char *move_type)
 	}
 
         /* bypass soft limit checking if both max and min pos_limit are 0 */ 
-        if ((joint->max_pos_limit != 0) || (joint->min_pos_limit != 0)) {
+        if (joint->en_soft_limit) {
 
 	    if (joint_pos[joint_num] > joint->max_pos_limit) {
                 in_range = 0;
@@ -674,6 +682,11 @@ check_stuff ( "before command_handler()" );
 	    }
 	    joint->min_pos_limit = emcmotCommand->minLimit;
 	    joint->max_pos_limit = emcmotCommand->maxLimit;
+	    if ((joint->max_pos_limit == 0) && (joint->min_pos_limit == 0)) {
+	        joint->en_soft_limit = 0;
+	    } else {
+                joint->en_soft_limit = 1;
+	    }
 	    break;
 
 	case EMCMOT_SET_BACKLASH:

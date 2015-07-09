@@ -69,7 +69,7 @@ double servo_freq;
 #ifdef ENABLE_CHECK_STUFF
 void check_stuff(const char *location)
 {
-   static char *target, old = 0xFF;
+   static hal_bit_t *target, old = 0xFF;
 /*! \todo Another #if 0 */
 #if 0
 /* kludge to look at emcmotDebug->enabling and emcmotStatus->motionFlag
@@ -1908,7 +1908,7 @@ static void get_pos_cmds(long period)
 	/* skip inactive or unhomed axes */
 	if (GET_JOINT_ACTIVE_FLAG(joint) && GET_JOINT_HOMED_FLAG(joint)) {
 	    /* bypass soft limit checking if both max and min pos_limit are 0 */ 
-            if ((joint->max_pos_limit != 0) || (joint->min_pos_limit != 0)) {
+            if (joint->en_soft_limit) {
                 /* check for soft limits */
                 if (joint->pos_cmd > joint->max_pos_limit) {
                     onlimit = 1;

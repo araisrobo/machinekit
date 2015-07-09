@@ -1160,6 +1160,7 @@ static int init_comm_buffers(void)
 	joint->type = 0;
 	joint->max_pos_limit = 1.0;
 	joint->min_pos_limit = -1.0;
+	joint->en_soft_limit = 0;
 	joint->vel_limit = 1.0;
 	joint->acc_limit = 1.0;
 	joint->min_ferror = 0.01;

@@ -510,6 +510,7 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double min_pos_limit;	/* lower soft limit on joint pos */
 	double max_jog_limit;	/* jog limits change when not homed */
 	double min_jog_limit;
+	int    en_soft_limit;   /* set both max_pos_limit and min_pos_limit to 0 to disable software limit */
 	double vel_limit;	/* upper limit of joint speed */
 	double acc_limit;	/* upper limit of joint accel */
 	double jerk_limit;	/* upper limit of joint jerk */
