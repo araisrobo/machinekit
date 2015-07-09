@@ -131,7 +131,7 @@ void do_usb_homing_sequence(void)
 
     case HOME_SEQUENCE_START:
         /* a request to home all joints */
-        for(i=0; i < emcmotConfig->numJoints; i++) {
+        for(i=0; i < num_joints; i++) {
             joint = &joints[i];
             if(joint->home_state != HOME_IDLE) {
                 /* a home is already in progress, abort the home-all */
@@ -153,7 +153,7 @@ void do_usb_homing_sequence(void)
 
     case HOME_SEQUENCE_START_JOINTS:
         /* start all joints whose sequence number matches home_sequence */
-        for(i=0; i < emcmotConfig->numJoints; i++) {
+        for(i=0; i < num_joints; i++) {
             joint = &joints[i];
             if(joint->home_sequence == home_sequence) {
                 /* start this joint */
@@ -182,7 +182,7 @@ void do_usb_homing_sequence(void)
         break;
 
     case HOME_SEQUENCE_WAIT_JOINTS:
-        for(i=0; i < emcmotConfig->numJoints; i++) {
+        for(i=0; i < num_joints; i++) {
             joint = &joints[i];
             if(joint->home_sequence != home_sequence) {
                 /* this joint is not at the current sequence number, ignore it */
@@ -240,7 +240,7 @@ void do_usb_homing(void)
     }
 
     /* loop thru joints, treat each one individually */
-    for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++)
+    for (joint_num = 0; joint_num < num_joints; joint_num++)
     {
         /* point to joint struct */
         joint = &joints[joint_num];
