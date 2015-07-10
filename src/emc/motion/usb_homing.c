@@ -73,6 +73,14 @@ static const char * const home_state_names[] =
     "HOME_ABORT"                          // 26
 };
 
+static const char * const rcmd_state_names[] =
+{
+    "RCMD_IDLE",                          // 0
+    "RCMD_ALIGNING",                      // 1
+    "RCMD_UPDATE_POS_REQ"                 // 2
+};
+
+
 /***********************************************************************
  *                      LOCAL FUNCTIONS                                 *
  ************************************************************************/
@@ -470,17 +478,15 @@ void do_usb_homing(void)
                     /* search and latch vel are opposite directions */
                     joint->home_state = HOME_FALL_SEARCH_START;
                 }
-                // DEBUG ysli:
-//                rtapi_print (
-//                        _("HOME_SET_COARSE_POSITION: j[%d] offset(%f) risc_pos_cmd(%f) pos_cmd(%f) pos_fb(%f) free_pos_cmd(%f) motor_offset(%f)\n"),
-//                        joint_num,
-//                        offset,
-//                        joint->risc_pos_cmd,
-//                        joint->pos_cmd,
-//                        joint->pos_fb,
-//                        joint->free_pos_cmd,
-//                        joint->motor_offset);
-                // DEBUG ysli:
+                rtapi_print_msg(RTAPI_MSG_DBG,
+                        _("HOME_SET_COARSE_POSITION: j[%d] offset(%f) risc_pos_cmd(%f) pos_cmd(%f) pos_fb(%f) free_pos_cmd(%f) motor_offset(%f)\n"),
+                        joint_num,
+                        offset,
+                        joint->risc_pos_cmd,
+                        joint->pos_cmd,
+                        joint->pos_fb,
+                        joint->free_pos_cmd,
+                        joint->motor_offset);
                 break;
 
             case HOME_FINAL_BACKOFF_START:
@@ -611,18 +617,16 @@ void do_usb_homing(void)
                 joint->free_pos_cmd = joint->pos_cmd;
                 emcmotStatus->update_pos_ack = 1; // to synchronize prev_pos_cmd with new pos_cmd
 
-                // DEBUG ysli:
-//                printf (
-//                         _("HOME_SET_SWITCH_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
-//                         joint_num,
-//                         *(joint->home_offset),
-//                         joint->risc_pos_cmd,
-//                         joint->probed_pos,
-//                         joint->pos_cmd,
-//                         joint->pos_fb,
-//                         joint->free_pos_cmd,
-//                         joint->motor_offset);
-                // DEBUG ysli
+                rtapi_print_msg(RTAPI_MSG_DBG,
+                         _("HOME_SET_SWITCH_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
+                         joint_num,
+                         *(joint->home_offset),
+                         joint->risc_pos_cmd,
+                         joint->probed_pos,
+                         joint->pos_cmd,
+                         joint->pos_fb,
+                         joint->free_pos_cmd,
+                         joint->motor_offset);
 
                 /* next state */
                 joint->home_state = HOME_FINAL_MOVE_START;
@@ -654,17 +658,17 @@ void do_usb_homing(void)
 
                 emcmotStatus->update_pos_ack = 1; // to synchronize prev_pos_cmd with new pos_cmd
 
-                // rtapi_print (
-                //          _("HOME_INDEX_ONLY_START: \nj[%d] home_offset(%f) offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
-                //          joint_num,
-                //          joint->home_offset,
-                //          offset,
-                //          joint->risc_pos_cmd,
-                //          joint->probed_pos,
-                //          joint->pos_cmd,
-                //          joint->pos_fb,
-                //          joint->free_pos_cmd,
-                //          joint->motor_offset);
+                rtapi_print_msg(RTAPI_MSG_DBG,
+                        _("HOME_INDEX_ONLY_START: \nj[%d] home_offset(%f) offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
+                        joint_num,
+                        *(joint->home_offset),
+                        offset,
+                        joint->risc_pos_cmd,
+                        joint->probed_pos,
+                        joint->pos_cmd,
+                        joint->pos_fb,
+                        joint->free_pos_cmd,
+                        joint->motor_offset);
 
                 /* next state */
                 joint->home_state = HOME_INDEX_SEARCH_START;
@@ -729,16 +733,16 @@ void do_usb_homing(void)
 
                 emcmotStatus->update_pos_ack = 1; // to synchronize prev_pos_cmd with new pos_cmd
 
-//                 printf (
-//                          _("HOME_SET_INDEX_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
-//                          joint_num,
-//                          *(joint->home_offset),
-//                          joint->risc_pos_cmd,
-//                          joint->probed_pos,
-//                          joint->pos_cmd,
-//                          joint->pos_fb,
-//                          joint->free_pos_cmd,
-//                          joint->motor_offset);
+                rtapi_print_msg(RTAPI_MSG_DBG,
+                        _("HOME_SET_INDEX_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
+                        joint_num,
+                        *(joint->home_offset),
+                        joint->risc_pos_cmd,
+                        joint->probed_pos,
+                        joint->pos_cmd,
+                        joint->pos_fb,
+                        joint->free_pos_cmd,
+                        joint->motor_offset);
                 
 //                 if (joint->home_flags & HOME_GANTRY_JOINT)
 //                 {   // TODO: to calculate GANTRY joints offset
@@ -883,10 +887,12 @@ void do_usb_homing(void)
 
         if (joint->home_state != joint->prev_home_state)
         {
-            rtapi_print ("usb_homing: j[%d].home_state(%s) rcmd_state(%d)\n",
+            rtapi_print_msg(RTAPI_MSG_DBG,
+                    _("usb_homing: j[%d].home_state(%s)  rcmd_state(%s)\n"),
                     joint_num,
                     home_state_names[joint->home_state],
-                    *(emcmot_hal_data->rcmd_state));
+                    rcmd_state_names[*(emcmot_hal_data->rcmd_state)]);
+            assert(*(emcmot_hal_data->rcmd_state) < 3);
         }
 
     }	/* end of loop through all joints */
