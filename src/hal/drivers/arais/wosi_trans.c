@@ -127,17 +127,12 @@ int wosi_trans_exit()
 
 int wosi_trans_run()
 {
-    char *name;
-    char *ring;
     size_t rsize; //<! record size
     uint32_t underrun = 0; // "number of failed read attempts";
     uint32_t received = 0; // "number of successful read attempts";
     int retval;
     const tick_jcmd_t *tick_jcmd;
     int machine_is_on;
-
-    name = param.modname;
-    ring = param.ring_name;
 
     retval = hal_ready(param.hal_comp_id);
     if (retval)
@@ -156,10 +151,7 @@ int wosi_trans_run()
         {
             // ring empty
             underrun++;
-            rtapi_print_msg(RTAPI_MSG_INFO,
-                    "%s(%s): wosi_trans_run() underrun(%d)\n", name, ring, underrun);
             wosi_receive();
-            // usleep(1);
             continue;
         }
 
