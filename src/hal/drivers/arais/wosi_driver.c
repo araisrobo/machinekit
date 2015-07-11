@@ -2400,7 +2400,7 @@ static int export_machine_control(machine_control_t * machine_control)
     for (i = 0; i < 32; i++)
     {
         retval = hal_pin_s32_newf(HAL_OUT, &(machine_control->debug[i]),
-                comp_id, "wosi.debug.value-%d", i);
+                comp_id, "wosi.debug.value-%02d", i);
         if (retval != 0)
         {
             return retval;
