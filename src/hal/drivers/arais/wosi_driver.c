@@ -50,6 +50,8 @@
 #define FRACTION_MASK 0x0000FFFF
 
 // to disable DP(): #define TRACE 0
+// to dump JOINT status, #define TRACE 1
+// to dump JOINT status and time statics, #define TRACE 2
 #define TRACE 0
 #include "tp_debug.h"
 #if (TRACE!=0)
@@ -319,8 +321,10 @@ static void fetchmail(const uint8_t *buf_head)
     // BP_TICK
     p = (uint32_t *) (buf_head + 4);
     bp_tick = *p;
-    DP("bp_tick(%u)\n", bp_tick);
     *machine_control->bp_tick = bp_tick;
+#if (TRACE==2)
+    DP("bp_tick(%u)\n", bp_tick);
+#endif
 
     switch (mail_tag)
     {
@@ -1446,8 +1450,6 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     static uint32_t _dt = 0;
 #endif
 
-    DP("begin\n");
-
     wosi_status(&w_param); // print bandwidth utilization
 
     /* begin set analog trigger level*/
@@ -1933,9 +1935,12 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (JCMD_BASE | JCMD_SYNC_CMD),
             sizeof(uint16_t), data);
     {
-        struct timespec t_begin, t_end, dt;
 
+#if (TRACE==2)
+        struct timespec t_begin, t_end, dt;
         clock_gettime(CLOCK_REALTIME, &t_begin);
+#endif
+
         if (wosi_flush(&w_param) == -1)
         {
             // raise flag to pause trajectory planning
@@ -1968,9 +1973,12 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             machine_control->usb_busy_s = 0;
         }
 
+#if (TRACE==2)
         clock_gettime(CLOCK_REALTIME, &t_end);
         diff_time(&t_begin, &t_end, &dt);
         DP("dt.sec(%lu), dt.nsec(%lu)\n", dt.tv_sec, dt.tv_nsec);
+#endif
+
     }
 
 #if (TRACE!=0)
