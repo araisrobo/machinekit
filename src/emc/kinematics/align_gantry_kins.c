@@ -36,8 +36,8 @@ int kinematicsForward(const double *joints,
     pos->tran.x = joints[0];
     pos->tran.y = joints[1];
     pos->tran.z = joints[3];
-    pos->w = joints[4];
-    pos->u = joints[5];
+    pos->a = joints[4];
+    pos->b = joints[5];
 
     // DP("kFWD: x(%f), y(%f), j0(%f), j1(%f), j2(%f), yy_offset(%f)\n",
     //     pos->tran.x, pos->tran.y, joints[0], joints[1], joints[2], YY_OFFSET);
@@ -55,8 +55,8 @@ int kinematicsInverse(const EmcPose * pos,
     joints[1] = pos->tran.y;
     joints[2] = pos->tran.y - YY_OFFSET;  // YY
     joints[3] = pos->tran.z;
-    joints[4] = pos->w;
-    joints[5] = pos->u;
+    joints[4] = pos->a;
+    joints[5] = pos->b;
 
     // DP("kINV: x(%f), y(%f), j0(%f), j1(%f), j2(%f), yy_offset(%f)\n",
     //    pos->tran.x, pos->tran.y, joints[0], joints[1], joints[2], YY_OFFSET);
