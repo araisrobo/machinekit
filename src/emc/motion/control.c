@@ -325,17 +325,22 @@ check_stuff ( "after process_inputs()" );
 check_stuff ( "after do_forward_kins()" );
     process_probe_inputs();
 check_stuff ( "after process_probe_inputs()" );
+
+#ifdef USB_MOTION_ENABLE
 if (emcmotConfig->usbmotEnable){
     handle_usbmot_sync();
     check_stuff ( "after handle_usbmot_sync()" );
 }
+#endif
+
     check_for_faults();
 check_stuff ( "after check_for_faults()" );
     set_operating_mode();
 check_stuff ( "after set_operating_mode()" );
     handle_jogwheels();
 check_stuff ( "after handle_jogwheels()" );
-if (emcmotConfig->usbmotEnable) {
+
+#ifdef USB_MOTION_ENABLE
     do_usb_homing_sequence();
 check_stuff ( "after do_usb_homing_sequence()" );
     do_usb_homing();
@@ -345,14 +350,14 @@ check_stuff ( "after do_usb_homing()" );
         get_pos_cmds (period);
 check_stuff ( "after get_pos_cmds()" );
     }
-} else {
+#else // USB_MOTION_ENABLE = FALSE
     do_homing_sequence();
 check_stuff ( "after do_homing_sequence()" );
     do_homing();
 check_stuff ( "after do_homing()" );
     get_pos_cmds(period);
 check_stuff ( "after get_pos_cmds()" );
-}
+#endif // USB_MOTION_ENABLE
 
     compute_screw_comp();
 check_stuff ( "after compute_screw_comp()" );
