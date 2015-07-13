@@ -130,7 +130,7 @@ static double taskExecDelayTimeout = 0.0;
 static char resume_startup_code[LINELEN];
 static int resume_startup_id;
 static bool resume_startup_en;
-static double resume_x, resume_y;
+static double resume_x, resume_y, resume_z;
 static bool wait_resume_startup;
 static bool resume_cutter_comp_firstmove;
 static int resume_motion_type;
@@ -638,12 +638,30 @@ interpret_again:
 			    emcTaskPlanClearWait();
                             if ((wait_resume_startup == true) && (emcTaskPlanLevel() == 0)) {
                                 NMLmsg *cmd = 0;
+                                double x, y, a, b, c, u, v, w;
+
+                                emcTaskPlanGetCurPos(&x, &y, &resume_z, &a, &b, &c, &u, &v, &w);        //!< save Interpreter's internal positions
+
                                 while (il_temp_queue.len() > 0)
                                 {
                                     cmd = il_temp_queue.get();
+
+                                    if (cmd->type == EMC_TRAJ_LINEAR_MOVE_TYPE)
+                                    {
+                                        EMC_TRAJ_LINEAR_MOVE *emcTrajLinearMoveMsg;
+                                        emcTrajLinearMoveMsg = (EMC_TRAJ_LINEAR_MOVE *) cmd;
+                                        emcTrajLinearMoveMsg->begin.tran.z = resume_z;
+                                        emcTrajLinearMoveMsg->end.tran.z = resume_z;
+                                    }
+                                    else if (cmd->type == EMC_TRAJ_CIRCULAR_MOVE_TYPE)
+                                    {
+                                        EMC_TRAJ_CIRCULAR_MOVE *emcTrajCircularMoveMsg;
+                                        emcTrajCircularMoveMsg = (EMC_TRAJ_CIRCULAR_MOVE *) cmd;
+                                        emcTrajCircularMoveMsg->begin.tran.z = resume_z;
+                                        emcTrajCircularMoveMsg->end.tran.z = resume_z;
+                                    }
                                     interp_list.set_line_number(il_temp_queue.get_line_number());
                                     interp_list.append(cmd);
-
                                 }
                                 interp_list.move_head();
                                 interp_list.update_current();
