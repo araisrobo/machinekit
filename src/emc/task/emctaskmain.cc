@@ -2579,12 +2579,12 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
             break;
         }
         emcTaskCommand = NULL;
-        if (emcStatus->motion.traj.motion_type == 1)
+        if (emcStatus->motion.traj.motion_type == EMC_MOTION_TYPE_TRAVERSE)
         {
             // because traverse and feed is the same EMC_TRAJ_LINEAR_MOVE_TYPE
-            resume_motion_type = 2;
+            resume_motion_type = EMC_MOTION_TYPE_FEED;
         }
-        else if (emcStatus->motion.traj.motion_type != 5)
+        else if (emcStatus->motion.traj.motion_type != EMC_MOTION_TYPE_PROBING)
         {
             resume_motion_type = emcStatus->motion.traj.motion_type;
         }
