@@ -987,11 +987,7 @@ static void flush_segments(void) {
     linearMoveMsg.ini_maxvel = toExtVel(ini_maxvel);
     linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
     double acc = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
-    if (acc <= 0){
-        printf("%s %s:%d FIXME: vel(%f) acc(%f) synched(%d) line_no(%d)\n", __FILE__, __FUNCTION__, __LINE__,
-                vel, acc, synched,line_no);
-        acc = FROM_EXT_LEN(MAX3(axis_max_acceleration[0], axis_max_acceleration[1], axis_max_acceleration[2]));
-    }
+
     linearMoveMsg.acc = toExtAcc(acc);
 
     linearMoveMsg.type = EMC_MOTION_TYPE_FEED;

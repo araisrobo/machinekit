@@ -639,8 +639,14 @@ interpret_again:
                             if ((wait_resume_startup == true) && (emcTaskPlanLevel() == 0)) {
                                 NMLmsg *cmd = 0;
                                 double x, y, a, b, c, u, v, w;
+                                double end_x, end_y;
 
                                 emcTaskPlanGetCurPos(&x, &y, &resume_z, &a, &b, &c, &u, &v, &w);        //!< save Interpreter's internal positions
+                                emcTaskPlanSetCutterCompFirstmove(&resume_cutter_comp_firstmove);
+                                emcTaskPlanSetCurPos(&resume_x, &resume_y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
+
+                                end_x = emcStatus->motion.traj.actualPosition.tran.x;
+                                end_y = emcStatus->motion.traj.actualPosition.tran.y;
 
                                 while (il_temp_queue.len() > 0)
                                 {
@@ -652,6 +658,8 @@ interpret_again:
                                         emcTrajLinearMoveMsg = (EMC_TRAJ_LINEAR_MOVE *) cmd;
                                         emcTrajLinearMoveMsg->begin.tran.z = resume_z;
                                         emcTrajLinearMoveMsg->end.tran.z = resume_z;
+                                        end_x = emcTrajLinearMoveMsg->begin.tran.x;
+                                        end_y = emcTrajLinearMoveMsg->begin.tran.y;
                                     }
                                     else if (cmd->type == EMC_TRAJ_CIRCULAR_MOVE_TYPE)
                                     {
@@ -659,16 +667,29 @@ interpret_again:
                                         emcTrajCircularMoveMsg = (EMC_TRAJ_CIRCULAR_MOVE *) cmd;
                                         emcTrajCircularMoveMsg->begin.tran.z = resume_z;
                                         emcTrajCircularMoveMsg->end.tran.z = resume_z;
+                                        end_x = emcTrajCircularMoveMsg->begin.tran.x;
+                                        end_y = emcTrajCircularMoveMsg->begin.tran.y;
+                                    }
+                                    else
+                                    {
+                                        rcs_print("%s %s:%d Unknow Move Type! type: %s\n", __FILE__, __FUNCTION__, __LINE__,
+                                                emc_symbol_lookup(cmd->type));
+                                        assert(false);
                                     }
                                     interp_list.set_line_number(il_temp_queue.get_line_number());
                                     interp_list.append(cmd);
                                 }
+                                CANON_UPDATE_END_POINT(end_x,
+                                            end_y,
+                                            emcStatus->motion.traj.actualPosition.tran.z,
+                                            emcStatus->motion.traj.actualPosition.a,
+                                            emcStatus->motion.traj.actualPosition.b,
+                                            emcStatus->motion.traj.actualPosition.c,
+                                            emcStatus->motion.traj.actualPosition.u,
+                                            emcStatus->motion.traj.actualPosition.v,
+                                            emcStatus->motion.traj.actualPosition.w);
                                 interp_list.move_head();
                                 interp_list.update_current();
-//                                //FIXME: force resume_z at safe-height 10mm
-//                                resume_z = emcStatus->motion.traj.actualPosition.tran.z + 10;
-                                emcTaskPlanSetCutterCompFirstmove(&resume_cutter_comp_firstmove);
-                                emcTaskPlanSetCurPos(&resume_x, &resume_y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
                                 wait_resume_startup = false;
 			    }
 			 }
