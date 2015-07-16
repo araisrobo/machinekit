@@ -1072,12 +1072,13 @@ static void check_for_faults(void)
 		    // We don't want it to stop motion when PHL or NHL are toggled
 		    // emcmotDebug->enabling = 0;
 		}
-	    } else {
+	    }
+	    else if (((!GET_JOINT_PHL_FLAG(joint) && (neg_limit_override))) &&
+	             ((!GET_JOINT_NHL_FLAG(joint) && (pos_limit_override))))
+	    {
                 // clean override mask after leave hard limits.
-                if ((!GET_JOINT_PHL_FLAG(joint)) && (!GET_JOINT_NHL_FLAG(joint))) {
-                    emcmotStatus->overrideLimitMask &= ~( 2 << (joint_num*2));
-                    emcmotStatus->overrideLimitMask &= ~( 1 << (joint_num*2));
-                }
+                emcmotStatus->overrideLimitMask &= ~( 2 << (joint_num*2));
+                emcmotStatus->overrideLimitMask &= ~( 1 << (joint_num*2));
             }
 
 	    /* check for amp fault */
