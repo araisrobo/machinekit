@@ -66,6 +66,11 @@
 #include "rtapi_string.h"
 #include "rtapi_int.h"
 
+#undef DEBUG_RING
+#ifdef DEBUG_RING
+#include <stdio.h>
+#endif
+
 #ifndef MAXIMUM // MAX conflicts with definition in hal/drivers/pci_8255.c
 #define MAXIMUM(x, y) (((x) > (y))?(x):(y))
 #endif
@@ -310,11 +315,21 @@ static inline int record_write_begin(ringbuffer_t *ring, void ** data, size_t sz
 
     free = (h->size + h->head - t->tail - 1) % h->size + 1; // -1 + 1 is needed for head==tail
 
-    //printf("Free space: %d; Need %zd\n", free, a);
-    if (free <= a) return EAGAIN;
+    if (free <= a) {
+#ifdef DEBUG_RING
+        printf("not enough Free space(%d); Need %zd\n", free, a);
+        printf("%s: h->size(%d) h->head(%d) t->tail(%d) free(%d) Need(%zd)\n", __FUNCTION__, h->size, h->head, t->tail, free, a);
+#endif
+        return EAGAIN;
+    }
+
     if (t->tail + a > h->size) {
-	if (h->head <= a)
+	if (h->head <= a) {
+#ifdef DEBUG_RING
+	    printf("%s: h->size(%d) h->head(%d) t->tail(%d) free(%d) Need(%zd)\n", __FUNCTION__, h->size, h->head, t->tail, free, a);
+#endif
 	    return EAGAIN;
+	}
 	*data = _size_at(ring, 0) + 1;
 	return 0;
     }
