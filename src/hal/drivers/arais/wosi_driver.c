@@ -275,6 +275,7 @@ static int export_analog(analog_t * addr);
 static int export_machine_control(machine_control_t * machine_control);
 static void update_rt_cmd(void);
 
+#if (TRACE==2)
 static void diff_time(struct timespec *start, struct timespec *end,
         struct timespec *diff)
 {
@@ -289,6 +290,7 @@ static void diff_time(struct timespec *start, struct timespec *end,
     }
     return;
 }
+#endif
 
 void endian_swap(uint32_t *x)
 {
