@@ -2347,6 +2347,7 @@ void EMC_TRAJ_STAT::update(CMS * cms)
     cms->update(activeQueue);
     cms->update(queueFull);
     cms->update(id);
+    cms->update(paused);
     cms->update(pause_state);
     cms->update(cur_tp_reversed);
     cms->update(next_tp_reversed);
@@ -2364,6 +2365,10 @@ void EMC_TRAJ_STAT::update(CMS * cms)
     cms->update(probeval);
     cms->update(kinematics_type);
     cms->update(motion_type);
+    cms->update(distance_to_go);        // in current move
+    cms->update(prim_dtg);              //!< distance_to_go of current-tc of emcmotPrimQueue
+    cms->update(prim_progress);         //!< progress of current-tc of emcmotPrimQueue
+
 #ifdef USB_MOTION_ENABLE
     cms->update(update_pos_req);         // update position request from RISC
 #endif

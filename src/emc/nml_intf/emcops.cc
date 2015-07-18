@@ -61,6 +61,7 @@ EMC_TRAJ_STAT_MSG(EMC_TRAJ_STAT_TYPE, sizeof(EMC_TRAJ_STAT)),
     activeQueue = 0;
     queueFull = OFF;
     id = 0;
+    paused = OFF;
     pause_state = 0;  //!< PS_RUNNING=0,  // aka 'not paused'
     next_tp_reversed = OFF;
     cur_tp_reversed = OFF;

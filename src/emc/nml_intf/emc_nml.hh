@@ -1000,6 +1000,7 @@ class EMC_TRAJ_STAT:public EMC_TRAJ_STAT_MSG {
     int activeQueue;		// number of motions blending
     bool queueFull;		// non-zero means can't accept another motion
     int id;			// id of the currently executing motion
+    bool paused;                // non-zero means motion is paused
     int pause_state;            // non-zero means motion is paused
     bool next_tp_reversed;      // true, if the upcoming tp commands are at reversed direction
     bool cur_tp_reversed;       // true, if the current tp command is at reversed direction

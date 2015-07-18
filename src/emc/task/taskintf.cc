@@ -1291,6 +1291,7 @@ int emcTrajUpdate(EMC_TRAJ_STAT * stat)
 	}
     }
 
+    stat->paused = emcmotStatus.pause_state;
     stat->pause_state = emcmotStatus.pause_state;
     stat->tp_reverse_input = emcmotStatus.tp_reverse_input;
     stat->scale = emcmotStatus.feed_scale;
