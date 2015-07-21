@@ -1135,7 +1135,20 @@ static int load_parameters(FILE *fp)
         double enc_scale;
         char section[20];
 
-        sprintf(section, "AXIS_%d", n);
+        /**
+         *  if [JOINT_%d]INPUT_SCALE exists, then
+         *      use JOINT_%d as section name
+         *  else
+         *      use AXIS_%d as section name
+         **/
+        sprintf(section, "JOINT_%d", n);
+        if (iniFind(fp, "INPUT_SCALE", section) == NULL)
+        {
+            rtapi_print_msg(RTAPI_MSG_DBG,
+                    "cannot find [JOINT_%d]INPUT_SCALE; try [AXIS_%d]*\n",
+                    n, n);
+            sprintf(section, "AXIS_%d", n);
+        }
         pos_scale = atof(iniFind(fp, "INPUT_SCALE", section));
         max_vel = atof(iniFind(fp, "MAX_VELOCITY", section));
         max_accel = atof(iniFind(fp, "MAX_ACCELERATION", section));
@@ -1144,7 +1157,6 @@ static int load_parameters(FILE *fp)
         assert(max_accel > 0);
         assert(max_jerk > 0);
         assert(pos_scale != 0);
-//        pos_scale_array[n] = pos_scale;
 
         rtapi_print_msg(RTAPI_MSG_INFO,
                 "j[%d] max_vel(%f) max_accel(%f) max_jerk(%f) pos_scale(%f)\n",
