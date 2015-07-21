@@ -36,7 +36,8 @@ FUNCTION(_) {
     // preallocate memory in ringbuffer
     retval = record_write_begin(&rb, (void **)&tick_jcmd, sizeof(tick_jcmd_t));
     if (retval != 0) {
-        rtapi_print_msg(RTAPI_MSG_ERR,
+//        rtapi_print_msg(RTAPI_MSG_ERR,
+        rtapi_print_msg(RTAPI_MSG_DBG,
                         "%s: RB_RESERVE_FAIL: record_write_begin(%zu) failed: %d\n",
                         name, sizeof(tick_jcmd_t), retval);
         overrun++;

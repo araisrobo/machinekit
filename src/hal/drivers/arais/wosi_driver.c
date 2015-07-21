@@ -1046,6 +1046,8 @@ static int load_parameters(FILE *fp)
             if (alr != 255)
             {
                 immediate_data |= (1 << alr);
+                rtapi_print_msg(RTAPI_MSG_DBG, "WOSI: ALR_ID[%d] token(%s) alr(%d)\n", 
+                                               n, token, alr);
                 assert(alr < 7); // AR08: ALARM maps to GPIO[6:1]
                 assert(alr > 0);
             }
