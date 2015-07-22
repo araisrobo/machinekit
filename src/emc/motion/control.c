@@ -632,6 +632,10 @@ static void process_inputs(void)
 	    /**
              * truncate all TC commands from primary queue
              */
+            double current_z;
+
+            // this z position is pause offset position and it is update in handle_usb_sync()
+	    current_z = emcmotQueue->currentPos.tran.z;
             tcqRemove(&(emcmotPrimQueue->queue), tcqLen(&(emcmotPrimQueue->queue)));
 
 	    // switch to primary queue and resume.
@@ -639,6 +643,8 @@ static void process_inputs(void)
 	    emcmotStatus->resuming = 0;
 	    emcmotDebug->stepping = 0;
 	    emcmotQueue = emcmotPrimQueue;
+	    // update z position from emcmotAltQueue to emcmotPrimQueue
+            emcmotQueue->currentPos.tran.z = current_z;
 	    tpResume(emcmotQueue);
 	     *emcmot_hal_data->pause_state = PS_RUNNING;
 	     break;
@@ -664,6 +670,8 @@ static void process_inputs(void)
             {
                 EmcPose here;
                 tpGetPos(emcmotQueue, &here);
+                // z-axis no need return move
+                emcmotStatus->pause_carte_pos.tran.z = here.tran.z;
                 if (EQUAL_EMC_POSE(emcmotStatus->pause_carte_pos,here)) {
                     // at initial pause position.
                     *emcmot_hal_data->pause_state = PS_PAUSED;
