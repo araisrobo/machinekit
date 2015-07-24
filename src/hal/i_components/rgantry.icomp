@@ -153,8 +153,10 @@ FUNCTION(write)
 
     // Update each joint's commanded position
     for (i = 0; i < localpincount; i++) {
-        joint_pos_cmd(i) = position_cmd - offset[i];
-        joint_offset(i) = offset[i];
+        if (risc_probe_vel_i == 0) {
+            joint_pos_cmd(i) = position_cmd - offset[i];
+            joint_offset(i) = offset[i];
+        }
         /**
          * TODO:
          * joint.##.risc-probe-pin-o [pincount] "Per-joint pin-id for RISC-PROBE command"; 
@@ -162,6 +164,7 @@ FUNCTION(write)
          */ 
         joint_risc_probe_type_o(i) = risc_probe_type_i;
         joint_risc_probe_vel_o(i) = risc_probe_vel_i;
+        joint_risc_probe_pin_o(i) = joint_home_sw_id(i);
     }
 
     return 0;
