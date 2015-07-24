@@ -371,11 +371,17 @@ void do_usb_homing(void)
                         {
                             /* already on switch, need to back off it first */
                             joint->home_state = HOME_INITIAL_BACKOFF_START;
+                            /* artek: our home-switches are low-active.
+                             * home_sw_active==TRUE means the home-pin value is LOW,
+                             * therefore, we are about to RISC_PROBE_HIGH */
                         }
                         else
                         {
                             /* we aren't already on home switch */
                             joint->home_state = HOME_INITIAL_SEARCH_START;
+                            /* artek: our home-switches are low-active.
+                             * home_sw_active==FALSE means the home-pin value is HIGH,
+                             * therefore, we are about to RISC_PROBE_LOW */
                         }
                     } else {
                         reportError(_("invalid homing config: non-zero SEARCH_VEL needs LATCH_VEL"));
