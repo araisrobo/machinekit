@@ -7,6 +7,14 @@ pin in  float j2_pos_cmd    "motor position of Joint.2";
 pin in  float j3_pos_cmd    "motor position of Joint.3";
 pin in  float j4_pos_cmd    "motor position of Joint.4";
 pin in  float j5_pos_cmd    "motor position of Joint.5";
+
+pin in  float j0_risc_probe_vel_i   "risc-probe-vel from usb_homing.c";
+pin in  float j1_risc_probe_vel_i   "risc-probe-vel from usb_homing.c";
+pin in  float j2_risc_probe_vel_i   "risc-probe-vel from usb_homing.c";
+pin in  float j3_risc_probe_vel_i   "risc-probe-vel from usb_homing.c";
+pin in  float j4_risc_probe_vel_i   "risc-probe-vel from usb_homing.c";
+pin in  float j5_risc_probe_vel_i   "risc-probe-vel from usb_homing.c";
+
 pin in  bit  update_pos_ack "the ACK, which means joint postion is updated";
 pin in  bit  amp_enable     "amplifier enable signal";
 
@@ -52,6 +60,13 @@ FUNCTION(_) {
     tick_jcmd->pos_cmd[3] = j3_pos_cmd;
     tick_jcmd->pos_cmd[4] = j4_pos_cmd;
     tick_jcmd->pos_cmd[5] = j5_pos_cmd;
+
+    tick_jcmd->risc_probe_vel[0] = j0_risc_probe_vel_i;
+    tick_jcmd->risc_probe_vel[1] = j1_risc_probe_vel_i;
+    tick_jcmd->risc_probe_vel[2] = j2_risc_probe_vel_i;
+    tick_jcmd->risc_probe_vel[3] = j3_risc_probe_vel_i;
+    tick_jcmd->risc_probe_vel[4] = j4_risc_probe_vel_i;
+    tick_jcmd->risc_probe_vel[5] = j5_risc_probe_vel_i;
 
     // pack bit-mapping signals into cmd
     tick_jcmd->cmd =

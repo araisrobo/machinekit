@@ -110,7 +110,6 @@ typedef struct
     hal_float_t pos_scale; /* param: steps per position unit */
     double scale_recip; /* reciprocal value used for scaling */
     hal_float_t *vel_cmd; /* pin: velocity command (pos units/cycle_time) */
-    double pos_cmd_s; /* saved pos_cmd at rising edge of usb_busy */
     double prev_pos_cmd; /* prev pos_cmd: previous position command */
     hal_float_t *probed_pos;
     hal_float_t *pos_fb; /* pin: position feedback (position units) */
@@ -131,7 +130,6 @@ typedef struct
     hal_s32_t *enc_vel_p; /* encoder velocity in pulse per servo-period */
 
     hal_bit_t *homing;
-    hal_float_t *risc_probe_vel;
     hal_float_t *risc_probe_dist;
     hal_s32_t *risc_probe_pin;
     hal_s32_t *risc_probe_type;
@@ -161,8 +159,6 @@ typedef struct
 typedef struct
 {
     hal_bit_t *reload_params;
-    hal_bit_t *usb_busy;
-    hal_bit_t usb_busy_s;
     hal_float_t *current_vel;
     hal_float_t *feed_scale;
     hal_bit_t *rt_abort; // realtime abort to FPGA
@@ -1805,10 +1801,10 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
                     * stepgen->pos_scale;
         }
 
-        if (*stepgen->risc_probe_vel == 0)
+        if (tick_jcmd->risc_probe_vel[n] == 0)
             stepgen->risc_probing = 0;
 
-        if ((*stepgen->homing) && (*stepgen->risc_probe_vel != 0)
+        if ((*stepgen->homing) && (tick_jcmd->risc_probe_vel[n] != 0)
                 && (stepgen->risc_probing == 0)
                 && (*machine_control->rcmd_state == RCMD_IDLE))
         {
@@ -1819,8 +1815,8 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
                     | // joint_num
                     (*stepgen->risc_probe_type << 8)
                     | (*stepgen->risc_probe_pin << 16);
-            dbuf[2] = *stepgen->risc_probe_vel * stepgen->pos_scale * dt
-                    * FIXED_POINT_SCALE; // fixed-point 16.16
+            dbuf[2] = tick_jcmd->risc_probe_vel[n] * stepgen->pos_scale * dt
+                      *FIXED_POINT_SCALE; // fixed-point 16.16
             dbuf[3] = *stepgen->risc_probe_dist * stepgen->pos_scale; // distance in pulse
             send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 4);
             assert(*stepgen->risc_probe_pin < 64);
@@ -1959,34 +1955,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 
         if (wosi_flush(&w_param) == -1)
         {
-            // raise flag to pause trajectory planning
-            *(machine_control->usb_busy) = 1;
-            if (machine_control->usb_busy_s == 0)
-            {
-                DP("usb_busy: begin\n");
-                assert(0);
-                // store current traj-planning command
-                for (n = 0; n < num_joints; n++)
-                {
-                    stepgen_array[n].pos_cmd_s = tick_jcmd->pos_cmd[n];
-                }
-            }
-            machine_control->usb_busy_s = 1;
-            return;
-        } else
-        {
-            *(machine_control->usb_busy) = 0;
-            if (machine_control->usb_busy_s == 1)
-            {
-                DP("usb_busy: end\n");
-                assert(0);
-                // reload saved traj-planning command
-                for (n = 0; n < num_joints; n++)
-                {
-//                    *(stepgen_array[n].pos_cmd) = stepgen_array[n].pos_cmd_s;
-                }
-            }
-            machine_control->usb_busy_s = 0;
+            rtapi_print_msg(RTAPI_MSG_ERR, "ERROR: wosi_flush()\n");
         }
 
 #if (TRACE==2)
@@ -2147,14 +2116,6 @@ static int export_stepgen(int num, stepgen_t * addr)
     *addr->bypass_lsn = 0;
     addr->prev_bypass_lsn = 0;
 
-    retval = hal_pin_float_newf(HAL_IN, &(addr->risc_probe_vel), comp_id,
-            "wosi.stepgen.%d.risc-probe-vel", num);
-    if (retval != 0)
-    {
-        return retval;
-    }
-    *addr->risc_probe_vel = 0;
-
     retval = hal_pin_float_newf(HAL_IN, &(addr->risc_probe_dist), comp_id,
             "wosi.stepgen.%d.risc-probe-dist", num);
     if (retval != 0)
@@ -2200,7 +2161,6 @@ static int export_stepgen(int num, stepgen_t * addr)
     addr->pos_scale = 0.0;
     addr->scale_recip = 0.0;
     addr->pulse_type = 0;
-    addr->pos_cmd_s = 0;
     /* init the step generator core to zero output */
     addr->rawcount = 0;
     addr->prev_pos_cmd = 0;
@@ -2230,13 +2190,6 @@ static int export_machine_control(machine_control_t * machine_control)
         return retval;
     }
     *machine_control->reload_params = 0;
-
-    retval = hal_pin_bit_newf(HAL_OUT, &(machine_control->usb_busy), comp_id,
-            "wosi.usb-busy");
-    if (retval != 0)
-    {
-        return retval;
-    }
 
     retval = hal_pin_float_newf(HAL_IN, &(machine_control->current_vel),
             comp_id, "wosi.motion.current-vel");
@@ -2458,7 +2411,6 @@ static int export_machine_control(machine_control_t * machine_control)
     *(machine_control->crc_error_counter) = 0;
 
     machine_control->prev_out = 0;
-    machine_control->usb_busy_s = 0;
 
     retval = hal_pin_bit_newf(HAL_IN, &(machine_control->teleop_mode), comp_id,
             "wosi.motion.teleop-mode");

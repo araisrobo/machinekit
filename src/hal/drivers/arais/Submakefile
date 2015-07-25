@@ -1,4 +1,5 @@
-# the rule for servo_tick.comp is defined at src/hal/components/Submakefile
+# the rule for servo_tick.comp is defined at src/hal/components/Submakefile;
+# serch for "arais" in that file.
 
 INCLUDES += hal/drivers/arais
 
