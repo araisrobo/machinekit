@@ -1536,6 +1536,15 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 2);
         // Reset update_pos_req after sending a RCMD_UPDATE_POS_ACK packet
         *machine_control->update_pos_req = 0;
+
+        // reset prev_pos_cmd and related variables
+        for (n = 0; n < num_joints; n++)
+        {
+            stepgen = &(stepgen_array[n]);
+            stepgen->prev_pos_cmd = tick_jcmd->pos_cmd[n];
+            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
+                                * stepgen->pos_scale;
+        }
     }
 
     /* begin: handle AHC state, AHC level */
