@@ -151,8 +151,8 @@ typedef struct
 {
     // Analog input: 0~4.096VDC, up to 16 channel
     hal_float_t *in[16];
-    hal_s32_t *out[4];
-    hal_s32_t prev_out[4];
+    hal_float_t *out[4];
+    hal_float_t prev_out[4];
 } analog_t;
 
 // machine_control_t:
@@ -1652,10 +1652,12 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     {
         if (analog->prev_out[i] != *(analog->out[i]))
         {
+            uint32_t tmp_a;
             analog->prev_out[i] = *(analog->out[i]);
+            tmp_a = analog->prev_out[i];
             sync_cmd = SYNC_DAC | (i << 8) | (0x01); /* DAC, ID:i, ADDR: 0x01 */
-            send_sync_cmd(sync_cmd, (uint32_t *) analog->out[i], 1);
-            // printf("analog->out[%d]\n", *(analog->out[i]));
+            send_sync_cmd(sync_cmd, &tmp_a, 1);
+            rtapi_print_msg(RTAPI_MSG_DBG, "analog->out[%d]=%d\n", i, *(analog->out[i]));
         }
     }
 
@@ -2007,7 +2009,7 @@ static int export_analog(analog_t * addr)
     // export Analog OUT
     for (i = 0; i < 4; i++)
     {
-        retval = hal_pin_s32_newf(HAL_IN, &(addr->out[i]), comp_id,
+        retval = hal_pin_float_newf(HAL_IN, &(addr->out[i]), comp_id,
                 "wosi.analog.out.%02d", i);
         if (retval != 0)
         {
