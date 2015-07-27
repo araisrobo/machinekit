@@ -818,8 +818,8 @@ static int load_parameters(FILE *fp)
         }
     }
     wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_PULSE_TYPE),
-            (uint8_t) 2, data);
-    write_machine_param(SSIF_MODE, immediate_data);
+            (uint8_t) 2, data);                         // for FPGA
+    write_machine_param(SSIF_MODE, immediate_data);     // for RISC
     rtapi_print_msg(RTAPI_MSG_INFO, "STEPGEN: PULSE_TYPE[J3:J0]: 0x%02X\n",
             data[0]);
     rtapi_print_msg(RTAPI_MSG_INFO, "STEPGEN: PULSE_TYPE[J7:J4]: 0x%02X\n",
@@ -1657,7 +1657,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             tmp_a = analog->prev_out[i];
             sync_cmd = SYNC_DAC | (i << 8) | (0x01); /* DAC, ID:i, ADDR: 0x01 */
             send_sync_cmd(sync_cmd, &tmp_a, 1);
-            rtapi_print_msg(RTAPI_MSG_DBG, "analog->out[%d]=%d\n", i, *(analog->out[i]));
+            rtapi_print_msg(RTAPI_MSG_DBG, "analog->out[%d]=%f\n", i, *(analog->out[i]));
         }
     }
 
