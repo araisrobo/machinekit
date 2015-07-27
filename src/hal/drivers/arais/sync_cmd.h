@@ -253,6 +253,12 @@ enum motion_parameter_addr {
     SCALE             ,     // unit_pulses/servo_period : 16.16 format, 
     ENC_SCALE         ,     // encoder scale: 16.16 format
     SSYNC_SCALE       ,     // spindle sync compensation scale: 16.16 format
+    // PWM: begin
+    FULL_PWM_PULSE    ,
+    MAX_PWM_OUT       ,
+    PWM_PER_PULSE     ,
+    PULSE_PER_PWM     ,
+    // PWM: end
     MAX_PARAM_ITEM
 };
 #define NUM_PID_PARAMS 14   // pid params: from P_GAIN to MAXOUTPUT
