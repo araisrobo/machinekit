@@ -23,6 +23,7 @@
 #include "tp_types.h"
 #include "spherical_arc.h"
 #include "motion_types.h"
+#include <assert.h>
 
 //Debug output
 #include "tp_debug.h"
@@ -563,6 +564,7 @@ int tcSetupMotion(TC_STRUCT * const tc,
     tc->jerk = ini_maxjerk * cycle_time * cycle_time * cycle_time;      // unit: dt^3
     // FIXME: ini_maxjerk suddenly becomes abnormal
     if (tc->jerk > 1){
+        assert(0);
         ini_maxjerk = 10000;
         tc->jerk = ini_maxjerk * cycle_time * cycle_time * cycle_time;
     }

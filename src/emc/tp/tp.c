@@ -229,7 +229,11 @@ STATIC inline double tpGetRealTargetVel(TP_STRUCT const * const tp,
 
     // Start with the scaled target velocity based on the current feed scale
     double v_target = tc->synchronized ? tc->target_vel : tc->reqvel;
-    /*tc_debug_print("Initial v_target = %f\n",v_target);*/
+    tc_debug_print("%d: Initial v_target(%f) tc->synchronized(%d) target_vel(%f) reqvel(%f)\n", __LINE__,
+                    v_target,
+                    tc->synchronized,
+                    tc->target_vel,
+                    tc->reqvel);
 
     // Get the maximum allowed target velocity, and make sure we're below it
     return rtapi_fmin(v_target * tpGetFeedScale(tp,tc), tpGetMaxTargetVel(tp, tc));
@@ -1554,8 +1558,6 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
         {   // sharp arc that is not allowed for requested-velocity
             prev1_tc->lookahead_target = tc->target;
             tp_debug_print("Found sharp arc, stopping optimization\n");
-            tp_debug_print("segment %d has moved past %f percent progress, cannot blend safely!\n",
-                    ind-1, cutoff_ratio * 100.0);
             return TP_ERR_OK;
         }
 
@@ -1786,7 +1788,7 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
     if (tpErrorCheck(tp) < 0) {
         return TP_ERR_FAIL;
     }
-    tp_info_print("== AddLine ==\n");
+    tp_info_print("== AddLine == req-vel(%f) max-vel(%f) acc(%f) jerk(%f)\n", vel, ini_maxvel, acc, ini_maxjerk);
 
     // Initialize new tc struct for the line segment
     TC_STRUCT tc = {0};
@@ -1806,11 +1808,17 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
             ini_maxjerk,
             tp->cycleTime);
 
+    tp_info_print("%d: tc.maxvel(%f) tc.jerk(%.20f)\n", __LINE__, tc.maxvel, tc.jerk);
+
     // Setup any synced IO for this move
     tpSetupSyncedIO(tp, &tc);
 
+    tp_info_print("%d: tc.maxvel(%f) tc.jerk(%.20f)\n", __LINE__, tc.maxvel, tc.jerk);
+
     // Copy over state data from the trajectory planner
     tcSetupState(&tc, tp);
+
+    tp_info_print("%d: tc.maxvel(%f) tc.jerk(%.20f)\n", __LINE__, tc.maxvel, tc.jerk);
 
     // Setup line geometry
     pmLine9Init(&tc.coords.line,
@@ -1827,6 +1835,8 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
     //Reduce max velocity to match sample rate
     double sample_maxvel = tc.target / (tp->cycleTime * TP_MIN_SEGMENT_CYCLES);
     tc.maxvel = rtapi_fmin(tc.maxvel, sample_maxvel);
+
+    tp_info_print("distance_to_go(%f) tc.maxvel(%f) tc.jerk(%f)\n", tc.target, tc.maxvel, tc.jerk);
 
     // For linear move, set rotary axis settings 
     tc.indexrotary = indexrotary;
@@ -2034,125 +2044,6 @@ STATIC int tpComputeBlendVelocity(TP_STRUCT const * const tp,
     return TP_ERR_OK;
 }
 
-/**
- * Compute updated position and velocity for a timestep based on a trapezoidal
- * motion profile.
- * @param tc trajectory segment being processed.
- *
- * Creates the trapezoidal velocity profile based on the segment's velocity and
- * acceleration limits. The formula has been tweaked slightly to allow a
- * non-zero velocity at the instant the target is reached.
- */
-void tpCalculateTrapezoidalAccel(TP_STRUCT const * const tp,
-        TC_STRUCT * const tc,
-        TC_STRUCT const * const nexttc,
-        double * const acc,
-        double * const vel_desired)
-{
-    tc_debug_print("using trapezoidal acceleration\n");
-
-    // Find maximum allowed velocity from feed and machine limits
-    double tc_target_vel = tpGetRealTargetVel(tp, tc);
-    // Store a copy of final velocity
-    double tc_finalvel = tpGetRealFinalVel(tp, tc, nexttc);
-
-#ifdef TP_PEDANTIC
-    if (tc_finalvel > 0.0 && tc->term_cond != TC_TERM_COND_TANGENT) {
-        rtapi_print_msg(RTAPI_MSG_ERR, "Final velocity of %f with non-tangent segment!\n",tc_finalvel);
-        tc_finalvel = 0.0;
-    }
-#endif
-
-    /* Calculations for desired velocity based on trapezoidal profile */
-    double dx = tc->target - tc->progress;
-    double maxaccel = tpGetScaledAccel(tp, tc);
-
-    double discr_term1 = pmSq(tc_finalvel);
-    double discr_term2 = maxaccel * (2.0 * dx - tc->currentvel * tc->cycle_time);
-    double tmp_adt = maxaccel * tc->cycle_time * 0.5;
-    double discr_term3 = pmSq(tmp_adt);
-
-    double discr = discr_term1 + discr_term2 + discr_term3;
-
-    // Descriminant is a little more complicated with final velocity term. If
-    // descriminant < 0, we've overshot (or are about to). Do the best we can
-    // in this situation
-#ifdef TP_PEDANTIC
-    if (discr < 0.0) {
-        rtapi_print_msg(RTAPI_MSG_ERR,
-                "discriminant %f < 0 in velocity calculation!\n", discr);
-    }
-#endif
-    //Start with -B/2 portion of quadratic formula
-    double maxnewvel = -tmp_adt;
-
-    //If the discriminant term brings our velocity above zero, add it to the total
-    //We can ignore the calculation otherwise because negative velocities are clipped to zero
-    if (discr > discr_term3) {
-        maxnewvel += pmSqrt(discr);
-    }
-
-    // Find bounded new velocity based on target velocity
-    // Note that we use a separate variable later to check if we're on final decel
-    double newvel = saturate(maxnewvel, tc_target_vel);
-
-    // Calculate acceleration needed to reach newvel, bounded by machine maximum
-    double dt = rtapi_fmax(tc->cycle_time, TP_TIME_EPSILON);
-    double maxnewaccel = (newvel - tc->currentvel) / dt;
-    *acc = saturate(maxnewaccel, maxaccel);
-    *vel_desired = maxnewvel;
-}
-
-///**
-// * Calculate "ramp" acceleration for a cycle.
-// */
-//STATIC int tpCalculateRampAccel(TP_STRUCT const * const tp,
-//        TC_STRUCT * const tc,
-//        TC_STRUCT const * const nexttc,
-//        double * const acc,
-//        double * const vel_desired)
-//{
-//    tc_debug_print("using ramped acceleration\n");
-//    // displacement remaining in this segment
-//    double dx = tc->target - tc->progress;
-//
-//    if (!tc->blending_next) {
-//        tc->vel_at_blend_start = tc->currentvel;
-//    }
-//
-//    double vel_final = tpGetRealFinalVel(tp, tc, nexttc);
-//
-//    /* Check if the final velocity is too low to properly ramp up.*/
-//    if (vel_final < TP_VEL_EPSILON) {
-//        tp_debug_print(" vel_final %f too low for velocity ramping\n", vel_final);
-//        return TP_ERR_FAIL;
-//    }
-//
-//    double vel_avg = (tc->currentvel + vel_final) / 2.0;
-//
-//    // Calculate time remaining in this segment assuming constant acceleration
-//    double dt = 1e-16;
-//    if (vel_avg > TP_VEL_EPSILON) {
-//        dt = fmax( dx / vel_avg, 1e-16);
-//    }
-//
-//    // Calculate velocity change between final and current velocity
-//    double dv = vel_final - tc->currentvel;
-//
-//    // Estimate constant acceleration required
-//    double acc_final = dv / dt;
-//
-//    // Saturate estimated acceleration against maximum allowed by segment
-//    double acc_max = tpGetScaledAccel(tp, tc);
-//
-//    // Output acceleration and velocity for position update
-//    *acc = saturate(acc_final, acc_max);
-//    *vel_desired = vel_final;
-//
-//    return TP_ERR_OK;
-//}
-
-
 /*
  Continuous form
  PT = P0 + V0T + 1/2A0T2 + 1/6JT3
@@ -2182,6 +2073,11 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
     double pi = 3.14159265359;
     int immediate_state;
     double tc_target;
+
+    // Find maximum allowed velocity from feed and machine limits
+    double tc_target_vel = tpGetRealTargetVel(tp, tc);
+
+    tp_info_print("(%s:%d) tc_target_vel(%f) maxvel(%f) jerk(%.20f)\n", __FUNCTION__, __LINE__, tc_target_vel, tc->maxvel, tc->jerk);
 
     tc_target = tc->target + tc->lookahead_target;
     if ((prev_tc_target != tc_target) && (tc->accel_state == ACCEL_S7)) {
@@ -2214,7 +2110,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             // AT = A0 + JT (let AT = 0 to calculate T)
             // VT = V0 + A0T + 1/2JT2
             t = rtapi_ceil(tc->cur_accel / tc->jerk);
-            req_vel = tc->reqvel * tc->feed_override * tc->cycle_time;
+            req_vel = tc_target_vel * tc->feed_override * tc->cycle_time;
             if (req_vel > tc->maxvel) {
                 req_vel = tc->maxvel;
             }
@@ -2278,7 +2174,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             // VT = V0 + A0T + 1/2JT2
             // t = rtapi_ceil(tc->cur_accel / tc->jerk);
             t = tc->cur_accel / tc->jerk;
-            req_vel = tc->reqvel * tc->feed_override * tc->cycle_time;
+            req_vel = tc_target_vel * tc->feed_override * tc->cycle_time;
             if (req_vel > tc->maxvel) {
                 req_vel = tc->maxvel;
             }
@@ -2335,7 +2231,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             tc->progress = tc->progress + tc->currentvel + 0.5 * tc->cur_accel - 1.0/6.0 * tc->jerk;
 
             // check if we will hit velocity limit at next BP
-            req_vel = tc->reqvel * tc->feed_override * tc->cycle_time;
+            req_vel = tc_target_vel * tc->feed_override * tc->cycle_time;
             if (req_vel > tc->maxvel) {
                 req_vel = tc->maxvel;
             }
@@ -2432,7 +2328,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             }
 
             // check for changes of feed_override and request-velocity
-            req_vel = tc->reqvel * tc->feed_override * tc->cycle_time;
+            req_vel = tc_target_vel * tc->feed_override * tc->cycle_time;
             if (req_vel > tc->maxvel) {
                 req_vel = tc->maxvel;
             }
@@ -2515,7 +2411,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             // AT = A0 + JT (let AT = 0 to calculate T)
             // VT = V0 + A0T + 1/2JT2
             t = - tc->cur_accel / tc->jerk;
-            req_vel = tc->reqvel * tc->feed_override * tc->cycle_time;
+            req_vel = tc_target_vel * tc->feed_override * tc->cycle_time;
             if (req_vel > tc->maxvel) {
                 req_vel = tc->maxvel;
             }
@@ -2605,7 +2501,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             // VT = V0 + A0T + 1/2JT2
             // t: cycles for accel to decel to 0
             t = - tc->cur_accel / tc->jerk;
-            req_vel = tc->reqvel * tc->feed_override * tc->cycle_time;
+            req_vel = tc_target_vel * tc->feed_override * tc->cycle_time;
             if (req_vel > tc->maxvel) {
                 req_vel = tc->maxvel;
             }
@@ -2644,7 +2540,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             // AT = AT + JT
             // VT = VT + AT + 1/2JT
             // PT = PT + VT + 1/2AT + 1/6JT
-            req_vel = tc->reqvel * tc->feed_override * tc->cycle_time;
+            req_vel = tc_target_vel * tc->feed_override * tc->cycle_time;
             if (req_vel > tc->maxvel) {
                 req_vel = tc->maxvel;
             }
@@ -2726,7 +2622,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
 //    }
 
     DPS("%11u%5d%6d%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f%15.8f\n",
-            _dt, tc->id, tc->accel_state, tc->reqvel * tc->feed_override * tc->cycle_time,
+            _dt, tc->id, tc->accel_state, tc_target_vel * tc->feed_override * tc->cycle_time,
             tc->cur_accel, tc->currentvel, tc->progress/tc->target, tc->progress,
             tc->target - tc->progress, tc_target, tc->jerk, tp->currentPos.tran.x, tp->currentPos.tran.y);
 
@@ -3162,12 +3058,15 @@ STATIC int tpActivateSegment(TP_STRUCT * const tp, TC_STRUCT * const tc) {
     }
 
     // Temporary debug message
-    tp_debug_print("Activate tc id = %d target_vel = %f req_vel = %f final_vel = %f length = %f\n",
+    tp_debug_print("%d: Activate tc id = %d target_vel = %f req_vel = %f final_vel = %f length = %f acc(%f) jerk(%.20f)\n",
+            __LINE__,
             tc->id,
             tc->target_vel,
             tc->reqvel,
             tc->finalvel,
-            tc->target);
+            tc->target,
+            tc->maxaccel,
+            tc->jerk);
 
     tc->active = 1;
 
@@ -3255,7 +3154,8 @@ STATIC void tpSyncPositionMode(TP_STRUCT * const tp, TC_STRUCT * const tc,
         } else {
             tc_debug_print("accelerating in pos_sync\n");
             // beginning of move and we are behind: accel as fast as we can
-            tc->target_vel = tc->maxvel;
+            tc->target_vel = tc->maxvel / tp->cycleTime;
+            tc_debug_print("target_vel(%f) tc->maxvel(%f) tc->jerk(%.20f)\n", tc->target_vel, tc->maxvel, tc->jerk);
         }
     } else {
         // we have synced the beginning of the move as best we can -
@@ -3559,6 +3459,8 @@ STATIC int tpHandleRegularCycle(TP_STRUCT * const tp,
         tpToggleDIOs(tp, tc);
         tpUpdateMovementStatus(tp, tc);
     }
+    tp_info_print("%d: tc reqvel(%f) target_vel(%f) maxvel(%f) jerk(%.20f)\n", __LINE__, tc->reqvel, tc->target_vel, tc->maxvel, tc->jerk);
+
     return TP_ERR_OK;
 }
 
