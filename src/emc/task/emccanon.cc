@@ -33,6 +33,7 @@
 #include "config.h"
 #include <stdio.h>
 #include <stdarg.h>
+#include <assert.h>
 #include "rtapi_math.h"
 #include <string.h>		// strncpy()
 #include <ctype.h>		// isspace()
@@ -62,6 +63,7 @@
 static int debug_velacc = 0;
 static double css_maximum, css_numerator; // both always positive
 static int spindle_dir = 0;
+static double feed_per_spindle_revolution;
 
 static const double tiny = 1e-7;
 static const double huge = 1e9;
@@ -1216,43 +1218,74 @@ void STRAIGHT_FEED(int line_number,
 }
 
 
-void RIGID_TAP(int line_number, double x, double y, double z)
+void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_mode)
 {
-    double ini_maxvel,acc;
-    EMC_TRAJ_RIGID_TAP rigidTapMsg;
+    double vel, acc;
+    EMC_TRAJ_SPINDLE_SYNC_MOTION spindleSyncMotionMsg;
     double unused=0;
+    double max_xyz_vel;
+    double xyz_vel;
+    double spindle_speed;
 
-    from_prog(x,y,z,unused,unused,unused,unused,unused,unused);
-    rotate_and_offset_pos(x,y,z,unused,unused,unused,unused,unused,unused);
+    if (ssm_mode < 2)
+    {   // G33, G33.1
+        if(css_maximum) {
+            // for CSS(G96)
+            spindle_speed = css_maximum;
+        } else {
+            // for (G97)
+            spindle_speed = spindleSpeed;
+        }
 
-    VelData veldata = getStraightVelocity(x, y, z,
-                              canonEndPoint.a, canonEndPoint.b, canonEndPoint.c, 
-                              canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
+        from_prog(x,y,z,unused,unused,unused,unused,unused,unused);
+        rotate_and_offset_pos(x,y,z,unused,unused,unused,unused,unused,unused);
+        VelData linedata = getStraightVelocity(x, y, z, unused, unused, unused, unused, unused, unused);
+        max_xyz_vel = linedata.vel;
 
-    ini_maxvel = veldata.vel;
+        /* the unit for canon.spindleSpeed is RPM; need to convert to RPS */
+        xyz_vel = feed_per_spindle_revolution * spindle_speed / 60.0;
+        /* obtain the velocity for cartesian_move */
+        vel = MIN(xyz_vel, max_xyz_vel);
+        /* convert cartesian_move velocity to spindle velocity in rps */
+        vel = spindle_dir * vel / feed_per_spindle_revolution; // unit: rps
+
+        if (xyz_vel > max_xyz_vel)
+        {
+            CANON_ERROR("WARN: constrain spindle speed to %f RPM\n", vel * 60.0);
+        }
+        spindleSyncMotionMsg.pos = to_ext_pose(x,y,z,
+                canonEndPoint.a, canonEndPoint.b, canonEndPoint.c,
+                canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
+    }
+    else
+    {   // G33.2
+        assert(0);
+//        // x = angle, y = rpm, z = axis_id
+//        spindleSyncMotionMsg.pos.s = x; // spindle position passed as x parameter
+//        vel = spindle_dir * y / 60.0; // spindle positioning velocity (RPS) passed as y parameter(RPM)
+    }
+
     
-    AccelData accdata = getStraightAcceleration(x, y, z,
-                                  canonEndPoint.a, canonEndPoint.b, canonEndPoint.c,
-                                  canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
-    acc = accdata.acc;
-    
-    rigidTapMsg.pos = to_ext_pose(x,y,z,
-                                 canonEndPoint.a, canonEndPoint.b, canonEndPoint.c,
-                                 canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
-
-    rigidTapMsg.vel = toExtVel(ini_maxvel);
-    rigidTapMsg.ini_maxvel = toExtVel(ini_maxvel);
-    rigidTapMsg.acc = toExtAcc(acc);
-    rigidTapMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z,
-                                            canonEndPoint.a, canonEndPoint.b, canonEndPoint.c,
-                                            canonEndPoint.u, canonEndPoint.v, canonEndPoint.w)
-                                        );
+    acc = axis_max_acceleration[emcGetSpindleAxis()];
+    // spindle velocity unit: rps
+    spindleSyncMotionMsg.vel = (vel); //spindle velocity (rps)
+    spindleSyncMotionMsg.ini_maxvel = axis_max_velocity[emcGetSpindleAxis()];
+    spindleSyncMotionMsg.acc = acc;
+    spindleSyncMotionMsg.ini_maxjerk = axis_max_jerk[emcGetSpindleAxis()];
+    spindleSyncMotionMsg.ssm_mode = ssm_mode;
 
     flush_segments();
+    
+//    DP("x(%f) y(%f) z(%f)\n", x, y, z);
+//    DP("vel(%f) acc(%f) jerk(%f)\n", vel, acc, spindleSyncMotionMsg.ini_maxjerk);
+//    DP("spindleSpeed(%f) spindle_dir(%d)\n", spindleSpeed, spindle_dir);
 
-    if(ini_maxvel && acc)  {
+    assert (vel != 0);
+    assert (acc > 0);
+
+    if(vel && acc)  {
         interp_list.set_line_number(line_number);
-        interp_list.append(rigidTapMsg);
+        interp_list.append(spindleSyncMotionMsg);
     }
 
     // don't move the endpoint because after this move, we are back where we started
@@ -1387,6 +1420,8 @@ void START_SPEED_FEED_SYNCH(double feed_per_revolution, bool velocity_mode)
     spindlesyncMsg.velocity_mode = velocity_mode;
     interp_list.append(spindlesyncMsg);
     synched = 1;
+    feed_per_spindle_revolution = feed_per_revolution;
+
 }
 
 void STOP_SPEED_FEED_SYNCH()
@@ -1397,6 +1432,7 @@ void STOP_SPEED_FEED_SYNCH()
     spindlesyncMsg.velocity_mode = false;
     interp_list.append(spindlesyncMsg);
     synched = 0;
+    feed_per_spindle_revolution = 0;
 }
 
 /* Machining Functions */

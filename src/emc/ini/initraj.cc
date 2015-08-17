@@ -223,7 +223,13 @@ static int loadTraj(EmcIniFile *trajInifile)
                 rcs_print("bad return value from emcSetMaxFeedOverride\n");
             }
             return -1;
-        } 
+        }
+
+        // find the AXIS_* that maps as SPINDLE
+        int spindleAxis = 5;
+        trajInifile->Find(&spindleAxis, "SPINDLE_AXIS", "TRAJ");
+        emcSetSpindleAxis(spindleAxis);
+
     }
 
     catch(EmcIniFile::Exception &e){
