@@ -4494,8 +4494,8 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
     CHKS(((settings->spindle_turning != CANON_CLOCKWISE) &&
            (settings->spindle_turning != CANON_COUNTERCLOCKWISE)),
           _("Spindle not turning in G33"));
-    START_SPEED_FEED_SYNCH(block->k_number, 0);
-    STRAIGHT_FEED(block->line_number, end_x, end_y, end_z, AA_end, BB_end, CC_end, u_end, v_end, w_end);
+    START_SPEED_FEED_SYNCH(block->k_number, 0 /* wait_for_index == 0 */);
+    SPINDLE_SYNC_MOTION(block->line_number, end_x, end_y, end_z, 0); // set ssm_mode flag as G33(0)
     STOP_SPEED_FEED_SYNCH();
     settings->current_x = end_x;
     settings->current_y = end_y;
@@ -4504,10 +4504,84 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
     CHKS(((settings->spindle_turning != CANON_CLOCKWISE) &&
            (settings->spindle_turning != CANON_COUNTERCLOCKWISE)),
           _("Spindle not turning in G33.1"));
-    START_SPEED_FEED_SYNCH(block->k_number, 0);
-    RIGID_TAP(block->line_number, end_x, end_y, end_z);
+    START_SPEED_FEED_SYNCH(block->k_number, 0 /* wait_for_index == 0 */);
+    SPINDLE_SYNC_MOTION(block->line_number, end_x, end_y, end_z, 1); // set ssm_mode flag as rigid_tap(1)
     STOP_SPEED_FEED_SYNCH();
     // after the RIGID_TAP cycle we'll be in the same spot
+  } else if (move == G_33_2) {
+    // SPINDLE_POSITIONING (ABSOLUTE_POSITION within 360 degree)
+    //  * spindle positioning where spindle may be mapped as A/B/C axis
+    //  * Spindle must be on; and its speed must be 0 (M3S0)
+    //  * usage: G33.2 [ABC][ABSOLUTE_ANGLE] K[RPM]
+    //           move spindle to ABSOLUTE_ANGLE with RPM speed
+    int i;
+    double delta_angle, orig_feed_rate;
+    CHKS(((settings->spindle_turning != CANON_CLOCKWISE) &&
+            (settings->spindle_turning != CANON_COUNTERCLOCKWISE)),
+            _("Spindle not turning in G33.2"));
+    i = 0;
+    if(block->a_flag) {
+        i += 1;
+        delta_angle = AA_end - (settings->AA_current % 360.0);
+        if (settings->spindle_turning == CANON_CLOCKWISE) {
+            if ((delta_angle) < 0) {
+                delta_angle += 360.0;
+            }
+        } else {
+            // CANON_COUNTERCLOCKWISE
+            if ((delta_angle) > 0) {
+                delta_angle -= 360.0;
+            }
+        }
+        AA_end = settings->AA_current + (delta_angle);
+    }
+    if(block->b_flag) {
+        i += 1;
+        delta_angle = BB_end - (settings->BB_current % 360.0);
+        if (settings->spindle_turning == CANON_CLOCKWISE) {
+            if ((delta_angle) < 0) {
+                delta_angle += 360.0;
+            }
+        } else {
+            // CANON_COUNTERCLOCKWISE
+            if ((delta_angle) > 0) {
+                delta_angle -= 360.0;
+            }
+        }
+        BB_end = settings->BB_current + (delta_angle);
+    }
+    if(block->c_flag) {
+        i += 1;
+        delta_angle = CC_end - (settings->CC_current % 360.0);
+        if (settings->spindle_turning == CANON_CLOCKWISE) {
+            if ((delta_angle) < 0) {
+                delta_angle += 360.0;
+            }
+        } else {
+            // CANON_COUNTERCLOCKWISE
+            if ((delta_angle) > 0) {
+                delta_angle -= 360.0;
+            }
+        }
+        CC_end = settings->CC_current + (delta_angle);
+    }
+    CHKS((i != 1),
+            _("G33.2: Need exactly ONE absolute angle for A/B/C"));
+    // debug: printf("G33.2: i(%d) j(%d) angle(%f) rpm(%f)\n", i, j, angle, block->k_number);
+
+    orig_feed_rate = settings->feed_rate;
+    /* convert from RPM to degrees-per-minute */
+    enqueue_SET_FEED_RATE(block->k_number * 360.0);
+    /* move spindle AXIS with STRAIGHT_FEED(): */
+    STRAIGHT_FEED(block->line_number, end_x, end_y, end_z,
+                  AA_end, BB_end, CC_end,
+                  u_end, v_end, w_end);
+    settings->current_x = end_x;
+    settings->current_y = end_y;
+    settings->current_z = end_z;
+    settings->feed_rate = orig_feed_rate; // restore original feed rate
+    enqueue_SET_FEED_RATE(settings->feed_rate);
+
   } else if (move == G_76) {
     CHKS((settings->AA_current != AA_end || 
          settings->BB_current != BB_end || 

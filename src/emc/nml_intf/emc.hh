@@ -142,7 +142,7 @@ struct PM_CARTESIAN;
 #define EMC_TRAJ_SET_FO_ENABLE_TYPE                  ((NMLTYPE) 234)
 #define EMC_TRAJ_SET_SO_ENABLE_TYPE                  ((NMLTYPE) 235)
 #define EMC_TRAJ_SET_FH_ENABLE_TYPE                  ((NMLTYPE) 236)
-#define EMC_TRAJ_RIGID_TAP_TYPE                      ((NMLTYPE) 237)
+#define EMC_TRAJ_SPINDLE_SYNC_MOTION_TYPE            ((NMLTYPE) 237)
 
 #define EMC_TRAJ_STAT_TYPE                           ((NMLTYPE) 299)
 
@@ -554,6 +554,8 @@ int emcSetupArcBlends(int arcBlendEnable,
         int arcBlendOptDepth,
         int arcBlendGapCycles,
         double arcBlendRampFreq);
+void emcSetSpindleAxis(int spindleAxis);
+int emcGetSpindleAxis(void);
 
 extern int emcUpdate(EMC_STAT * stat);
 // full EMC status

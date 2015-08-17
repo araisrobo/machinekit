@@ -939,17 +939,19 @@ class EMC_TRAJ_PROBE:public EMC_TRAJ_CMD_MSG {
     unsigned char probe_type;
 };
 
-class EMC_TRAJ_RIGID_TAP:public EMC_TRAJ_CMD_MSG {
+class EMC_TRAJ_SPINDLE_SYNC_MOTION:public EMC_TRAJ_CMD_MSG {
+    // for G33 and G33.1
   public:
-    EMC_TRAJ_RIGID_TAP():EMC_TRAJ_CMD_MSG(EMC_TRAJ_RIGID_TAP_TYPE,
-				      sizeof(EMC_TRAJ_RIGID_TAP)) {
+    EMC_TRAJ_SPINDLE_SYNC_MOTION():EMC_TRAJ_CMD_MSG(EMC_TRAJ_SPINDLE_SYNC_MOTION_TYPE,
+                                      sizeof(EMC_TRAJ_SPINDLE_SYNC_MOTION)) {
     };
 
     // For internal NML/CMS use only.
     void update(CMS * cms);
 
     EmcPose pos;
-    double vel, ini_maxvel, acc;
+    double vel, ini_maxvel, acc, ini_maxjerk;
+    int ssm_mode; // set to 1 for rigid-tapping
 };
 
 // EMC_TRAJ status base class

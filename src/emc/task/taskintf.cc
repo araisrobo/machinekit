@@ -635,6 +635,7 @@ static int localEmcTrajAxisMask = 0;
 static double localEmcTrajLinearUnits = 1.0;
 static double localEmcTrajAngularUnits = 1.0;
 static int localEmcTrajMotionId = 0;
+static int localSpindleAxis = 5;        // default to AXIS_5
 //FIXME if you can't beat em...
 static struct state_tag_t localEmcTrajTag;
 
@@ -1575,3 +1576,13 @@ int emcSetMaxFeedOverride(double maxFeedScale) {
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
+void emcSetSpindleAxis(int spindleAxis)
+{
+    localSpindleAxis = spindleAxis;
+    return;
+}
+
+int emcGetSpindleAxis(void)
+{
+    return localSpindleAxis;
+}
