@@ -834,7 +834,8 @@ static int load_parameters(FILE *fp)
         return -1;
     }
     rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: ENC_TYPE=%s\n", s);
-    data[0] = 0;
+    data[0] = 0; // ENC_TYPE J3 ~ J0
+    data[1] = 0; // ENC_TYPE J5 ~ j4
     for (n = 0, t = (char *) s;; n++, t = NULL)
     {
         token = strtok(t, ",");
