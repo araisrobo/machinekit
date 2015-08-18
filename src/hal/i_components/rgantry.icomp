@@ -108,7 +108,12 @@ option MAXCOUNT 7;
 
 ;;
 
+#ifdef USB_MOTION_ENABLE        /* enable usb motion device */
 #include "sync_cmd.h"
+#else
+#define RISC_PROBE_LOW 0
+#define RISC_PROBE_HIGH 1
+#endif
 
 FUNCTION(read)
 {
