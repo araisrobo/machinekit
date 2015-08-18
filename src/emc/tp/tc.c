@@ -72,7 +72,7 @@ int tcGetStartAccelUnitVector(TC_STRUCT const * const tc, PmCartesian * const ou
 
     switch (tc->motion_type) {
         case TC_LINEAR:
-        case TC_RIGIDTAP:
+        case TC_SPINDLE_SYNC_MOTION:
             *out=tc->coords.line.xyz.uVec;
             break;
         case TC_CIRCULAR:
@@ -94,10 +94,8 @@ int tcGetEndAccelUnitVector(TC_STRUCT const * const tc, PmCartesian * const out)
 
     switch (tc->motion_type) {
         case TC_LINEAR:
+        case TC_SPINDLE_SYNC_MOTION:
             *out=tc->coords.line.xyz.uVec;
-            break;
-        case TC_RIGIDTAP:
-            pmCartScalMult(&tc->coords.line.xyz.uVec, -1.0, out);
             break;
         case TC_CIRCULAR:
             tcCircleEndAccelUnitVector(tc,out);
@@ -203,8 +201,8 @@ int tcGetStartTangentUnitVector(TC_STRUCT const * const tc, PmCartesian * const 
         case TC_LINEAR:
             *out=tc->coords.line.xyz.uVec;
             break;
-        case TC_RIGIDTAP:
-            *out=tc->coords.rigidtap.xyz.uVec;
+        case TC_SPINDLE_SYNC_MOTION:
+            *out=tc->coords.spindle_sync.xyz.uVec;
             break;
         case TC_CIRCULAR:
             pmCircleTangentVector(&tc->coords.circle.xyz, 0.0, out);
@@ -225,8 +223,8 @@ int tcGetEndTangentUnitVector(TC_STRUCT const * const tc, PmCartesian * const ou
         case TC_LINEAR:
             *out=tc->coords.line.xyz.uVec;
             break;
-        case TC_RIGIDTAP:
-            pmCartScalMult(&tc->coords.rigidtap.xyz.uVec, -1.0, out);
+        case TC_SPINDLE_SYNC_MOTION:
+            *out=tc->coords.spindle_sync.xyz.uVec;
             break;
         case TC_CIRCULAR:
             pmCircleTangentVector(&tc->coords.circle.xyz,
@@ -293,15 +291,19 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
     double angle = 0.0;
 
     switch (tc->motion_type){
-        case TC_RIGIDTAP:
-            if(tc->coords.rigidtap.state > REVERSING) {
-                pmCartLinePoint(&tc->coords.rigidtap.aux_xyz, progress, &xyz);
-            } else {
-                pmCartLinePoint(&tc->coords.rigidtap.xyz, progress, &xyz);
-            }
+        case TC_SPINDLE_SYNC_MOTION:
+            // for RIGID_TAPPING(G33.1), CSS(G33 w/ G96), and THREADING(G33 w/ G97)
+            pmCartLinePoint(&tc->coords.spindle_sync.xyz,
+                            tc->coords.spindle_sync.xyz.tmag * (progress / tc->target),
+                            &xyz);
             // no rotary move allowed while tapping
-            abc = tc->coords.rigidtap.abc;
-            uvw = tc->coords.rigidtap.uvw;
+            abc = tc->coords.spindle_sync.abc;
+            uvw = tc->coords.spindle_sync.uvw;
+            {
+                double s;
+                s = tc->coords.spindle_sync.spindle_start_pos + tc->coords.spindle_sync.spindle_dir * progress;
+                rtapi_print ("%s (%s:%d) TODO: update spindle pos(%f) of_point(%d)\n", __FILE__, __FUNCTION__, __LINE__, s, of_point);
+            }
             break;
         case TC_LINEAR:
             pmCartLinePoint(&tc->coords.line.xyz,
@@ -412,7 +414,7 @@ int tcIsBlending(TC_STRUCT * const tc) {
     //FIXME Disabling blends for rigid tap cycle until changes can be verified.
     int is_blending_next = (tc->term_cond == TC_TERM_COND_PARABOLIC ) &&
         tc->on_final_decel && (tc->currentvel < tc->blend_vel) &&
-        tc->motion_type != TC_RIGIDTAP;
+        tc->motion_type != TC_SPINDLE_SYNC_MOTION;
 
     //Latch up the blending_next status here, so that even if the prev conditions
     //aren't necessarily true we still blend to completion once the blend
@@ -706,40 +708,39 @@ int tcUpdateTargetFromCircle(TC_STRUCT * const tc)
 
 
 
-int pmRigidTapInit(PmRigidTap * const tap,
-        EmcPose const * const start,
-        EmcPose const * const end)
-{
-    PmCartesian start_xyz, end_xyz;
-    PmCartesian abc, uvw;
+//int pmSpindleSyncMotionInit(PmSpindleSync * const ssm,
+//        EmcPose const * const start,
+//        EmcPose const * const end)
+//{
+//    PmCartesian start_xyz, end_xyz;
+//    PmCartesian abc, uvw;
+//
+//    //Slightly more allocation this way, but much easier to read
+//    emcPoseToPmCartesian(start, &start_xyz, &abc, &uvw);
+//    emcPoseGetXYZ(end, &end_xyz);
+//
+//    // Setup XYZ motion
+//    pmCartLineInit(&tap->xyz, &start_xyz, &end_xyz);
+//
+//    // Copy over fixed ABC and UVW points
+//    tap->abc = abc;
+//    tap->uvw = uvw;
+//
+//    // Setup initial tap state
+//    tap->reversal_target = tap->xyz.tmag;
+//    tap->state = TAPPING;
+//    return TP_ERR_OK;
+//}
 
-    //Slightly more allocation this way, but much easier to read
-    emcPoseToPmCartesian(start, &start_xyz, &abc, &uvw);
-    emcPoseGetXYZ(end, &end_xyz);
-
-    // Setup XYZ motion
-    pmCartLineInit(&tap->xyz, &start_xyz, &end_xyz);
-
-    // Copy over fixed ABC and UVW points
-    tap->abc = abc;
-    tap->uvw = uvw;
-
-    // Setup initial tap state
-    tap->reversal_target = tap->xyz.tmag;
-    tap->state = TAPPING;
-    return TP_ERR_OK;
-
-}
-
-double pmRigidTapTarget(PmRigidTap * const tap, double uu_per_rev)
-{
-    // allow 10 turns of the spindle to stop - we don't want to just go on forever
-    double overrun = 10. * uu_per_rev;
-    double target = tap->xyz.tmag + overrun;
-    tp_debug_print("initial tmag = %.12g, added %.12g for overrun, target = %.12g\n",
-            tap->xyz.tmag, overrun,target);
-    return target;
-}
+//double pmRigidTapTarget(PmRigidTap * const tap, double uu_per_rev)
+//{
+//    // allow 10 turns of the spindle to stop - we don't want to just go on forever
+//    double overrun = 10. * uu_per_rev;
+//    double target = tap->xyz.tmag + overrun;
+//    tp_debug_print("initial tmag = %.12g, added %.12g for overrun, target = %.12g\n",
+//            tap->xyz.tmag, overrun,target);
+//    return target;
+//}
 
 /** Returns true if segment has ONLY rotary motion, false otherwise. */
 int tcPureRotaryCheck(TC_STRUCT const * const tc)

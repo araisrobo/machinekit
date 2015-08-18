@@ -33,7 +33,7 @@ typedef enum {
 typedef enum {
     TC_LINEAR = 1,
     TC_CIRCULAR = 2,
-    TC_RIGIDTAP = 3,
+    TC_SPINDLE_SYNC_MOTION = 3,
     TC_SPHERICAL = 4
 } tc_motion_type_t;
 
@@ -49,9 +49,6 @@ typedef enum {
 
 #define TC_OPTIM_UNTOUCHED 0
 #define TC_OPTIM_AT_MAX 1
-
-#define TC_ACCEL_TRAPZ 0
-#define TC_ACCEL_RAMP 1
 
 /**
  * Spiral arc length approximation by quadratic fit.
@@ -101,15 +98,17 @@ typedef struct {
 } syncdio_t;
 
 typedef struct {
+    // for RIGID_TAPPING(G33.1), CSS(G33 w/ G96), and THREADING(G33 w/ G97)
     PmCartLine xyz;             // original, but elongated, move down
-    PmCartLine aux_xyz;         // this will be generated on the fly, for the other
-                            // two moves: retraction, final placement
     PmCartesian abc;
     PmCartesian uvw;
-    double reversal_target;
-    double spindlerevs_at_reversal;
-    RIGIDTAP_STATE state;
-} PmRigidTap;
+    double spindle_start_pos;
+    double spindle_end_angle;
+    int spindle_start_pos_latch;
+    double spindle_dir;
+    double spindle_reqvel;
+    int mode;   // G33(0), G33.1(1)
+} PmSpindleSyncMotion;
 
 enum state_type {
   ACCEL_S0 = 0, // 0
@@ -154,14 +153,13 @@ typedef struct {
     union {                 // describes the segment's start and end positions
         PmLine9 line;
         PmCircle9 circle;
-        PmRigidTap rigidtap;
+        PmSpindleSyncMotion spindle_sync;
         Arc9 arc;
     } coords;
 
-    int motion_type;       // TC_LINEAR (coords.line) or
-                            // TC_CIRCULAR (coords.circle) or
-                            // TC_RIGIDTAP (coords.rigidtap)
-    int active;            // this motion is being executed
+    int motion_type;        // TC_LINEAR (coords.line) or
+                            // TC_CIRCULAR (coords.circle)
+    int active;             // this motion is being executed
     int canon_motion_type;  // this motion is due to which canon function?
     int term_cond;          // gcode requests continuous feed at the end of
                             // this segment (g64 mode)

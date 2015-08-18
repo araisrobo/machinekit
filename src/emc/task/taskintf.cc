@@ -1207,28 +1207,26 @@ int emcTrajProbe(EmcPose pos, int type, double vel, double ini_maxvel, double ac
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcTrajRigidTap(EmcPose pos, double vel, double ini_maxvel, double acc, double ini_maxjerk)
+int emcTrajSpindleSyncMotion(EmcPose pos, double vel, double ini_maxvel, double acc, double ini_maxjerk, int ssm_mode)
 {
 #ifdef ISNAN_TRAP
     if (rtapi_isnan(pos.tran.x) || rtapi_isnan(pos.tran.y) || rtapi_isnan(pos.tran.z)) {
-	printf("isnan error in emcTrajRigidTap()\n");
+	printf("isnan error in emcSpindleSyncMotion()\n");
 	return 0;		// ignore it for now, just don't send it
     }
 #endif
-
-    emcmotCommand.command = EMCMOT_RIGID_TAP;
-    emcmotCommand.pos.tran = pos.tran;
-    emcmotCommand.pos.tran = pos.tran;
+    emcmotCommand.command = EMCMOT_SPINDLE_SYNC_MOTION;
+    emcmotCommand.pos = pos;
     emcmotCommand.id = localEmcTrajMotionId;
     emcmotCommand.tag = localEmcTrajTag;
     emcmotCommand.vel = vel;
     emcmotCommand.ini_maxvel = ini_maxvel;
     emcmotCommand.acc = acc;
     emcmotCommand.ini_maxjerk = ini_maxjerk;
+    emcmotCommand.ssm_mode = ssm_mode;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
-
 
 static int last_id = 0;
 static int last_id_printed = 0;

@@ -1590,52 +1590,53 @@ check_stuff ( "before command_handler()" );
 	    }
 	    break;
 
+        case EMCMOT_SPINDLE_SYNC_MOTION:
+            /* most of this is taken from EMCMOT_SET_LINE */
+            /* emcmotDebug->tp up a linear move */
+            /* requires coordinated mode, enable off, not on limits */
+            rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_SYNC_MOTION");
+            if (!GET_MOTION_COORD_FLAG() || !GET_MOTION_ENABLE_FLAG()) {
+                reportError(_("need to be enabled, in coord mode for spindle sync move"));
+                emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_COMMAND;
+                SET_MOTION_ERROR_FLAG(1);
+                break;
+            } else if (!inRange(emcmotCommand->pos, emcmotCommand->id, "Spindle Sync Motion")) {
+                emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
+                abort_and_switchback(); // tpAbort(emcmotQueue);
+                SET_MOTION_ERROR_FLAG(1);
+                break;
+            } else if (!limits_ok()) {
+                reportError(_("can't do spindle sync move with limits exceeded"));
+                emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
+                abort_and_switchback(); // tpAbort(emcmotQueue);
+                SET_MOTION_ERROR_FLAG(1);
+                break;
+            }
 
-	case EMCMOT_RIGID_TAP:
-	    /* most of this is taken from EMCMOT_SET_LINE */
-	    /* emcmotDebug->tp up a linear move */
-	    /* requires coordinated mode, enable off, not on limits */
-	    rtapi_print_msg(RTAPI_MSG_DBG, "RIGID_TAP");
-	    if (!GET_MOTION_COORD_FLAG() || !GET_MOTION_ENABLE_FLAG()) {
-		reportError
-		    (_("need to be enabled, in coord mode for rigid tap move"));
-		emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_COMMAND;
-		SET_MOTION_ERROR_FLAG(1);
-		break;
-	    } else if (!inRange(emcmotCommand->pos, emcmotCommand->id, "Rigid tap")) {
-		emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
-		abort_and_switchback(); // tpAbort(emcmotQueue);
-
-		SET_MOTION_ERROR_FLAG(1);
-		break;
-	    } else if (!limits_ok()) {
-		reportError(_("can't do rigid tap move with limits exceeded"));
-		emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
-		abort_and_switchback(); // tpAbort(emcmotQueue);
-		SET_MOTION_ERROR_FLAG(1);
-		break;
-	    }
-
-	    /* append it to the emcmotDebug->queue */
-	    emcmotConfig->vtp->tpSetId(emcmotQueue, emcmotCommand->id);
-	    if (-1 == emcmotConfig->vtp->tpAddRigidTap(emcmotQueue,
-						       emcmotCommand->pos,
-						       emcmotCommand->vel,
-						       emcmotCommand->ini_maxvel,
-						       emcmotCommand->acc,
-						       emcmotStatus->enables_new,
-						       emcmotCommand->tag)) {
-                emcmotStatus->atspeed_next_feed = 0; /* rigid tap always waits for spindle to be at-speed */
-		reportError(_("can't add rigid tap move"));
-		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
-		abort_and_switchback(); // tpAbort(emcmotQueue);
-
-		SET_MOTION_ERROR_FLAG(1);
-		break;
-	    } else {
-		SET_MOTION_ERROR_FLAG(0);
-	    }
-	    break;
+            /* append it to the emcmotDebug->queue */
+            emcmotConfig->vtp->tpSetId(emcmotQueue, emcmotCommand->id);
+            if (-1 == emcmotConfig->vtp->tpAddSpindleSyncMotion(emcmotQueue,
+                                                                emcmotCommand->pos,
+                                                                emcmotCommand->vel,
+                                                                emcmotCommand->ini_maxvel,
+                                                                emcmotCommand->acc,
+                                                                emcmotCommand->ini_maxjerk,
+                                                                emcmotCommand->ssm_mode,
+                                                                emcmotStatus->enables_new,
+                                                                emcmotCommand->tag))
+            {
+                emcmotStatus->atspeed_next_feed = 0; /* spindle-sync/rigid-tap always waits for spindle to be at-speed */
+                reportError(_("can't add spindle sync move"));
+                emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
+                abort_and_switchback(); // tpAbort(emcmotQueue);
+                SET_MOTION_ERROR_FLAG(1);
+                break;
+            }
+            else
+            {
+                SET_MOTION_ERROR_FLAG(0);
+            }
+            break;
 
 	case EMCMOT_SET_TELEOP_VECTOR:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_TELEOP_VECTOR");

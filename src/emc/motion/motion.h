@@ -157,8 +157,11 @@ extern "C" {
     EMCMOT_CLEAR_PROBE_FLAGS = 32, /* clears probeTripped flag */
     EMCMOT_PROBE = 33,             /* go to pos, stop if probe trips, record
                                       trip pos */
-    EMCMOT_RIGID_TAP = 34,         /* go to pos, with sync to spindle speed,
-                                      then return to initial pos */
+
+    EMCMOT_SPINDLE_SYNC_MOTION = 34,  /* CSS,
+                                       * RIGID_TAP: go to pos, with sync to spindle speed,
+                                       *            then return to initial pos
+                                       */
 
     EMCMOT_SET_POSITION_LIMITS = 35,  /* set the joint position +/- limits */
     EMCMOT_SET_BACKLASH = 36,         /* set the joint backlash */
@@ -278,7 +281,8 @@ extern "C" {
         double arcBlendRampFreq;
         double maxFeedScale;
         struct state_tag_t tag;
-        int usbmotEnable;      /* enable USB-FPGA motion control device */
+        int usbmotEnable;       /* enable USB-FPGA motion control device */
+        int ssm_mode;           /* spindle sync motion mode: G33(0):CSS/THREADING, G33.1(1):RIGID_TAP */
     } emcmot_command_t;
 
 /*! \todo FIXME - these packed bits might be replaced with chars

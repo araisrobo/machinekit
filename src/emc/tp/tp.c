@@ -111,7 +111,7 @@ STATIC int tcCheckLastParabolic(TC_STRUCT * const tc,
 STATIC int tpRotaryMotionCheck(TP_STRUCT const * const tp, TC_STRUCT const * const tc) {
     switch (tc->motion_type) {
         //Note lack of break statements due to every path returning
-        case TC_RIGIDTAP:
+        case TC_SPINDLE_SYNC_MOTION:
             return false;
         case TC_LINEAR:
             if (tc->coords.line.abc.tmag_zero && tc->coords.line.uvw.tmag_zero) {
@@ -1369,10 +1369,7 @@ STATIC inline int tpAddSegmentToQueue(TP_STRUCT * const tp, TC_STRUCT * const tc
     }
 
     // Store end of current move as new final goal of TP
-    // KLUDGE: endpoint is garbage for rigid tap since it's supposed to retract past the start point.
-    if (tc->motion_type != TC_RIGIDTAP) {
-        tcGetEndpoint(tc, &tp->goalPos);
-    }
+    tcGetEndpoint(tc, &tp->goalPos);
     tp->done = 0;
     tp->depth = tcqLen(&tp->queue);
     //Fixing issue with duplicate id's?
@@ -1405,40 +1402,54 @@ STATIC int tpSetupSyncedIO(TP_STRUCT * const tp, TC_STRUCT * const tc) {
     }
 }
 
-
 /**
- * Adds a rigid tap cycle to the motion queue.
+ * SPINDLE_SYNC_MOTION:
+ *      -- RIGID_TAPPING(G33.1)
+ *      -- CSS(G33 w/ G96)
+ *      -- THREADING(G33 w/ G97)
  */
-int tpAddRigidTap(TP_STRUCT * const tp,
+int tpAddSpindleSyncMotion(
+        TP_STRUCT *tp,
         EmcPose end,
         double vel,
         double ini_maxvel,
         double acc,
+        double jerk,
+        int ssm_mode,
         unsigned char enables,
-        struct state_tag_t tag) {
+        struct state_tag_t tag)
+{
+    PmCartLine line_xyz;
+    PmCartesian start_xyz, end_xyz;
+    PmCartesian abc, uvw;
+    int atspeed;
+
     if (tpErrorCheck(tp)) {
         return TP_ERR_FAIL;
     }
 
-    tp_info_print("== AddRigidTap ==\n");
+    tp_info_print("== AddSpindleSyncMotion ==\n");
 
     if(!tp->synchronized) {
-        rtapi_print_msg(RTAPI_MSG_ERR, "Cannot add unsynchronized rigid tap move.\n");
+        rtapi_print_msg(RTAPI_MSG_ERR, "Cannot add unsynchronized SpindleSyncMotion.\n");
         return TP_ERR_FAIL;
     }
 
     TC_STRUCT tc = {0};
 
-    /* Initialize rigid tap move.
-     * NOTE: rigid tapping does not have a canonical type.
-     * NOTE: always need atspeed since this is a synchronized movement.
-     * */
+    assert (ssm_mode < 2);
+    assert (ssm_mode >= 0);
+    if (ssm_mode == 0){
+        atspeed = 1; // G33 needs to wait for spindle atspeed
+    } else {
+        atspeed = 0; // G33.1(RIGID_TAP) does not wait for atspeed
+    }
     tcInit(&tc,
-            TC_RIGIDTAP,
+            TC_SPINDLE_SYNC_MOTION,
             0,
             tp->cycleTime,
             enables,
-            1);
+            atspeed);
 
     // Setup any synced IO for this move
     tpSetupSyncedIO(tp, &tc);
@@ -1451,22 +1462,90 @@ int tpAddRigidTap(TP_STRUCT * const tp,
             vel,
             ini_maxvel,
             acc,
-            0,
+            jerk,
             tp->cycleTime);
 
-    // Setup rigid tap geometry
-    pmRigidTapInit(&tc.coords.rigidtap,
-            &tp->goalPos,
-            &end);
-    tc.target = pmRigidTapTarget(&tc.coords.rigidtap, tp->uu_per_rev);
+    // Setup SpindleSyncMotion Geometry
+    start_xyz = tp->goalPos.tran;
+    end_xyz = end.tran;
+
+    // abc cannot move
+    abc.x = tp->goalPos.a;
+    abc.y = tp->goalPos.b;
+    abc.z = tp->goalPos.c;
+
+    uvw.x = tp->goalPos.u;
+    uvw.y = tp->goalPos.v;
+    uvw.z = tp->goalPos.w;
+
+    pmCartLineInit(&line_xyz, &start_xyz, &end_xyz);
+
+    tc.sync_accel = 0;
+
+    // tc.target: set as revolutions of spindle
+    tc.target = line_xyz.tmag / tp->uu_per_rev;
+    DP("jerk(%f) req_vel(%f) req_acc(%f) ini_maxvel(%f)\n",
+            jerk, vel, acc, ini_maxvel);
+    DP("target(%f) uu_per_rev(%f)\n", tc.target, tp->uu_per_rev);
+
+    tc.distance_to_go = tc.target;
+    tc.feed_override = 0.0;
+    tc.active = 0;
+
+    tc.coords.spindle_sync.xyz = line_xyz;
+    tc.coords.spindle_sync.abc = abc;
+    tc.coords.spindle_sync.uvw = uvw;
+    // updated spindle speed constrain based on spindleSyncMotionMsg.vel of emccanon.cc
+    tc.coords.spindle_sync.spindle_reqvel = vel;
+
+    tc.motion_type = TC_SPINDLE_SYNC_MOTION;
+
+    tc.canon_motion_type = 0;
+    tc.tolerance = tp->tolerance;
+
+    tc.synchronized = tp->synchronized;
+    tc.uu_per_rev = tp->uu_per_rev;
+    tc.enables = enables;
+    tc.indexrotary = -1;
+    tc.coords.spindle_sync.spindle_start_pos_latch = 0;
+    tc.coords.spindle_sync.spindle_start_pos = 0;
+    tc.coords.spindle_sync.mode = ssm_mode;
+
+    if (vel > 0)        // vel is requested spindle velocity
+    {
+        tc.coords.spindle_sync.spindle_dir = 1.0;
+    } else
+    {
+        tc.coords.spindle_sync.spindle_dir = -1.0;
+    }
 
     TC_STRUCT *prev_tc;
-    //Assume non-zero error code is failure
     prev_tc = tcqLast(&tp->queue);
     tcFinalizeLength(prev_tc);
     tcFlagEarlyStop(prev_tc, &tc);
-    int retval = tpAddSegmentToQueue(tp, &tc, true);
+    int retval = tpAddSegmentToQueue(tp, &tc, true); /* will update tp->goalPos */
     tpRunOptimization(tp);
+    if (retval != TP_ERR_OK)
+        return (retval);
+
+    if (ssm_mode == 1)  // for G33.1
+    {   // REVERSING
+        pmCartLineInit(&line_xyz, &end_xyz, &start_xyz);  // reverse the line direction
+        tc.coords.spindle_sync.xyz = line_xyz;
+        if (vel > 0)
+        {
+            tc.coords.spindle_sync.spindle_dir = -1.0;
+        } else
+        {
+            tc.coords.spindle_sync.spindle_dir = 1.0;
+        }
+
+        prev_tc = tcqLast(&tp->queue);
+        tcFinalizeLength(prev_tc);
+        tcFlagEarlyStop(prev_tc, &tc);
+        retval = tpAddSegmentToQueue(tp, &tc, true); /* will update tp->goalPos */
+        tpRunOptimization(tp);
+    }
     return retval;
 }
 
@@ -2648,85 +2727,6 @@ void tpToggleDIOs(TP_STRUCT const * const tp,
     }
 }
 
-
-/**
- * Handle special cases for rigid tapping.
- * This function deals with updating the goal position and spindle position
- * during a rigid tap cycle. In particular, the target and spindle goal need to
- * be carefully handled since we're reversing direction.
- */
-STATIC void tpUpdateRigidTapState(TP_STRUCT  * const tp,
-        TC_STRUCT * const tc) {
-
-    double new_spindlepos = get_spindleRevs(tp->shared);
-    if (get_spindle_direction(tp->shared) < 0) new_spindlepos = -new_spindlepos;
-
-    switch (tc->coords.rigidtap.state) {
-        case TAPPING:
-            tc_debug_print("TAPPING\n");
-            if (tc->progress >= tc->coords.rigidtap.reversal_target) {
-                // command reversal
-		set_spindle_speed(tp->shared,
-				  get_spindle_speed(tp->shared) * -1.0);
-                tc->coords.rigidtap.state = REVERSING;
-            }
-            break;
-        case REVERSING:
-            tc_debug_print("REVERSING\n");
-            if (new_spindlepos < tp->old_spindlepos) {
-                PmCartesian start, end;
-                PmCartLine *aux = &tc->coords.rigidtap.aux_xyz;
-                // we've stopped, so set a new target at the original position
-                tc->coords.rigidtap.spindlerevs_at_reversal = new_spindlepos + tp->spindle.offset;
-
-                pmCartLinePoint(&tc->coords.rigidtap.xyz, tc->progress, &start);
-                end = tc->coords.rigidtap.xyz.start;
-                pmCartLineInit(aux, &start, &end);
-                rtapi_print_msg(RTAPI_MSG_DBG, "old target = %f", tc->target);
-                tc->coords.rigidtap.reversal_target = aux->tmag;
-                tc->target = aux->tmag + 10. * tc->uu_per_rev;
-                tc->progress = 0.0;
-                rtapi_print_msg(RTAPI_MSG_DBG, "new target = %f", tc->target);
-
-                tc->coords.rigidtap.state = RETRACTION;
-            }
-            tp->old_spindlepos = new_spindlepos;
-            tc_debug_print("Spindlepos = %f\n", new_spindlepos);
-            break;
-        case RETRACTION:
-            tc_debug_print("RETRACTION\n");
-            if (tc->progress >= tc->coords.rigidtap.reversal_target) {
-		set_spindle_speed(tp->shared,
-				  get_spindle_speed(tp->shared) * -1.0);
-                tc->coords.rigidtap.state = FINAL_REVERSAL;
-            }
-            break;
-        case FINAL_REVERSAL:
-            tc_debug_print("FINAL_REVERSAL\n");
-            if (new_spindlepos > tp->old_spindlepos) {
-                PmCartesian start, end;
-                PmCartLine *aux = &tc->coords.rigidtap.aux_xyz;
-                pmCartLinePoint(aux, tc->progress, &start);
-                end = tc->coords.rigidtap.xyz.start;
-                pmCartLineInit(aux, &start, &end);
-                tc->target = aux->tmag;
-                tc->progress = 0.0;
-                //No longer need spindle sync at this point
-                tc->synchronized = 0;
-                tc->target_vel = tc->maxvel;
-
-                tc->coords.rigidtap.state = FINAL_PLACEMENT;
-            }
-            tp->old_spindlepos = new_spindlepos;
-            break;
-        case FINAL_PLACEMENT:
-            tc_debug_print("FINAL_PLACEMENT\n");
-            // this is a regular move now, it'll stop at target above.
-            break;
-    }
-}
-
-
 /**
  * Update emcMotStatus with information about trajectory motion.
  * Based on the specified trajectory segment tc, read its progress and status
@@ -3017,28 +3017,6 @@ STATIC int tpActivateSegment(TP_STRUCT * const tp, TC_STRUCT * const tc) {
         return TP_ERR_MISSING_INPUT;
     }
 
-    /* Based on the INI setting for "cutoff frequency", this calculation finds
-     * short segments that can have their acceleration be simple ramps, instead
-     * of a trapezoidal motion. This leads to fewer jerk spikes, at a slight
-     * performance cost.
-     * */
-    double cutoff_time = 1.0 / (rtapi_fmax(get_arcBlendRampFreq(tp->shared), TP_TIME_EPSILON));
-
-    double length = tc->target - tc->progress;
-    // Given what velocities we can actually reach, estimate the total time for the segment under ramp conditions
-    double segment_time = 2.0 * length / (tc->currentvel + rtapi_fmin(tc->finalvel,tpGetRealTargetVel(tp,tc)));
-
-
-    if (segment_time < cutoff_time &&
-            tc->canon_motion_type != EMC_MOTION_TYPE_TRAVERSE &&
-            tc->term_cond == TC_TERM_COND_TANGENT &&
-            tc->motion_type != TC_RIGIDTAP)
-    {
-        tp_debug_print("segment_time = %f, cutoff_time = %f, ramping\n",
-                segment_time, cutoff_time);
-        tc->accel_mode = TC_ACCEL_RAMP;
-    }
-
     // Do at speed checks that only happen once
     int needs_atspeed = tc->atspeed ||
         (tc->synchronized == TC_SYNC_POSITION && !(get_spindleSync(tp->shared)));
@@ -3123,10 +3101,10 @@ STATIC void tpSyncPositionMode(TP_STRUCT * const tp, TC_STRUCT * const tc,
     double spindle_vel, target_vel;
     double oldrevs = tp->spindle.revs;
 
-    if ((tc->motion_type == TC_RIGIDTAP) && (tc->coords.rigidtap.state == RETRACTION ||
-                tc->coords.rigidtap.state == FINAL_REVERSAL)) {
-            tp->spindle.revs = tc->coords.rigidtap.spindlerevs_at_reversal -
-                spindle_pos;
+    if ((tc->motion_type == TC_SPINDLE_SYNC_MOTION)) {
+        tc_debug_print("TODO: implement spindle control\n");
+//        tp->spindle.revs = tc->coords.rigidtap.spindlerevs_at_reversal -
+//                spindle_pos;
     } else {
         tp->spindle.revs = spindle_pos;
     }
@@ -3526,11 +3504,6 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
         if (res == TP_ERR_WAITING) {
             return TP_ERR_WAITING;
         }
-    }
-
-    // Preprocess rigid tap move (handles threading direction reversals)
-    if (tc->motion_type == TC_RIGIDTAP) {
-        tpUpdateRigidTapState(tp, tc);
     }
 
     /** If synchronized with spindle, calculate requested velocity to track

@@ -40,13 +40,15 @@ typedef int (*tpSetTermCond_t)(TP_STRUCT * tp, int cond, double tolerance);
 typedef int (*tpSetPos_t)(TP_STRUCT * tp, EmcPose const * const pos);
 typedef int (*tpAddCurrentPos_t)(TP_STRUCT * const tp, EmcPose const * const disp);
 typedef int (*tpSetCurrentPos_t)(TP_STRUCT * const tp, EmcPose const * const pos);
-typedef int (*tpAddRigidTap_t)(TP_STRUCT * tp,
-			       EmcPose end,
-			       double vel,
-			       double ini_maxvel,
-			       double acc,
-			       unsigned char enables,
-			       struct state_tag_t tag);
+typedef int (*tpAddSpindleSyncMotion_t)(TP_STRUCT * tp,
+                                        EmcPose end,
+                                        double vel,
+                                        double ini_maxvel,
+                                        double acc,
+                                        double jerk,
+                                        int ssm_mode,
+                                        unsigned char enables,
+                                        struct state_tag_t tag);
 typedef int (*tpAddLine_t)(TP_STRUCT * tp,
 			   EmcPose end,
 			   int type,
@@ -116,7 +118,7 @@ typedef struct {
     tpSetPos_t          tpSetPos;
     tpAddCurrentPos_t   tpAddCurrentPos;
     tpSetCurrentPos_t   tpSetCurrentPos;
-    tpAddRigidTap_t	tpAddRigidTap;
+    tpAddSpindleSyncMotion_t tpAddSpindleSyncMotion;
     tpAddLine_t	        tpAddLine;
     tpAddCircle_t	tpAddCircle;
     tpRunCycle_t	tpRunCycle;

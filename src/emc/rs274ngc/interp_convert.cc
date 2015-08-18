@@ -2311,17 +2311,17 @@ int Interp::convert_savehome(int code, block_pointer block, setup_pointer s) {
     double w = PROGRAM_TO_USER_LEN(s->w_current + s->tool_offset.w + s->w_origin_offset + s->w_axis_offset);
 
     if(s->a_axis_wrapped) {
-        a = fmod(a, 360.0);
+        a = rtapi_fmod(a, 360.0);
         if(a<0) a += 360.0;
     }
 
     if(s->b_axis_wrapped) {
-        b = fmod(b, 360.0);
+        b = rtapi_fmod(b, 360.0);
         if(b<0) b += 360.0;
     }
 
     if(s->c_axis_wrapped) {
-        c = fmod(c, 360.0);
+        c = rtapi_fmod(c, 360.0);
         if(c<0) c += 360.0;
     }
 
@@ -3491,7 +3491,7 @@ int Interp::convert_motion(int motion,   //!< g_code for a line, arc, canned cyc
     int n;
     if(ai) n=3; else if(bi) n=4; else n=5;
     CHP(convert_straight_indexer(n, block, settings));
-  } else if ((motion == G_0) || (motion == G_1) || (motion == G_33) || (motion == G_33_1) || (motion == G_76)) {
+  } else if ((motion == G_0) || (motion == G_1) || (motion == G_33) || (motion == G_33_1)  || (motion == G_33_2) || (motion == G_76)) {
     CHP(convert_straight(motion, block, settings));
   } else if ((motion == G_3) || (motion == G_2)) {
     CHP(convert_arc(motion, block, settings));
@@ -4538,7 +4538,7 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
     i = 0;
     if(block->a_flag) {
         i += 1;
-        delta_angle = AA_end - (settings->AA_current % 360.0);
+        delta_angle = AA_end - rtapi_fmod(settings->AA_current, 360.0);
         if (settings->spindle_turning == CANON_CLOCKWISE) {
             if ((delta_angle) < 0) {
                 delta_angle += 360.0;
@@ -4553,7 +4553,7 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
     }
     if(block->b_flag) {
         i += 1;
-        delta_angle = BB_end - (settings->BB_current % 360.0);
+        delta_angle = BB_end - rtapi_fmod(settings->BB_current, 360.0);
         if (settings->spindle_turning == CANON_CLOCKWISE) {
             if ((delta_angle) < 0) {
                 delta_angle += 360.0;
@@ -4568,7 +4568,7 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
     }
     if(block->c_flag) {
         i += 1;
-        delta_angle = CC_end - (settings->CC_current % 360.0);
+        delta_angle = CC_end - rtapi_fmod(settings->CC_current, 360.0);
         if (settings->spindle_turning == CANON_CLOCKWISE) {
             if ((delta_angle) < 0) {
                 delta_angle += 360.0;
