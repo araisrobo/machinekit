@@ -79,10 +79,29 @@ typedef enum {
  * synchronized motion code.
  */
 typedef struct {
-     double offset;
-     double revs;
-     int waiting_for_index;
-     int waiting_for_atspeed;
+    double speed;           // spindle speed command in RPM; set at command.c
+    double speed_rps;       // spindle speed command in RPS; set at command.c
+    double speed_req_rps;   // calculated spindle speed command in RPS
+    double css_factor;      // the surface speed for css motion
+    double xoffset;
+    double css_error;       // the surface speed error which is caused by the MAX spindle speed
+    int direction;          // 0 stopped, 1 forward, -1 reverse
+    int brake;              // 0 released, 1 engaged
+    int locked;             // spindle lock engaged after orient
+    int orient_fault;       // fault code from motion.spindle-orient-fault
+    int orient_state;       // orient_state_t
+    int at_speed;
+    int on;
+    double curr_pos_cmd;
+    double curr_vel_rps;
+
+    int waiting_for_index;
+    int waiting_for_atspeed;
+
+    // TODO: obsoleted params:
+    int dynamic_speed_mode;
+    double const_speed_radius;  // rotation speed is constant within the radius
+    int update_pos_req;
 } tp_spindle_t;
 
 typedef struct tp_shared_t tp_shared_t; // see tp_shared.h

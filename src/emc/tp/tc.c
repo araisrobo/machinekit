@@ -302,7 +302,11 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
             {
                 double s;
                 s = tc->coords.spindle_sync.spindle_start_pos + tc->coords.spindle_sync.spindle_dir * progress;
-                rtapi_print ("%s (%s:%d) TODO: update spindle pos(%f) of_point(%d)\n", __FILE__, __FUNCTION__, __LINE__, s, of_point);
+                tp_debug_print ("spindle_start_pos(%f) spindle_dir(%f) progress(%f)\n",
+                                tc->coords.spindle_sync.spindle_start_pos,
+                                tc->coords.spindle_sync.spindle_dir,
+                                progress);
+                tp_debug_print ("spindle pos(%f) of_point(%d)\n", s, of_point);
             }
             break;
         case TC_LINEAR:

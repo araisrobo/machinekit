@@ -62,8 +62,8 @@ enum  cmd_code_t  {
     EMCMOT_CLEAR_PROBE_FLAGS = 4031;	/* clears probeTripped flag */
     EMCMOT_PROBE = 4032;		/* go to pos = 4000; stop if probe trips = 4000; record
 					   trip pos */
-    EMCMOT_RIGID_TAP = 4033;	/* go to pos = 4000; with sync to spindle speed = 4000;
-				   then return to initial pos */
+    EMCMOT_SPINDLE_SYNC_MOTION = 4033; /* go to pos = 4000; with sync to spindle speed = 4000;
+				                          then return to initial pos */
 
     EMCMOT_SET_POSITION_LIMITS = 4034;	/* set the joint position +/- limits */
     EMCMOT_SET_BACKLASH = 4035;	/* set the joint backlash */

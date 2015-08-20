@@ -76,9 +76,9 @@ class DumpCanon:
         ''' probe to programmed point'''
         print "straight_probe",self.p(axes)
 
-    def rigid_tap(self, x,y,z):
-        ''' tap to programmed point'''
-        print "rigid_tap X%.4f Y%.4f Z%.4f" %(x,y,z)
+    def spindle_sync_motion(self,x,y,z,ssm_mode):
+        ''' spindle_sync_motion to programmed point with smm_mode'''
+        print "spindle_sync_motion X%.4f Y%.4f Z%.4f mode(%d)" %(x,y,z,ssm_mode)
 
     def user_defined_function(self, num, arg1, arg2):
         print "user_defined_function %d %.4f %.4f" % (num,arg1,arg2)

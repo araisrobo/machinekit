@@ -775,8 +775,8 @@ void STRAIGHT_PROBE(int line_number,
     send_preview(p_client);
 }
 
-void RIGID_TAP(int line_number,
-               double x, double y, double z) {
+void SPINDLE_SYNC_MOTION(int line_number,
+               double x, double y, double z, int ssm_mode) {
     if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; }
     maybe_new_line(line_number);
     if(interp_error) return;
@@ -787,7 +787,7 @@ void RIGID_TAP(int line_number,
     // Py_XDECREF(result);
 
     pb::Preview *p = output.add_preview();
-    p->set_type(pb::PV_RIGID_TAP);
+    p->set_type(pb::PV_SPINDLE_SYNC_MOTION);
     p->set_line_number(line_number);
 
     pb::Position *pos = p->mutable_pos();

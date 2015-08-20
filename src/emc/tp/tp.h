@@ -21,7 +21,6 @@
 
 typedef struct tp_shared_t tp_shared_t;
 
-
 // tp API method signatures
 typedef int (*tpCreate_t)(TP_STRUCT * tp, int _queueSize, TC_STRUCT * tcSpace,
 			  tp_shared_t *shared);
@@ -85,6 +84,8 @@ typedef int (*tpActiveDepth_t)(TP_STRUCT * tp);
 typedef int (*tpGetMotionType_t)(TP_STRUCT * tp);
 typedef int (*tpGetAccelState_t)(TP_STRUCT * tp);
 typedef int (*tpSetSpindleSync_t)(TP_STRUCT * tp, double sync, int wait);
+typedef int (*tpSetSpindle_t)(TP_STRUCT * tp);
+
 typedef int (*tcqFull_t)(TC_QUEUE_STRUCT const * const tcq);
 
 //gets called when a new tc is taken from the queue. it checks and toggles all needed DIO's
@@ -133,6 +134,7 @@ typedef struct {
     tpGetMotionType_t   tpGetMotionType;
     tpGetAccelState_t   tpGetAccelState;
     tpSetSpindleSync_t  tpSetSpindleSync;
+    tpSetSpindle_t      tpSetSpindle;
     tpToggleDIOs_t	tpToggleDIOs;
     tpSetAout_t	        tpSetAout;
     tpSetDout_t	        tpSetDout;

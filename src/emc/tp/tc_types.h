@@ -171,7 +171,6 @@ typedef struct {
     int synchronized;       // spindle sync state
     double uu_per_rev;      // for sync, user units per rev (e.g. 0.0625 for 16tpi)
     double vel_at_blend_start;
-    int sync_accel;         // we're accelerating up to sync with the spindle
     unsigned char enables;  // Feed scale, etc, enable bits for this move
     int atspeed;           // wait for the spindle to be at-speed before starting this move
     syncdio_t syncdio;      // synched DIO's for this move. what to turn on/off

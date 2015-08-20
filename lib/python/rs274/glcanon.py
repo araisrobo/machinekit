@@ -220,15 +220,31 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
 
         self.lo = l
 
-    def rigid_tap(self, x, y, z):
+    def spindle_sync_motion(self, x, y, z, ssm_mode):
         if self.suppress > 0: return
         self.first_move = False
-        l = self.rotate_and_translate(x,y,z,0,0,0,0,0,0)[:3]
-        l += [self.lo[3], self.lo[4], self.lo[5],
-               self.lo[6], self.lo[7], self.lo[8]]
+        if (ssm_mode < 2):
+            """ G33 CSS(w/ G96) """
+            """ G33.1 RIGID_TAP """
+            l = self.rotate_and_translate(x,y,z,0,0,0,0,0,0)[:3]
+            l += [self.lo[3], self.lo[4], self.lo[5],
+                  self.lo[6], self.lo[7], self.lo[8]]
+        elif (ssm_mode == 2):
+            """ G33.2 Spindle Positioning """
+            l = self.lo
         self.feed_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo]))
-#        self.dwells_append((self.lineno, self.colors['dwell'], x + self.offset_x, y + self.offset_y, z + self.offset_z, 0))
-        self.feed_append((self.lineno, l, self.lo, self.feedrate, [self.xo, self.yo, self.zo]))
+        if (ssm_mode == 0):
+            """ G33 CSS(w/ G96) """
+            self.lo = l
+        elif (ssm_mode == 1):
+            """ G33.1 RIGID_TAP """
+            self.feed_append((self.lineno, l, self.lo, self.feedrate, [self.xo, self.yo, self.zo]))
+        elif (ssm_mode == 2):
+            """ G33.2 Spindle Positioning """
+            pass
+        else:
+            print ("Unknown SSM_MODE for G33.X")
+            assert(0)
 
     def arc_feed(self, *args):
         if self.suppress > 0: return

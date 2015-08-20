@@ -189,7 +189,7 @@ message Container {
     optional Emc_Traj_Linear_Move         traj_linear_move = 330;
     optional Emc_Traj_Probe                     traj_probe = 340;
     optional Emc_Traj_Circular_Move     traj_circular_move = 350;
-    optional Emc_Traj_Rigid_Tap             traj_rigid_tap = 360;
+    optional Emc_Traj_Spindle_Sync_Motion traj_spindle_sync_motion = 360;
     optional Emc_Traj_Set_Term_Cond     traj_set_term_cond = 370;
     optional Emc_Traj_Set_Spindlesync traj_set_spindlesync = 380;
     optional Emc_Traj_Delay                     traj_delay = 390;

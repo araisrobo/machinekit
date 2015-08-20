@@ -85,11 +85,12 @@ message Emc_Traj_Circular_Move {
     required int32            turn = 70;
 }
 
-message Emc_Traj_Rigid_Tap {
+message Emc_Traj_Spindle_Sync_Motion {
 
     option (nanopb_msgopt).msgid = 106;
-
-    required EmcPose      pos = 20;
+    
+    required int32    ssm_mode = 10;
+    required EmcPose       pos = 20;
     required double        vel = 30;
     required double ini_maxvel = 40;
     required double        acc = 50;
