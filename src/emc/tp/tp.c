@@ -1502,8 +1502,6 @@ int tpAddSpindleSyncMotion(
     tc.uu_per_rev = tp->uu_per_rev;
     tc.enables = enables;
     tc.indexrotary = -1;
-    tc.coords.spindle_sync.spindle_start_pos_latch = 0;
-    tc.coords.spindle_sync.spindle_start_pos = 0;
     tc.coords.spindle_sync.mode = ssm_mode;
 
     if (vel > 0)        // vel is requested spindle velocity
@@ -3242,6 +3240,9 @@ STATIC int tpUpdateCycle(TP_STRUCT * const tp,
     // Calculate displacement
     tcGetPos(tc, &displacement);
     emcPoseSelfSub(&displacement, &before);
+
+    // update spindle displacement to corresponding spindleAxis
+    tcUpdateSpindleAxis(tp, tc, &displacement);
 
     //Store displacement (checking for valid pose)
     int res_set = tpAddCurrentPos(tp, &displacement);

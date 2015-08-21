@@ -102,9 +102,6 @@ typedef struct {
     PmCartLine xyz;             // original, but elongated, move down
     PmCartesian abc;
     PmCartesian uvw;
-    double spindle_start_pos;
-    double spindle_end_angle;
-    int spindle_start_pos_latch;
     double spindle_dir;
     double spindle_reqvel;
     int mode;   // G33(0), G33.1(1)

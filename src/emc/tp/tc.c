@@ -267,6 +267,42 @@ int tcGetEndpoint(TC_STRUCT const * const tc, EmcPose * const out) {
     return 0;
 }
 
+/**
+ * tcUpdateSpindleAxis - Update spindle position to corresponding spindleAxis
+ */
+int tcUpdateSpindleAxis(TP_STRUCT const * const tp, TC_STRUCT const * const tc,  EmcPose * const pos)
+{
+    tp_debug_print ("(%s:%d) pos.s(%f) motion_type(%d) spindle.axis(%d)\n", __FUNCTION__, __LINE__,
+                        pos->s, tc->motion_type, tp->spindle.axis);
+    switch (tc->motion_type) {
+        case TC_SPINDLE_SYNC_MOTION:
+            // for RIGID_TAPPING(G33.1), CSS(G33 w/ G96), and THREADING(G33 w/ G97)
+            switch (tp->spindle.axis) {
+                case -1: /* do not specify spindleAxis */
+                    break;
+                case 3:
+                    pos->a = pos->s;
+                    break;
+                case 4:
+                    pos->b = pos->s;
+                    break;
+                case 5:
+                    pos->c = pos->s;
+                    break;
+                default:
+                    rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) incorrect spindleAxis(%d)\n", __FUNCTION__, __LINE__,
+                                                    tp->spindle.axis);
+                    return -1;
+            }
+            break;
+        default:
+            tp_debug_print ("(%s:%d) TODO:...\n", __FUNCTION__, __LINE__);
+            break;
+    }
+    return 0;
+}
+
+
 int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
 {
     PmCartesian xyz;
@@ -286,7 +322,6 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
             break;
     }
 
-
     // Used for arc-length to angle conversion with spiral segments
     double angle = 0.0;
 
@@ -299,15 +334,10 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
             // no rotary move allowed while tapping
             abc = tc->coords.spindle_sync.abc;
             uvw = tc->coords.spindle_sync.uvw;
-            {
-                double s;
-                s = tc->coords.spindle_sync.spindle_start_pos + tc->coords.spindle_sync.spindle_dir * progress;
-                tp_debug_print ("spindle_start_pos(%f) spindle_dir(%f) progress(%f)\n",
-                                tc->coords.spindle_sync.spindle_start_pos,
-                                tc->coords.spindle_sync.spindle_dir,
-                                progress);
-                tp_debug_print ("spindle pos(%f) of_point(%d)\n", s, of_point);
-            }
+            pos->s = tc->coords.spindle_sync.spindle_dir * progress;
+            tp_debug_print ("spindle_dir(%f) progress(%f)\n",
+                    tc->coords.spindle_sync.spindle_dir, progress);
+            tp_debug_print ("spindle pos(%f) of_point(%d)\n", pos->s, of_point);
             break;
         case TC_LINEAR:
             pmCartLinePoint(&tc->coords.line.xyz,

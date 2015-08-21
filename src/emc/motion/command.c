@@ -1732,12 +1732,13 @@ check_stuff ( "before command_handler()" );
 	    emcmotStatus->spindle.brake = 0; //disengage brake
 	    emcmotStatus->atspeed_next_feed = 1;
 
-	    rtapi_print("(%s:%d) spindle.speed(%f) net_spindle_scale(%f)\n", __FUNCTION__, __LINE__,
-	            emcmotStatus->spindle.speed, emcmotStatus->net_spindle_scale);
+	    rtapi_print("(%s:%d) spindle.speed(%f) net_spindle_scale(%f) spindleAxis(%d)\n", __FUNCTION__, __LINE__,
+	            emcmotStatus->spindle.speed, emcmotStatus->net_spindle_scale, emcmotCommand->axis);
 	    emcmotQueue->spindle.speed = emcmotStatus->spindle.speed * emcmotStatus->net_spindle_scale;
 	    emcmotQueue->spindle.css_factor = emcmotStatus->spindle.css_factor;
 	    emcmotQueue->spindle.xoffset = emcmotStatus->spindle.xoffset;
 	    emcmotQueue->spindle.on = 1;
+	    emcmotQueue->spindle.axis = emcmotCommand->axis;
             emcmotConfig->vtp->tpSetSpindle(emcmotQueue); // setup speed_rps, direction, ... etc.
 	    break;
 

@@ -92,6 +92,7 @@ typedef struct {
     int orient_state;       // orient_state_t
     int at_speed;
     int on;
+    int axis;               // the axis mapped as spindle
     double curr_pos_cmd;
     double curr_vel_rps;
 

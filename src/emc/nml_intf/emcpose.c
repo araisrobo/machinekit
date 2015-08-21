@@ -38,6 +38,7 @@ void emcPoseZero(EmcPose * const pos) {
     pos->u = 0.0;                    
     pos->v = 0.0;                    
     pos->w = 0.0;
+    pos->s = 0.0;
 }
 
 
@@ -56,6 +57,7 @@ int emcPoseAdd(EmcPose const * const p1, EmcPose const * const p2, EmcPose * con
     out->u = p1->u + p2->u;
     out->v = p1->v + p2->v;
     out->w = p1->w + p2->w;
+    out->s = p1->s + p2->s;
     return EMCPOSE_ERR_OK;
 }
 
@@ -74,6 +76,7 @@ int emcPoseSub(EmcPose const * const p1, EmcPose const * const p2, EmcPose * con
     out->u = p1->u - p2->u;
     out->v = p1->v - p2->v;
     out->w = p1->w - p2->w;
+    out->s = p1->s - p2->s;
     return EMCPOSE_ERR_OK;
 
 }
