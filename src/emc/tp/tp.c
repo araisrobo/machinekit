@@ -3037,15 +3037,16 @@ STATIC int tpActivateSegment(TP_STRUCT * const tp, TC_STRUCT * const tc) {
     tc->blending_next = 0;
     tc->on_final_decel = 0;
 
-    if (TC_SYNC_POSITION == tc->synchronized && !(get_spindleSync(tp->shared))) {
-        tp_debug_print("Setting up position sync\n");
-        // if we aren't already synced, wait
-        tp->spindle.waiting_for_index = tc->id;
-        // ask for an index reset
-        set_spindle_index_enable(tp->shared, 1);
-        rtapi_print_msg(RTAPI_MSG_DBG, "Waiting on sync...\n");
-        return TP_ERR_WAITING;
-    }
+    tp_debug_print("TODO: implement waiting_for_index for spindle@tp\n");
+//    if (TC_SYNC_POSITION == tc->synchronized && !(get_spindleSync(tp->shared))) {
+//        tp_debug_print("Setting up position sync\n");
+//        // if we aren't already synced, wait
+//        tp->spindle.waiting_for_index = tc->id;
+//        // ask for an index reset
+//        set_spindle_index_enable(tp->shared, 1);
+//        rtapi_print_msg(RTAPI_MSG_DBG, "Waiting on sync...\n");
+//        return TP_ERR_WAITING;
+//    }
 
     // Update the modal state displayed by the TP
     tp->execTag = tc->tag;
@@ -3496,7 +3497,7 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
         return TP_ERR_WAITING;
     }
 
-    tc_debug_print("-------------------\n");
+    tc_debug_print("(%s:%d)-------------------\n", __FUNCTION__, __LINE__);
 
 #ifdef TC_DEBUG
     //Hack debug output for timesteps
