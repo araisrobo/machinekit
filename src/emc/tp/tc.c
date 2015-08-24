@@ -21,6 +21,7 @@
 #include "emcpose.h"
 #include "tc.h"
 #include "tp_types.h"
+#include "tp_private.h"
 #include "spherical_arc.h"
 #include "motion_types.h"
 #include <assert.h>

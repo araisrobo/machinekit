@@ -3516,7 +3516,7 @@ STATIC void tpSpindleCycle(TP_STRUCT * const tp, EmcPose * const displacement)
     return;
 }
 
-void tpUpdateSpindleAxis(TP_STRUCT * const tp, EmcPose * const pos)
+void tpUpdateSpindleAxis(TP_STRUCT const * const tp, EmcPose * const pos)
 {
     switch (tp->spindle.axis) {
         case -1: /* do not specify spindleAxis */
