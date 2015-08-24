@@ -29,7 +29,7 @@ int tcGetEndAccelUnitVector(TC_STRUCT const * const tc, PmCartesian * const out)
 int tcGetStartAccelUnitVector(TC_STRUCT const * const tc, PmCartesian * const out);
 int tcGetEndTangentUnitVector(TC_STRUCT const * const tc, PmCartesian * const out);
 int tcGetStartTangentUnitVector(TC_STRUCT const * const tc, PmCartesian * const out);
-int tcUpdateSpindleAxis(TP_STRUCT const * const tp, TC_STRUCT const * const tc,  EmcPose * const pos);
+int tcUpdateSpindleAxisCSS(TP_STRUCT const * const tp, TC_STRUCT const * const tc,  EmcPose * const pos);
 
 int tcGetIntersectionPoint(TC_STRUCT const * const prev_tc,
         TC_STRUCT const * const tc, PmCartesian * const point);

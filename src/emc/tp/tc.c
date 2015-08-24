@@ -268,36 +268,21 @@ int tcGetEndpoint(TC_STRUCT const * const tc, EmcPose * const out) {
 }
 
 /**
- * tcUpdateSpindleAxis - Update spindle position to corresponding spindleAxis
+ * tcUpdateSpindleAxisCSS - for CSS, update spindle position to corresponding spindleAxis
  */
-int tcUpdateSpindleAxis(TP_STRUCT const * const tp, TC_STRUCT const * const tc,  EmcPose * const pos)
+int tcUpdateSpindleAxisCSS(TP_STRUCT const * const tp, TC_STRUCT const * const tc,  EmcPose * const pos)
 {
-    tp_debug_print ("(%s:%d) pos.s(%f) motion_type(%d) spindle.axis(%d)\n", __FUNCTION__, __LINE__,
-                        pos->s, tc->motion_type, tp->spindle.axis);
-    switch (tc->motion_type) {
-        case TC_SPINDLE_SYNC_MOTION:
-            // for RIGID_TAPPING(G33.1), CSS(G33 w/ G96), and THREADING(G33 w/ G97)
-            switch (tp->spindle.axis) {
-                case -1: /* do not specify spindleAxis */
-                    break;
-                case 3:
-                    pos->a = pos->s;
-                    break;
-                case 4:
-                    pos->b = pos->s;
-                    break;
-                case 5:
-                    pos->c = pos->s;
-                    break;
-                default:
-                    rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) incorrect spindleAxis(%d)\n", __FUNCTION__, __LINE__,
-                                                    tp->spindle.axis);
-                    return -1;
-            }
-            break;
-        default:
-            tp_debug_print ("(%s:%d) TODO:...\n", __FUNCTION__, __LINE__);
-            break;
+    if(tp->spindle.css_factor != 0)
+    {   // only update spindle position for G96 G33(CSS) motion
+        switch (tc->motion_type) {
+            case TC_SPINDLE_SYNC_MOTION:
+                // for RIGID_TAPPING(G33.1), CSS(G33 w/ G96), and THREADING(G33 w/ G97)
+                tpUpdateSpindleAxis(tp, pos);
+                break;
+            default:
+                tp_debug_print ("(%s:%d) TODO:...\n", __FUNCTION__, __LINE__);
+                break;
+        }
     }
     return 0;
 }

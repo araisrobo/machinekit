@@ -3124,12 +3124,12 @@ STATIC double tpSyncSpindleSpeed (TP_STRUCT * tp)
                             (tp->spindle.css_factor / 60.0
                              - denom * positive * rtapi_fabs(tp->spindle.curr_vel_rps))
                             * tp->spindle.direction; // (unit/(2*PI*sec)
-            DP ("css_req(%f)(unit/sec)\n", denom * tp->spindle.speed_req_rps * 2 * M_PI);
-            DP ("css_cur(%f)\n", denom * tp->spindle.curr_vel_rps * 2 * M_PI);
-            DP ("css_error(%f)(unit/(2*PI*sec))\n", tp->spindle.css_error);
-            DP ("speed(%f) denom(%f) s.curr_vel(%f) css_factor(%f)\n",
+            tp_debug_print ("css_req(%f)(unit/sec)\n", denom * tp->spindle.speed_req_rps * 2 * M_PI);
+            tp_debug_print ("css_cur(%f)\n", denom * tp->spindle.curr_vel_rps * 2 * M_PI);
+            tp_debug_print ("css_error(%f)(unit/(2*PI*sec))\n", tp->spindle.css_error);
+            tp_debug_print ("speed(%f) denom(%f) s.curr_vel(%f) css_factor(%f)\n",
                                  speed, denom, tp->spindle.curr_vel_rps, tp->spindle.css_factor);
-            DP ("spindle.direction(%d)\n", tp->spindle.direction);
+            tp_debug_print ("spindle.direction(%d)\n", tp->spindle.direction);
     //        DP ("synched-joint-vel(%f)(unit/sec)\n", tp->spindle.curr_vel_rps * tp->uu_per_rev);
     #if (CSS_TRACE!=0)
             /* prepare data for gnuplot */
@@ -3242,8 +3242,8 @@ STATIC int tpUpdateCycle(TP_STRUCT * const tp,
     tcGetPos(tc, &displacement);
     emcPoseSelfSub(&displacement, &before);
 
-    // update spindle displacement to corresponding spindleAxis
-    tcUpdateSpindleAxis(tp, tc, &displacement);
+    // for CSS, update spindle displacement to corresponding spindleAxis
+    tcUpdateSpindleAxisCSS(tp, tc, &displacement);
 
     //Store displacement (checking for valid pose)
     int res_set = tpAddCurrentPos(tp, &displacement);
@@ -3464,6 +3464,100 @@ STATIC int tpHandleRegularCycle(TP_STRUCT * const tp,
     return TP_ERR_OK;
 }
 
+
+/* calculate spindle displacement(delta-s) and velocity */
+STATIC void tpSpindleCycle(TP_STRUCT * const tp, EmcPose * const displacement)
+{
+    /*Velocity Control Algorithm is taking from simple_tp.c */
+    double max_da, vel_err, acc_req;
+
+    max_da = tp->spindle.max_da;
+
+    /**
+     * calculate an acceleration that tends to drive vel_err to zero,
+     * but allows for move without velocity overshoot
+     **/
+    vel_err = tp->spindle.speed_rps - tp->spindle.curr_vel_rps;
+
+    /* positive and negative errors require some sign flipping to
+           avoid sqrt(negative) */
+    if (vel_err > tp->spindle.tiny_dv) {
+        acc_req = -max_da +
+                rtapi_sqrt(2.0 * tp->spindle.max_jerk * vel_err + max_da * max_da);
+    } else if (vel_err < -tp->spindle.tiny_dv) {
+        acc_req =  max_da -
+                rtapi_sqrt(-2.0 * tp->spindle.max_jerk * vel_err + max_da * max_da);
+    } else {
+        /* within 'tiny_dv' of desired vel, no need to accel */
+        acc_req = 0;
+        tp->spindle.curr_vel_rps = tp->spindle.speed_rps;
+    }
+
+    /* limit acceleration request */
+    if (acc_req > tp->spindle.max_acc) {
+        acc_req = tp->spindle.max_acc;
+    } else if (acc_req < -tp->spindle.max_acc) {
+        acc_req = -tp->spindle.max_acc;
+    }
+
+    /* ramp acceleration toward request at jerk limit */
+    if (acc_req > (tp->spindle.curr_acc + max_da)) {
+        tp->spindle.curr_acc += max_da;
+    } else if (acc_req < (tp->spindle.curr_acc - max_da)) {
+        tp->spindle.curr_acc -= max_da;
+    } else {
+        tp->spindle.curr_acc = acc_req;
+    }
+
+    /* integrate acceleration to get new velocity */
+    tp->spindle.curr_vel_rps += tp->spindle.curr_acc * tp->cycleTime;
+    displacement->s = tp->spindle.curr_vel_rps * tp->cycleTime;
+
+    return;
+}
+
+void tpUpdateSpindleAxis(TP_STRUCT * const tp, EmcPose * const pos)
+{
+    switch (tp->spindle.axis) {
+        case -1: /* do not specify spindleAxis */
+            break;
+        case 3:
+            pos->a = pos->s;
+            break;
+        case 4:
+            pos->b = pos->s;
+            break;
+        case 5:
+            pos->c = pos->s;
+            break;
+        default:
+            rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) incorrect spindleAxis(%d)\n", __FUNCTION__, __LINE__,
+                                            tp->spindle.axis);
+            break;
+    }
+    return;
+}
+
+STATIC int tpHandelSpindle(TP_STRUCT * const tp)
+{
+    /* for CSS motion, update its spindle position at tcUpdateSpindleAxisCSS() */
+    if (tp->spindle.css_factor == 0)
+    {
+        if ((tp->spindle.on) || ((tp->spindle.on == 0) && (tp->spindle.curr_vel_rps != 0)))
+        {
+            EmcPose displacement;
+            ZERO_EMC_POSE(displacement);
+            tpSpindleCycle(tp, &displacement);  // calculate spindle displacement(delta-s) and velocity
+            // update spindle displacement to corresponding spindleAxis
+            tpUpdateSpindleAxis(tp, &displacement);
+            //Store displacement (checking for valid pose)
+            int res_set = tpAddCurrentPos(tp, &displacement);
+            return (res_set);
+        }
+    }
+    return TP_ERR_OK;
+}
+
 /**
  * Calculate an updated goal position for the next timestep.
  * This is the brains of the operation. It's called every TRAJ period and is
@@ -3477,6 +3571,9 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
 #if (TRACE!=0)
     _dt += 1;
 #endif
+    
+    // handle spindle velocity control for non-CSS motions
+    tpHandelSpindle(tp);
 
     //Pointers to current and next trajectory component
     TC_STRUCT *tc;
@@ -3535,6 +3632,9 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
             set_spindleSync(tp->shared, 0);
             break;
         case TC_SYNC_VELOCITY:
+            /* comes from START_SPEED_FEED_SYNCH() of interp_convert.cc */
+            /* at 2015-08-22, there's no motion that is with TC_SYNC_VELOCITY */
+            assert(0);
             tp_debug_print("sync velocity\n");
             tpSyncVelocityMode(tp, tc, nexttc);
             break;
@@ -3717,8 +3817,12 @@ int tpSetSpindle(TP_STRUCT * tp)
         return TP_ERR_FAIL;
     }
 
-    tp_debug_print("(%s:%d) spindle.speed(%f)\n", __FUNCTION__, __LINE__, tp->spindle.speed);
+    tp_debug_print("(%s:%d) spindle.speed(%f) max_vel(%f) max_acc(%f) max_jerk(%f)\n", __FUNCTION__, __LINE__,
+            tp->spindle.speed, tp->spindle.max_vel, tp->spindle.max_acc, tp->spindle.max_jerk);
     tp->spindle.speed_rps = tp->spindle.speed / 60.0;
+    tp->spindle.max_da = tp->spindle.max_jerk * tp->cycleTime;
+    tp->spindle.tiny_dv = tp->spindle.max_da * tp->cycleTime * 0.001;
+
     if (tp->spindle.speed > 0) {
         tp->spindle.direction = 1;      // direction: 0 stopped, 1 forward, -1 reverse
     } else if (tp->spindle.speed == 0) {

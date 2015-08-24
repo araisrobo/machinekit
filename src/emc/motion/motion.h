@@ -193,11 +193,11 @@ extern "C" {
     EMCMOT_SET_OFFSET = 61,               /* set tool offsets */
     EMCMOT_SET_MAX_FEED_OVERRIDE = 62,
     EMCMOT_SETUP_ARC_BLENDS = 63,
-        EMCMOT_SET_JOINT_JERK_LIMIT,	/* set the max joint jerk */
-        EMCMOT_SET_AXIS_JERK_LIMIT,     /* set the max axis jerk */
-        EMCMOT_SET_JERK,	        /* set the max jerk for moves (tooltip) */
-        EMCMOT_SETUP_USBMOT,            /* setup the USB-FPGA motion control parameters */
-        EMCMOT_END_PROBE,               /* after probe*/
+    EMCMOT_SET_JOINT_JERK_LIMIT,	  /* set the max joint jerk */
+    EMCMOT_SET_AXIS_JERK_LIMIT,           /* set the max axis jerk */
+    EMCMOT_SET_JERK,	                  /* set the max jerk for moves (tooltip) */
+    EMCMOT_SETUP_USBMOT,                  /* setup the USB-FPGA motion control parameters */
+    EMCMOT_END_PROBE,                     /* after probe*/
     } cmd_code_t;
 
 /* this enum lists the possible results of a command */
@@ -281,8 +281,12 @@ extern "C" {
         double arcBlendRampFreq;
         double maxFeedScale;
         struct state_tag_t tag;
+
         int usbmotEnable;       /* enable USB-FPGA motion control device */
         int ssm_mode;           /* spindle sync motion mode: G33(0):CSS/THREADING, G33.1(1):RIGID_TAP */
+
+        double css_factor;      /* for spindle */
+        double xoffset;         /* for spindle */
     } emcmot_command_t;
 
 /*! \todo FIXME - these packed bits might be replaced with chars

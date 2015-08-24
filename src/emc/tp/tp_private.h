@@ -81,6 +81,8 @@ int tpSetSpindleSync(TP_STRUCT * tp, double sync, int wait);
 
 int tpSetSpindle(TP_STRUCT * tp);
 
+void tpUpdateSpindleAxis(TP_STRUCT * const tp, EmcPose * const pos);
+
 void tpToggleDIOs(TP_STRUCT const * const tp,TC_STRUCT * tc); //gets called when a new tc is taken from the queue. it checks and toggles all needed DIO's
 
 int tpSetAout(TP_STRUCT * tp, unsigned int index, double start, double end);

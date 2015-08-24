@@ -340,7 +340,7 @@ int emcAxisSetMaxJerk(int axis, double jerk)
     axis_max_jerk[axis] = jerk;
     emcmotCommand.command = EMCMOT_SET_JOINT_JERK_LIMIT;
     emcmotCommand.axis = axis;
-    emcmotCommand.acc = jerk;
+    emcmotCommand.jerk = jerk;
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
@@ -1555,9 +1555,12 @@ int emcSpindleOn(double speed, double css_factor, double offset)
 
     emcmotCommand.command = EMCMOT_SPINDLE_ON;
     emcmotCommand.vel = speed;
-    emcmotCommand.ini_maxvel = css_factor;
-    emcmotCommand.acc = offset;
+    emcmotCommand.css_factor = css_factor;
+    emcmotCommand.xoffset = offset;
     emcmotCommand.axis = localSpindleAxis;
+    emcmotCommand.ini_maxvel = axis_max_velocity[localSpindleAxis];
+    emcmotCommand.acc = axis_max_acceleration[localSpindleAxis];
+    emcmotCommand.ini_maxjerk = axis_max_jerk[localSpindleAxis];
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 

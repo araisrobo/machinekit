@@ -2035,6 +2035,8 @@ void START_SPINDLE_CLOCKWISE(int line)
     spindle_dir = 1;
 
     if(css_maximum) {
+        // css_maximum: D of G_96
+        // spindleSpeed: S(CSS) surface speed
 	if(lengthUnits == CANON_UNITS_INCHES) 
 	    css_numerator = 12 / (2 * M_PI) * spindleSpeed * TO_EXT_LEN(25.4);
 	else

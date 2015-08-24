@@ -1715,15 +1715,9 @@ check_stuff ( "before command_handler()" );
 	    *(emcmot_hal_data->spindle_orient) = 0;
 	    emcmotStatus->spindle.orient_state = EMCMOT_ORIENT_NONE;
 
-	    /* if (emcmotStatus->spindle.orient) { */
-	    /* 	reportError(_("cant turn on spindle during orient in progress")); */
-	    /* 	emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_COMMAND; */
-	    /* 	tpAbort(&emcmotDebug->tp); */
-	    /* 	SET_MOTION_ERROR_FLAG(1); */
-	    /* } else { */
 	    emcmotStatus->spindle.speed = emcmotCommand->vel;
-	    emcmotStatus->spindle.css_factor = emcmotCommand->ini_maxvel;
-	    emcmotStatus->spindle.xoffset = emcmotCommand->acc;
+	    emcmotStatus->spindle.css_factor = emcmotCommand->css_factor;
+	    emcmotStatus->spindle.xoffset = emcmotCommand->xoffset;
 	    if (emcmotCommand->vel >= 0) {
 		emcmotStatus->spindle.direction = 1;
 	    } else {
@@ -1732,18 +1726,20 @@ check_stuff ( "before command_handler()" );
 	    emcmotStatus->spindle.brake = 0; //disengage brake
 	    emcmotStatus->atspeed_next_feed = 1;
 
-	    rtapi_print("(%s:%d) spindle.speed(%f) net_spindle_scale(%f) spindleAxis(%d)\n", __FUNCTION__, __LINE__,
-	            emcmotStatus->spindle.speed, emcmotStatus->net_spindle_scale, emcmotCommand->axis);
 	    emcmotQueue->spindle.speed = emcmotStatus->spindle.speed * emcmotStatus->net_spindle_scale;
 	    emcmotQueue->spindle.css_factor = emcmotStatus->spindle.css_factor;
 	    emcmotQueue->spindle.xoffset = emcmotStatus->spindle.xoffset;
 	    emcmotQueue->spindle.on = 1;
 	    emcmotQueue->spindle.axis = emcmotCommand->axis;
+	    emcmotQueue->spindle.max_vel = emcmotCommand->ini_maxvel;
+            emcmotQueue->spindle.max_acc = emcmotCommand->acc;
+            emcmotQueue->spindle.max_jerk = emcmotCommand->ini_maxjerk;
             emcmotConfig->vtp->tpSetSpindle(emcmotQueue); // setup speed_rps, direction, ... etc.
 	    break;
 
 	case EMCMOT_SPINDLE_OFF:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_OFF");
+
 	    emcmotStatus->spindle.speed = 0;
 	    emcmotStatus->spindle.direction = 0;
 	    emcmotStatus->spindle.brake = 1; // engage brake
@@ -1757,6 +1753,7 @@ check_stuff ( "before command_handler()" );
 
             emcmotQueue->spindle.speed = emcmotStatus->spindle.speed;
             emcmotQueue->spindle.on = 0;
+            emcmotQueue->spindle.css_factor = 0;
             emcmotConfig->vtp->tpSetSpindle(emcmotQueue); // setup speed_rps, direction, ... etc.
 	    break;
 

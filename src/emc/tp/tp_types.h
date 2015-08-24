@@ -93,7 +93,12 @@ typedef struct {
     int at_speed;
     int on;
     int axis;               // the axis mapped as spindle
-    double curr_pos_cmd;
+    double max_vel;
+    double max_acc;
+    double max_jerk;
+    double max_da;
+    double tiny_dv;
+    double curr_acc;
     double curr_vel_rps;
 
     int waiting_for_index;
