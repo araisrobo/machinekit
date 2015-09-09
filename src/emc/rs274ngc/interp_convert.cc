@@ -4538,6 +4538,9 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
     i = 0;
     if(block->a_flag) {
         i += 1;
+        //TODO: implement this for VBC:
+        // obtain a_number, convert from degree to revolution
+        // CHKS((block->a_flag && settings->a_axis_wrapped && (block->a_number <= -360.0 || block->a_number >= 360.0)), (_("Invalid absolute position %5.2f for wrapped rotary axis %c")), block->a_number, 'A');
         delta_angle = AA_end - rtapi_fmod(settings->AA_current, 360.0);
         if (settings->spindle_turning == CANON_CLOCKWISE) {
             if ((delta_angle) < 0) {

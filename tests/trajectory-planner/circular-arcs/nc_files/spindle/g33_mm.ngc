@@ -1,0 +1,25 @@
+; G90 G21 G64 (absolute distance mode)
+; G0 X10  (rapid to position)
+; ;S100 M3 (start spindle turning)
+; G96 D300 S13.8 (surface speed 13.8m/min, max spindle speed: 300RPM)
+; M3
+; G33 X5 K1
+; ; G0 X1.25 (rapid move tool away from work)
+; ; Z0.1 (rapid move to starting Z position)
+; ; M9
+; M5
+; M2 (end program)
+
+
+G21
+G97     (RPM mode)
+G0  X200  
+G96 D250 S13.917986 (MAX-RPM=250, SURFACE-SPEED=13.917986m/min)
+M3
+G33 X190 K2 (move to X=190mm, pitch=2mm)
+M5  (stop spindle)
+; G96 D0 S0 (set CSS parameters)
+G97     (RPM mode)
+M5
+M2
+

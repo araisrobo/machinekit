@@ -312,7 +312,6 @@ static void fetchmail(const uint8_t *buf_head)
     stepgen_t *stepgen;
     uint32_t bp_tick; // served as previous-bp-tick
     uint32_t machine_status;
-    uint32_t joints_vel;
 
     memcpy(&mail_tag, (buf_head + 2), sizeof(uint16_t));
 
@@ -328,7 +327,6 @@ static void fetchmail(const uint8_t *buf_head)
     {
     case MT_MOTION_STATUS:
         stepgen = stepgen_array;
-        joints_vel = 0;
         for (i = 0; i < num_joints; i++)
         {
             p += 1;
@@ -337,7 +335,6 @@ static void fetchmail(const uint8_t *buf_head)
             *(stepgen->cmd_fbs) = (int32_t) *p;
             p += 1;
             *(stepgen->enc_vel_p) = (int32_t) *p; // encoder velocity in pulses per servo-period
-            joints_vel |= *(stepgen->enc_vel_p);
             stepgen += 1; // point to next joint
         }
 

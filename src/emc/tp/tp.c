@@ -2697,6 +2697,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
             _dt, tc->id, tc->accel_state, tc_target_vel * tc->feed_override * tc->cycle_time,
             tc->cur_accel, tc->currentvel, tc->progress/tc->target, tc->progress,
             tc->target - tc->progress, tc_target, tc->jerk, tp->currentPos.tran.x, tp->currentPos.tran.y);
+    DPS("target_vel(%f) feed_override(%f) cycle_time(%f)\n", tc_target_vel, tc->feed_override, tc->cycle_time);
 
     tc->distance_to_go = tc->target - tc->progress;
 }
@@ -3124,6 +3125,7 @@ STATIC double tpSyncSpindleSpeed (TP_STRUCT * tp)
                             (tp->spindle.css_factor / 60.0
                              - denom * positive * rtapi_fabs(tp->spindle.curr_vel_rps))
                             * tp->spindle.direction; // (unit/(2*PI*sec)
+            tp_debug_print ("speed_req_rps(%f)\n", tp->spindle.speed_req_rps);
             tp_debug_print ("css_req(%f)(unit/sec)\n", denom * tp->spindle.speed_req_rps * 2 * M_PI);
             tp_debug_print ("css_cur(%f)\n", denom * tp->spindle.curr_vel_rps * 2 * M_PI);
             tp_debug_print ("css_error(%f)(unit/(2*PI*sec))\n", tp->spindle.css_error);

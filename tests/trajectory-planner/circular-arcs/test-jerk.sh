@@ -5,8 +5,8 @@ linuxcnc configs/axis_jerk_mm.ini | tee test.log &
 # python machine_setup.py ../nc_files/quick-tests/square.ngc
 # python machine_setup.py ../nc_files/quick-tests/square_g64_tol.ngc
 
-python machine_setup.py ../nc_files/spindle/g33_mm.ngc
-fg
+# python machine_setup.py ../nc_files/spindle/g33_mm.ngc
+# fg
 # ./process_runlog.sh test.log movement.txt
 # if [ -a movement.txt ] 
 # then
