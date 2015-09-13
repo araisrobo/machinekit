@@ -2002,7 +2002,7 @@ static int export_analog(analog_t * addr)
     for (i = 0; i < 16; i++)
     {
         retval = hal_pin_float_newf(HAL_OUT, &(addr->in[i]), comp_id,
-                "wosi.analog.in.%02d", i);
+                "wosi.analog.in.%d", i);
         if (retval != 0)
         {
             return retval;
@@ -2014,7 +2014,7 @@ static int export_analog(analog_t * addr)
     for (i = 0; i < 4; i++)
     {
         retval = hal_pin_float_newf(HAL_IN, &(addr->out[i]), comp_id,
-                "wosi.analog.out.%02d", i);
+                "wosi.analog.out.%d", i);
         if (retval != 0)
         {
             return retval;
@@ -2249,7 +2249,7 @@ static int export_machine_control(machine_control_t * machine_control)
     for (i = 0; i < GPIO_IN_NUM; i++)
     {
         retval = hal_pin_bit_newf(HAL_OUT, &(machine_control->in[i]), comp_id,
-                "wosi.gpio.in.%02d", i);
+                "wosi.gpio.in.%d", i);
         if (retval != 0)
         {
             return retval;
@@ -2257,7 +2257,7 @@ static int export_machine_control(machine_control_t * machine_control)
         *(machine_control->in[i]) = 0;
 
         retval = hal_pin_bit_newf(HAL_OUT, &(machine_control->in_n[i]), comp_id,
-                "wosi.gpio.in.%02d.not", i);
+                "wosi.gpio.in.%d.not", i);
         if (retval != 0)
         {
             return retval;
@@ -2298,7 +2298,7 @@ static int export_machine_control(machine_control_t * machine_control)
     for (i = 0; i < GPIO_OUT_NUM; i++)
     {
         retval = hal_pin_bit_newf(HAL_IN, &(machine_control->out[i]), comp_id,
-                "wosi.gpio.out.%02d", i);
+                "wosi.gpio.out.%d", i);
         if (retval != 0)
         {
             return retval;
