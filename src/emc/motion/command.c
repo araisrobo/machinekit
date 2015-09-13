@@ -1868,6 +1868,7 @@ check_stuff ( "before command_handler()" );
             emcmotConfig->arcBlendOptDepth = emcmotCommand->arcBlendOptDepth;
             emcmotConfig->arcBlendGapCycles = emcmotCommand->arcBlendGapCycles;
             emcmotConfig->arcBlendRampFreq = emcmotCommand->arcBlendRampFreq;
+            emcmotConfig->arcBlendTangentKinkRatio = emcmotCommand->arcBlendTangentKinkRatio;
             break;
 
         case EMCMOT_SETUP_USBMOT:

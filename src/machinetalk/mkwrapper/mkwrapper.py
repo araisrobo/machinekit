@@ -44,27 +44,11 @@ def getFreePort():
     return port
 
 
-# Handle uploaded files to delete them after program exit
-uploadedFiles = set()
-
-
-def addUploadedFile(file):
-    global uploadedFiles
-    uploadedFiles.add(file)
-
-
-def clearUploadedFiles():
-    global uploadedFiles
-    for uploadedFile in uploadedFiles:
-        os.remove(uploadedFile)
-    uploadedFiles = set()
-
-
 class CustomFTPHandler(FTPHandler):
 
     def on_file_received(self, file):
         # do something when a file has been received
-        addUploadedFile(file)
+        pass  # TODO inform client about new file
 
     def on_incomplete_file_received(self, file):
         # remove partially uploaded files
@@ -107,7 +91,7 @@ class FileService(threading.Thread):
         self.authorizer = DummyAuthorizer()
 
         # anonymous user has full read write access
-        self.authorizer.add_anonymous(self.directory, perm="lradw")
+        self.authorizer.add_anonymous(self.directory, perm="lredwm")
 
         # Instantiate FTP handler class
         self.handler = CustomFTPHandler
@@ -132,9 +116,6 @@ class FileService(threading.Thread):
             sys.exit(1)
 
         threading.Thread.__init__(self)
-
-    def __del__(self):
-        clearUploadedFiles()
 
     def run(self):
         self.running = True
@@ -666,6 +647,14 @@ class LinuxCNCWrapper():
                                                'extension', extensions, '')
             del txObjItem
 
+            commands = self.ini.findall("DISPLAY", "USER_COMMAND")
+            txObjItem = EmcStatusUserCommand()
+            obj = self.status.config.user_command
+            txObj = self.statusTx.config.user_command
+            modified |= self.update_proto_list(obj, txObj, txObjItem,
+                                               'command', commands, '')
+            del txObjItem
+
             positionOffset = self.ini.find('DISPLAY', 'POSITION_OFFSET') or 'RELATIVE'
             if positionOffset == 'MACHINE':
                 positionOffset = EMC_CONFIG_MACHINE_OFFSET
@@ -716,7 +705,7 @@ class LinuxCNCWrapper():
             value = float(self.ini.find('DISPLAY', 'MIN_ANGULAR_VELOCITY') or 0.01)
             modified |= self.update_config_value('min_angular_velocity', value)
 
-            value = self.ini.find('DISPLAY', 'INCREMENTS') or ''
+            value = self.ini.find('DISPLAY', 'INCREMENTS') or '1.0 0.1 0.01 0.001'
             modified |= self.update_config_value('increments', value)
 
             value = self.ini.find('DISPLAY', 'GRIDS') or ''
@@ -785,6 +774,25 @@ class LinuxCNCWrapper():
                 self.status.config.axis[index].home_sequence = -1
                 self.status.config.axis[index].max_velocity = 0.0
                 self.status.config.axis[index].max_acceleration = 0.0
+                self.status.config.axis[index].increments = ""
+
+                axis = self.status.config.axis[index]
+                axisName = 'AXIS_%i' % index
+                value = int(self.ini.find(axisName, 'HOME_SEQUENCE') or -1)
+                axisModified |= self.update_proto_value(axis, txAxis,
+                                                        'home_sequence', value)
+
+                value = float(self.ini.find(axisName, 'MAX_VELOCITY') or 0.0)
+                axisModified |= self.update_proto_value(axis, txAxis,
+                                                        'max_velocity', value)
+
+                value = float(self.ini.find(axisName, 'MAX_ACCELERATION') or 0.0)
+                axisModified |= self.update_proto_value(axis, txAxis,
+                                                        'max_acceleration', value)
+
+                value = self.ini.find(axisName, 'INCREMENTS') or ''
+                axisModified |= self.update_proto_value(axis, txAxis,
+                                                        'increments', value)
 
             axis = self.status.config.axis[index]
             axisModified |= self.update_proto_value(axis, txAxis, 'axisType', statAxis['axisType'])
@@ -792,15 +800,6 @@ class LinuxCNCWrapper():
             for name in ['backlash', 'max_ferror', 'max_position_limit',
                          'min_ferror', 'min_position_limit', 'units']:
                 axisModified |= self.update_proto_float(axis, txAxis, name, statAxis[name])
-
-            value = int(self.ini.find('AXIS_' + str(index), 'HOME_SEQUENCE') or -1)
-            axisModified |= self.update_proto_value(axis, txAxis, 'home_sequence', value)
-
-            value = float(self.ini.find('AXIS_' + str(index), 'MAX_VELOCITY') or 0.0)
-            axisModified |= self.update_proto_value(axis, txAxis, 'max_velocity', value)
-
-            value = float(self.ini.find('AXIS_' + str(index), 'MAX_ACCELERATION') or 0.0)
-            axisModified |= self.update_proto_value(axis, txAxis, 'max_acceleration', value)
 
             if axisModified:
                 txAxis.index = index
@@ -1354,6 +1353,10 @@ class LinuxCNCWrapper():
         try:
             if self.rx.type == MT_PING:
                 self.send_command_msg(MT_PING_ACKNOWLEDGE)
+
+            elif self.rx.type == MT_SHUTDOWN:
+                self.send_command_msg(MT_CONFIRM_SHUTDOWN)
+                self.stop()  # trigger the shutdown event
 
             elif self.rx.type == MT_EMC_TASK_ABORT:
                 if self.rx.HasField('interp_name'):

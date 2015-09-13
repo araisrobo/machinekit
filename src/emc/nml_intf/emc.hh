@@ -562,7 +562,8 @@ int emcSetupArcBlends(int arcBlendEnable,
         int arcBlendFallbackEnable,
         int arcBlendOptDepth,
         int arcBlendGapCycles,
-        double arcBlendRampFreq);
+        double arcBlendRampFreq,
+        double arcBlendTangentKinkRatio);
 int emcSetupUsbMot(int usbmotEnable);
 void emcSetSpindleAxis(int spindleAxis);
 int emcGetSpindleAxis(void);

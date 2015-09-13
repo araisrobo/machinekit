@@ -279,6 +279,7 @@ extern "C" {
         hal_bit_t arcBlendFallbackEnable;
         hal_s32_t arcBlendGapCycles;
         double arcBlendRampFreq;
+        double arcBlendTangentKinkRatio;
         double maxFeedScale;
         struct state_tag_t tag;
 
@@ -828,6 +829,7 @@ Suggestion: Split this in to an Error and a Status flag register..
         hal_bit_t arcBlendFallbackEnable;
         hal_s32_t arcBlendGapCycles;
         double arcBlendRampFreq;
+        double arcBlendTangentKinkRatio;
         double maxFeedScale;
         int usbmotEnable;       /* enable usb based motion control device */
     } emcmot_config_t;

@@ -91,7 +91,6 @@ typedef unsigned long long iomask_t; // 64 bits on both x86 and x86_64
 
 typedef struct {
     char anychanged;
-    iomask_t dio_mask;
     iomask_t aio_mask;
     signed char dios[EMCMOT_MAX_DIO];
     double aios[EMCMOT_MAX_AIO];
@@ -135,6 +134,7 @@ typedef struct {
     double cur_accel;       // keep track of current acceleration
     double finalvel;        // velocity to aim for at end of segment
     double term_vel;        // actual velocity at termination of segment
+    double kink_vel;        // Temporary way to store our calculation of maximum velocity we can handle if this segment is declared tangent with the next
 
     //Acceleration
     double maxaccel;        // accel calc'd by task

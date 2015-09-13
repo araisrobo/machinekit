@@ -190,9 +190,9 @@ class RTAPIcommand:
         if r:
             raise RuntimeError("cant connect to rtapi: %s" % strerror(-r))
 
-    def newthread(self,char *name, int period, instance=0,fp=0,cpu=-1):
+    def newthread(self,char *name, int period, instance=0,fp=0,cpu=-1, flags=0):
         cdef char *c_name = name
-        r = rtapi_newthread(instance, c_name, period, cpu, fp)
+        r = rtapi_newthread(instance, c_name, period, cpu, fp, flags)
         if r:
             raise RuntimeError("rtapi_newthread failed:  %s" % strerror(-r))
 
@@ -297,8 +297,8 @@ def init_RTAPI(**kwargs):
     if not __rtapicmd:
         __rtapicmd = RTAPIcommand(**kwargs)
         for method in dir(__rtapicmd):
-            if callable(getattr(__rtapicmd, method)) and method is not '__init__':
-                setattr(sys.modules[__name__], method, getattr(__rtapicmd, method))
+            if callable(getattr(__rtapicmd, method)) and not method.startswith('__'):
+                 setattr(sys.modules[__name__], method, getattr(__rtapicmd, method))
     else:
         raise RuntimeError('RTAPIcommand already initialized')
     if not __rtapicmd:

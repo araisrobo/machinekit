@@ -7,9 +7,6 @@ import "motcmds.proto";
 // see README.msgid
 // msgid base: 1100
 
-// see README.msgid
-// msgid base: 1100
-
 package pb;
 
 enum EmcTaskExecStateType {
@@ -151,6 +148,7 @@ message EmcStatusConfigAxis {
     optional int32          home_sequence       = 9;
     optional double         max_acceleration    = 10;
     optional double         max_velocity        = 11;
+    optional string         increments          = 12;
 }
 
 message EmcProgramExtension {
@@ -250,6 +248,7 @@ message EmcStatusConfig {
     optional string                     remote_path              = 35;
     optional EmcTimeUnitsType           time_units               = 36;
     optional string                     name                     = 37;
+    repeated EmcStatusUserCommand       user_command             = 38;
 }
 
 message EmcStatusMotion {
@@ -374,4 +373,12 @@ message EmcCommandParameters {
     optional EmcTrajectoryModeType  traj_mode = 102;
     optional EmcPose                pose = 103;
     optional EmcToolData            tool_data = 104;
+}
+
+message EmcStatusUserCommand {
+
+    option (nanopb_msgopt).msgid = 1116;
+
+    required int32          index = 1;
+    optional string         command = 2;
 }

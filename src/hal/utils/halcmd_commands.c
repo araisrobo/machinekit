@@ -1132,46 +1132,6 @@ bool inst_name_exists(char *name)
     }
 }
 
-
-int get_tags(char *mod_name)
-{
-    char modpath[PATH_MAX];
-    int result = 0, n = 0;
-    char *cp1 = "";
-
-    flavor_ptr flavor = flavor_byid(global_data->rtapi_thread_flavor);
-
-    if (kernel_threads(flavor)) {
-	if (module_path(modpath, mod_name) < 0) {
-	    halcmd_error("cant determine module_path for %s ?\n", mod_name);
-	    return -1;
-	}
-    } else {
-	if (get_rtapi_config(modpath,"RTLIB_DIR",PATH_MAX) != 0) {
-	    halcmd_error("cant get  RTLIB_DIR ?\n");
-	    return -1;
-	}
-	strcat(modpath,"/");
-	strcat(modpath, flavor->name);
-	strcat(modpath,"/");
-	strcat(modpath,mod_name);
-	strcat(modpath, flavor->mod_ext);
-    }
-    const char **caps = get_caps(modpath);
-
-    char **p = (char **)caps;
-    while (p && *p && strlen(*p)) {
-	cp1 = *p++;
-	if (strncmp(cp1,"HAL=", 4) == 0) {
-	    n = strtol(&cp1[4], NULL, 10);
-	    result |=  n ;
-	}
-    }
-    free(caps);
-    return result;
-}
-
-
 int loadrt(char *mod_name, char *args[])
 {
     char *cp1;
@@ -1218,10 +1178,9 @@ int loadrt(char *mod_name, char *args[])
     return 0;
 }
 
-
-
-
-int do_loadrt_cmd(char *mod_name, char *args[])
+static int loadrt_cmd(const bool instantiate, // true if called from do_newinst
+		      char *mod_name,
+		      char *args[])
 {
     char arg_string[MAX_CMD_LEN+1];
     char arg_section[MAX_CMD_LEN+1];
@@ -1239,7 +1198,8 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 	return -EPERM;
     }
 
-    retval = get_tags(mod_name);
+    // determine module properties (loaded or not)
+    retval = rtapi_get_tags(mod_name);
     if(retval == -1) {
 	halcmd_error("Error in module tags search");
 	return retval;
@@ -1250,111 +1210,137 @@ int do_loadrt_cmd(char *mod_name, char *args[])
 	if((retval & HC_SINGLETON) == HC_SINGLETON)
 	    singleton = true;
     }
-    // if new component and not a call from do_newinst_cmd()
-    if (instantiable && !autoloading) {
-	// we only process arg[0]
-	if (args[0] != NULL && strlen(args[0])) {
-	    strcpy(arg_string, args[0]);
-	    //// count=N  ////////////////
-	    if ((strncmp(arg_string, "count=", 6) == 0) && !singleton) {
-		strcpy(arg_section, &arg_string[6]);
-		n = strtol(arg_section, &cp1, 10);
-		if (n > 0) {
-		    // check if already loaded, if not load it
-		    if (!module_loaded(mod_name)) {
-			if((retval = (loadrt(mod_name, argv))) )
-			    return retval;
-		    }
-		    for(int y = 0, v = 0; y < n; y++ , v++) {
-			sprintf(buff, "%s.%d", mod_name, v);
-			while(inst_name_exists(buff))
-			    sprintf(buff, "%s.%d", mod_name, ++v);
-			retval = do_newinst_cmd(mod_name, buff, argv);
-			if ( retval != 0 )
-			    return retval;
-		    }
-		} else {
-		    halcmd_error("Invalid value to count= parameter\n");
-		    return -1;
-		}
-	    }
-	    //// names="..."  ////////////////
-	    else if ((strncmp(arg_string, "names=", 6) == 0) && !singleton) {
-		strcpy(arg_section, &arg_string[6]);
-		cp1 = strtok(arg_section, ",");
-		list_index = 0;
-		while( cp1 != NULL ) {
-		    cp2 = (char *) malloc(strlen(cp1) + 1);
-		    strcpy(cp2, cp1);
-		    list[list_index++] = cp2;
-		    cp1 = strtok(NULL, ",");
-		}
-		if (list_index) {
-		    if (!module_loaded(mod_name)) {
-			if ((retval = (loadrt(mod_name, argv)))) {
-			    for(p = 0; p < list_index; p++)
-				free(list[p]);
-			    return retval;
-			}
-		    }
-		    for (w = 0; w < list_index; w++) {
-			if (inst_name_exists(list[w])) {
-			    halcmd_error("\nA named instance '%s' already exists\n", list[w]);
-			    for( p = 0; p < list_index; p++)
-				free(list[p]);
-			    return -1;
-			}
-			retval = do_newinst_cmd(mod_name, list[w], argv);
-			if ( retval != 0 ) {
-			    for( p = 0; p < list_index; p++)
-				free(list[p]);
-			    return retval;
-			}
-		    }
-		    for(p = 0; p < list_index; p++)
-			free(list[p]);
-		}
-	    } else {
-		// invalid parameter
-		halcmd_error("\nInvalid argument '%s' to instantiated component\n"
-			     "NB. Use of personality or cfg is deprecated\n"
-			     "Singleton components cannot have multiple instances\n\n", args[x]);
+
+    // if not instantiable and not called from do_newinst_cmd(),
+    // just loadrt the comp
+    if (!(instantiable && instantiate)) {
+	// legacy components
+        return loadrt(mod_name, args);
+    }
+
+    // from here on: only instantiable comps to be considered
+    // a singleton might be instantiable too (once only)
+    //
+    // if we come here we were called from do_newinst_cmd()
+    if (!(args[0] != NULL && strlen(args[0]))) {
+	// no args case: treat as count=1
+	// if no args just create a single instance
+	// with default number 0, unless singleton.
+
+	// if the module isnt loaded yet, do so now:
+	// XXX - autoload setting? I guess this is assumed
+	// to be on
+	if (!module_loaded(mod_name)) {
+	    if((retval = (loadrt(mod_name, argv))) )
+		return retval;
+	}
+	// determine instance name:
+	if (singleton) {
+	    // a singleton instantiable comp will have a single instance
+	    // with the same name as the component.
+	    sprintf(buff, "%s", mod_name);
+	    hal_comp_t *existing_comp = halpr_find_comp_by_name(mod_name);
+	    if (inst_name_exists(buff) || inst_count(existing_comp)) {
+		halcmd_error("\nError singleton component '%s' already exists\n", buff);
 		return -1;
 	    }
 	} else {
-	    //// no args so equates to count=1
-	    // if no args just create a single instance with default number 0, unless singleton.
+	    // find unused instance name
+	    w = 0;
+	    sprintf(buff, "%s.%d", mod_name, w);
+	    while(inst_name_exists(buff))
+		sprintf(buff, "%s.%d", mod_name, ++w);
+	}
+	// now instantiate with this name
+	retval = do_newinst_cmd(mod_name, buff, argv);
+	if ( retval != 0 ) {
+	    halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
+	}
+	return retval;
+    }
+
+    // args were given.
+    assert(args[0] != NULL && strlen(args[0]));
+
+    strcpy(arg_string, args[0]);
+    // handle count=N
+    if ((strncmp(arg_string, "count=", 6) == 0) && !singleton) {
+	strcpy(arg_section, &arg_string[6]);
+	n = strtol(arg_section, &cp1, 10);
+	if (n > 0) {
+	    // check if already loaded, if not load it
 	    if (!module_loaded(mod_name)) {
 		if((retval = (loadrt(mod_name, argv))) )
 		    return retval;
 	    }
-	    w = 0;
-	    if (singleton) {
-		sprintf(buff, "%s", mod_name);
-		hal_comp_t *existing_comp = halpr_find_comp_by_name(mod_name);
-		if (inst_name_exists(buff) || inst_count(existing_comp)) {
-		    halcmd_error("\nError singleton component '%s' already exists\n", buff);
+	    for(int y = 0, v = 0; y < n; y++ , v++) {
+		// find unused instance name
+		sprintf(buff, "%s.%d", mod_name, v);
+		while(inst_name_exists(buff))
+		    sprintf(buff, "%s.%d", mod_name, ++v);
+		// and instantiate
+		retval = do_newinst_cmd(mod_name, buff, argv);
+		if ( retval != 0 )
+		    return retval;
+	    }
+	} else {
+	    halcmd_error("%s: count=%d parameter invalid\n",
+			 mod_name, n);
+	    return -1;
+	}
+    } // count=N
+    // handle names="..."
+    else if ((strncmp(arg_string, "names=", 6) == 0) && !singleton) {
+	strcpy(arg_section, &arg_string[6]);
+	cp1 = strtok(arg_section, ",");
+	list_index = 0;
+	while( cp1 != NULL ) {
+	    cp2 = (char *) malloc(strlen(cp1) + 1);
+	    strcpy(cp2, cp1);
+	    list[list_index++] = cp2;
+	    cp1 = strtok(NULL, ",");
+	}
+	if (list_index) {
+	    if (!module_loaded(mod_name)) {
+		if ((retval = (loadrt(mod_name, argv)))) {
+		    for(p = 0; p < list_index; p++)
+			free(list[p]);
+		    return retval;
+		}
+	    }
+	    for (w = 0; w < list_index; w++) {
+		if (inst_name_exists(list[w])) {
+		    halcmd_error("\nA named instance '%s' already exists\n", list[w]);
+		    for( p = 0; p < list_index; p++)
+			free(list[p]);
 		    return -1;
 		}
-	    } else {
-		sprintf(buff, "%s.%d", mod_name, w);
-		while(inst_name_exists(buff))
-		    sprintf(buff, "%s.%d", mod_name, ++w);
+		retval = do_newinst_cmd(mod_name, list[w], argv);
+		if ( retval != 0 ) {
+		    for( p = 0; p < list_index; p++)
+			free(list[p]);
+		    return retval;
+		}
 	    }
-	    retval = do_newinst_cmd(mod_name, buff, argv);
-	    if ( retval != 0 ) {
-		halcmd_error("rc=%d\n%s", retval, rtapi_rpcerror());
-		return retval;
-	    }
+	    for(p = 0; p < list_index; p++)
+		free(list[p]);
 	}
     } else {
-	/////////////////////  legacy components  /////////////////////////////////////////////////////
-        return( retval = loadrt(mod_name, args) );
+	// invalid parameter
+	halcmd_error("\nInvalid argument '%s' to instantiated component\n"
+		     "NB. Use of personality or cfg is deprecated\n"
+		     "Singleton components cannot have multiple instances\n\n",
+		     args[x]);
+	return -1;
     }
-    autoloading = false;
     return 0;
 }
 
+
+int do_loadrt_cmd(char *mod_name, char *args[])
+{
+    return loadrt_cmd(true, mod_name, args);
+}
 
 
 int do_delsig_cmd(char *mod_name)
@@ -2405,7 +2391,7 @@ static void print_thread_info(char **patterns)
 
     if (scriptmode == 0) {
 	halcmd_output("Realtime Threads (flavor: %s) :\n",  current_flavor->name);
-	halcmd_output("     Period  FP     Name               (     Time, Max-Time )\n");
+	halcmd_output("     Period  FP     Name               (     Time, Max-Time ) flags\n");
     }
     rtapi_mutex_get(&(hal_data->mutex));
     next_thread = hal_data->thread_list_ptr;
@@ -2414,8 +2400,15 @@ static void print_thread_info(char **patterns)
 	if ( match(patterns, tptr->name) ) {
 		/* note that the scriptmode format string has no \n */
 		// TODO FIXME add thread runtime and max runtime to this print
-	    halcmd_output(((scriptmode == 0) ? "%11ld  %-3s  %20s ( %8ld, %8ld )\n" : "%ld %s %s %ld %ld"),
-		tptr->period, (tptr->uses_fp ? "YES" : "NO"), tptr->name, (long)tptr->runtime, (long)tptr->maxtime);
+	    char flags[100];
+	    snprintf(flags, sizeof(flags),"%s%s",
+		     tptr->flags & TF_NONRT ? "posix ":"",
+		     tptr->flags & TF_NOWAIT ? "nowait":"");
+
+	    halcmd_output(((scriptmode == 0) ? "%11ld  %-3s  %20s ( %8ld, %8ld ) %s\n" : "%ld %s %s %ld %ld %s"),
+		tptr->period, (tptr->uses_fp ? "YES" : "NO"), tptr->name,
+			  (long)tptr->runtime,
+			  (long)tptr->maxtime,  flags);
 
 	    list_root = &(tptr->funct_list);
 	    list_entry = list_next(list_root);
@@ -3696,10 +3689,7 @@ int do_newinst_cmd(char *comp, char *inst, char *args[])
     switch (status) {
     case CS_NOT_LOADED:
 	if (autoload) {
-	    // flag to prevent do_loadrt_cmd() trying to create an instance too
-	    autoloading = true;
-	    retval = do_loadrt_cmd(comp, argv);
-	    autoloading = false;
+	    retval = loadrt_cmd(false, comp, argv);
 	    if (retval)
 		return retval;
 	    return do_newinst_cmd(comp, inst,  args);
@@ -3728,7 +3718,7 @@ int do_newinst_cmd(char *comp, char *inst, char *args[])
         return -EPERM;
     }
 
-    retval = get_tags(comp);
+    retval = rtapi_get_tags(comp);
     if (retval == -1) {
         halcmd_error("Error in module tags search");
         return retval;
@@ -4084,9 +4074,7 @@ int do_newthread_cmd(char *name, char *period, char *args[])
     int cpu = -1;
     const char *s;
     int per = atoi(period);
-
-    if (per < 10000)
-	halcmd_warning("a period < 10uS is unlikely to work\n");
+    int flags = 0;
 
     for (i = 0; ((s = args[i]) != NULL) && strlen(s); i++) {
 	if (sscanf(s, "cpu=%d", &cpu) == 1)
@@ -4095,8 +4083,20 @@ int do_newthread_cmd(char *name, char *period, char *args[])
 	    use_fp = true;
 	if (strcmp(s, "nofp") == 0)
 	    use_fp = false;
+	if (strcmp(s, "posix") == 0)
+	    flags |= TF_NONRT;
+	if (strcmp(s, "nowait") == 0)
+	    flags |= TF_NOWAIT;
     }
-    retval = rtapi_newthread(rtapi_instance, name, per, cpu, (int)use_fp);
+
+    if ((per < 10000) && !(flags & TF_NOWAIT))
+	halcmd_warning("a period < 10uS is unlikely to work\n");
+    if ((flags & (TF_NOWAIT|TF_NONRT)) == TF_NOWAIT){
+	halcmd_error("specifying 'nowait' without 'posix' will likely lock up RT\n");
+	return -EINVAL;
+    }
+
+    retval = rtapi_newthread(rtapi_instance, name, per, cpu, (int)use_fp, flags);
     if (retval)
 	halcmd_error("%s\n",rtapi_rpcerror());
 
