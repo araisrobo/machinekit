@@ -94,7 +94,6 @@ typedef unsigned long long iomask_t; // 64 bits on both x86 and x86_64
 
 typedef struct {
     char anychanged;
-    iomask_t dio_mask;
     iomask_t aio_mask;
     signed char dios[EMCMOT_MAX_DIO];
     double aios[EMCMOT_MAX_AIO];
