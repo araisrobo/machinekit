@@ -5027,6 +5027,16 @@ int Interp::convert_straight_comp2(int move,     //!< either G_0 or G_1
     comp_get_current(settings, &end_x, &end_y, &end_z);
     comp_get_programmed(settings, &opx, &opy, &opz);
 
+    if (!qc().empty() && qc().front().type == QSTRAIGHT_FEED)
+    {
+        // force z in the same position, when we pause and resume ,
+        // after probing z position will change,
+        // because we execute probe between the line and arc
+        for(unsigned int i = 0; i<qc().size(); i++) {
+            qc()[i].data.straight_feed.z = pz;
+        }
+    }
+
     if ((py == opy) && (px == opx)) {     /* no XY motion */
         if (move == G_0) {
             enqueue_STRAIGHT_TRAVERSE(settings, block->line_number, 

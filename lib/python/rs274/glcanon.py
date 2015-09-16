@@ -105,6 +105,12 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.notify_message = ""
         self.highlight_line = None
         self.pierce = 0
+        self.min_x = 0
+        self.min_y = 0
+        self.max_x = 0
+        self.max_y = 0
+        # Let graphics are always display in the center
+        self.arhmi_touchoff = True
 
     def comment(self, arg):
         if arg.startswith("AXIS,"):
@@ -170,7 +176,11 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         return linuxcnc.draw_dwells(self.geometry, dwells, alpha, for_selection, self.is_lathe())
 
     def calc_extents(self):
-        self.min_extents, self.max_extents, self.min_extents_notool, self.max_extents_notool = gcode.calc_extents(self.arcfeed, self.feed, self.traverse)
+        if self.arhmi_touchoff:
+            self.min_extents, self.max_extents, self.min_extents_notool, self.max_extents_notool = gcode.calc_extents(self.arcfeed, self.feed)
+        else:
+            self.min_extents, self.max_extents, self.min_extents_notool, self.max_extents_notool = gcode.calc_extents(self.arcfeed, self.feed, self.traverse)
+
         if self.is_foam:
             min_z = min(self.foam_z, self.foam_w)
             max_z = max(self.foam_z, self.foam_w)
@@ -211,7 +221,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         for i in range (0, (len(l)-1)):
             length_vector.append(l[i] - self.lo[i])
         length = LA.norm(length_vector)
-        
+
         if not self.first_move:
                 self.traverse_append((self.lineno, self.lo, l, [self.xo, self.yo, self.zo]))
         
@@ -254,7 +264,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
             ArcsToSegmentsMixin.arc_feed(self, *args)
         finally:
             self.in_arc = False
-
+        
     def straight_arcsegments(self, segs):
         self.first_move = False
         lo = self.lo
@@ -284,6 +294,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
     def straight_feed(self, x,y,z, a,b,c, u, v, w):
         if self.suppress > 0: return
         self.first_move = False
+
         l = self.rotate_and_translate(x,y,z,a,b,c,u,v,w)
         self.feed_append((self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo]))
         

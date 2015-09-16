@@ -130,7 +130,7 @@ static double taskExecDelayTimeout = 0.0;
 static char resume_startup_code[LINELEN];
 static int resume_startup_id;
 static bool resume_startup_en;
-static double resume_x, resume_y;
+static double resume_x, resume_y, resume_z;
 static bool wait_resume_startup;
 static bool resume_cutter_comp_firstmove;
 static int resume_motion_type;
@@ -638,19 +638,58 @@ interpret_again:
 			    emcTaskPlanClearWait();
                             if ((wait_resume_startup == true) && (emcTaskPlanLevel() == 0)) {
                                 NMLmsg *cmd = 0;
+                                double x, y, a, b, c, u, v, w;
+                                double end_x, end_y;
+
+                                emcTaskPlanGetCurPos(&x, &y, &resume_z, &a, &b, &c, &u, &v, &w);        //!< save Interpreter's internal positions
+                                emcTaskPlanSetCutterCompFirstmove(&resume_cutter_comp_firstmove);
+                                emcTaskPlanSetCurPos(&resume_x, &resume_y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
+
+                                end_x = emcStatus->motion.traj.actualPosition.tran.x;
+                                end_y = emcStatus->motion.traj.actualPosition.tran.y;
+
                                 while (il_temp_queue.len() > 0)
                                 {
                                     cmd = il_temp_queue.get();
+
+                                    if (cmd->type == EMC_TRAJ_LINEAR_MOVE_TYPE)
+                                    {
+                                        EMC_TRAJ_LINEAR_MOVE *emcTrajLinearMoveMsg;
+                                        emcTrajLinearMoveMsg = (EMC_TRAJ_LINEAR_MOVE *) cmd;
+                                        emcTrajLinearMoveMsg->begin.tran.z = resume_z;
+                                        emcTrajLinearMoveMsg->end.tran.z = resume_z;
+                                        end_x = emcTrajLinearMoveMsg->begin.tran.x;
+                                        end_y = emcTrajLinearMoveMsg->begin.tran.y;
+                                    }
+                                    else if (cmd->type == EMC_TRAJ_CIRCULAR_MOVE_TYPE)
+                                    {
+                                        EMC_TRAJ_CIRCULAR_MOVE *emcTrajCircularMoveMsg;
+                                        emcTrajCircularMoveMsg = (EMC_TRAJ_CIRCULAR_MOVE *) cmd;
+                                        emcTrajCircularMoveMsg->begin.tran.z = resume_z;
+                                        emcTrajCircularMoveMsg->end.tran.z = resume_z;
+                                        end_x = emcTrajCircularMoveMsg->begin.tran.x;
+                                        end_y = emcTrajCircularMoveMsg->begin.tran.y;
+                                    }
+                                    else
+                                    {
+                                        rcs_print("%s %s:%d Unknow Move Type! type: %s\n", __FILE__, __FUNCTION__, __LINE__,
+                                                emc_symbol_lookup(cmd->type));
+                                        assert(false);
+                                    }
                                     interp_list.set_line_number(il_temp_queue.get_line_number());
                                     interp_list.append(cmd);
-
                                 }
+                                CANON_UPDATE_END_POINT(end_x,
+                                            end_y,
+                                            emcStatus->motion.traj.actualPosition.tran.z,
+                                            emcStatus->motion.traj.actualPosition.a,
+                                            emcStatus->motion.traj.actualPosition.b,
+                                            emcStatus->motion.traj.actualPosition.c,
+                                            emcStatus->motion.traj.actualPosition.u,
+                                            emcStatus->motion.traj.actualPosition.v,
+                                            emcStatus->motion.traj.actualPosition.w);
                                 interp_list.move_head();
                                 interp_list.update_current();
-//                                //FIXME: force resume_z at safe-height 10mm
-//                                resume_z = emcStatus->motion.traj.actualPosition.tran.z + 10;
-                                emcTaskPlanSetCutterCompFirstmove(&resume_cutter_comp_firstmove);
-                                emcTaskPlanSetCurPos(&resume_x, &resume_y, NULL, NULL, NULL, NULL, NULL, NULL, NULL);     //!< restore Interpreter's internal positions from saved ones
                                 wait_resume_startup = false;
 			    }
 			 }
@@ -2549,6 +2588,10 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         }
         emcStatus->motion.traj.cur_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
         emcStatus->motion.traj.next_tp_reversed = emcStatus->motion.traj.tp_reverse_input;
+        if (emcStatus->motion.traj.tp_reverse_input == TP_REVERSE)
+        {
+            emcTaskPlanClearWait();
+        }
 	emcStatus->task.interpState = EMC_TASK_INTERP_READING;
 	emcStatus->task.task_paused = 0;
 	retval = 0;
@@ -2565,7 +2608,13 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
             break;
         }
         emcTaskCommand = NULL;
-        if (emcStatus->motion.traj.motion_type != 5){
+        if (emcStatus->motion.traj.motion_type == EMC_MOTION_TYPE_TRAVERSE)
+        {
+            // because traverse and feed is the same EMC_TRAJ_LINEAR_MOVE_TYPE
+            resume_motion_type = EMC_MOTION_TYPE_FEED;
+        }
+        else if (emcStatus->motion.traj.motion_type != EMC_MOTION_TYPE_PROBING)
+        {
             resume_motion_type = emcStatus->motion.traj.motion_type;
         }
         emcTrajPause();
@@ -2603,7 +2652,8 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
         emcStatus->task.execState = EMC_TASK_EXEC_RESUME;       // wait for TCQ finishing pending motion
         emcTaskCommand = NULL;
         emcTrajResume();
-        if (emc_debug & EMC_DEBUG_INTERP) {
+        if (emc_debug & EMC_DEBUG_INTERP)
+        {
             rcs_print("%s %s:%d-----------------------RESUME-------------------------\n", __FILE__, __FUNCTION__, __LINE__);
             rcs_print("%s %s:%d resume_startup_id(%d) emcStatus->motion.traj.id(%d)\n", __FILE__, __FUNCTION__, __LINE__,
                     resume_startup_id, emcStatus->motion.traj.id);

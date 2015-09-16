@@ -1,0 +1,15 @@
+ifdef HAVE_LIBMODBUS3
+
+VFDB_SRCS = hal/user_comps/delta_rs485/delta_rs485.c
+VFDB_CFLAGS = -DDEBUG $(LIBMODBUS_CFLAGS)
+VFDB_LIBS = $(LIBMODBUS_LIBS) -lm
+
+$(call TOOBJSDEPS, $(VFDB_SRCS)) : EXTRAFLAGS += $(VFDB_CFLAGS)
+
+USERSRCS += $(VFDB_SRCS)
+../bin/delta_rs485: $(call TOOBJS, $(VFDB_SRCS)) ../lib/liblinuxcnchal.so.0 ../lib/liblinuxcncini.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(VFDB_LIBS) 
+
+TARGETS += ../bin/delta_rs485
+endif  # HAVE_LIBMODBUS3
