@@ -109,12 +109,14 @@ typedef struct
     hal_s32_t *enc_pos; /* pin: encoder position from servo drive, captured from FPGA */
     hal_float_t pos_scale; /* param: steps per position unit */
     double scale_recip; /* reciprocal value used for scaling */
-    hal_float_t *vel_cmd; /* pin: velocity command (pos units/cycle_time) */
+    double vel_cmd_t; /* velocity command (units/cycle_time) */
     double prev_pos_cmd; /* prev pos_cmd: previous position command */
     hal_float_t *probed_pos;
     hal_float_t *pos_fb; /* pin: position feedback (position units) */
     hal_float_t *risc_pos_cmd; /* pin: position command issued by RISC (position units) */
-    hal_float_t *vel_fb; /* pin: velocity feedback */
+    hal_float_t *ferror; /* pin: following error (position units) */
+    hal_float_t *vel_cmd; /* pin: velocity command (unit/sec) */
+    hal_float_t *vel_fb;  /* pin: velocity feedback (unit/sec) */
     hal_bit_t *ferror_flag; /* following error flag from risc */
     uint32_t pulse_maxv; /* max-vel in pulse */
     uint32_t pulse_maxa; /* max-accel in pulse */
@@ -126,7 +128,7 @@ typedef struct
     /* motion type be set */
     int32_t motion_type; /* motion type wrote to risc */
 
-    hal_s32_t *cmd_fbs; /* position command retained by RISC (unit: pulse) */
+    hal_s32_t *cmd_pos; /* position command retained by RISC (unit: pulse) */
     hal_s32_t *enc_vel_p; /* encoder velocity in pulse per servo-period */
 
     hal_bit_t *homing;
@@ -151,8 +153,9 @@ typedef struct
 {
     // Analog input: 0~4.096VDC, up to 16 channel
     hal_float_t *in[16];
-    hal_float_t *out[4];
+    hal_float_t *out[4];        // DAC command
     hal_float_t prev_out[4];
+    hal_float_t *out_fb[4];     // DAC feedback
 } analog_t;
 
 // machine_control_t:
@@ -332,7 +335,7 @@ static void fetchmail(const uint8_t *buf_head)
             p += 1;
             *(stepgen->enc_pos) = (int32_t) *p;
             p += 1;
-            *(stepgen->cmd_fbs) = (int32_t) *p;
+            *(stepgen->cmd_pos) = (int32_t) *p;
             p += 1;
             *(stepgen->enc_vel_p) = (int32_t) *p; // encoder velocity in pulses per servo-period
             stepgen += 1; // point to next joint
@@ -399,12 +402,21 @@ static void fetchmail(const uint8_t *buf_head)
         buf = (uint8_t*) p;
         for (i = 0; i < 8; i++)
         {
-            *(analog->in[i * 2]) = *(((uint16_t*) buf) + i * 2 + 1);
-            *(analog->in[i * 2 + 1]) = *(((uint16_t*) buf) + i * 2);
+            *(analog->in[i * 2]) = (hal_float_t)*(((uint16_t*) buf) + i * 2 + 1);
+            *(analog->in[i * 2 + 1]) = (hal_float_t)*(((uint16_t*) buf) + i * 2);
         }
+        p += i; // skip 16ch of 16-bit ADC value
+
+        // copy 4 channel of 16-bit DAC feedback value
+        buf = (uint8_t*) p;
+        for (i = 0; i < 2; i++)
+        {
+            *(analog->out_fb[i * 2]) = (hal_float_t)*(((uint16_t*) buf) + i * 2 + 1);
+            *(analog->out_fb[i * 2 + 1]) = (hal_float_t)*(((uint16_t*) buf) + i * 2);
+        }
+        p += i; // skip 4ch of 16-bit DAC value
 
         // MPG
-        p += 8; // skip 16ch of 16-bit ADC value
         *(machine_control->mpg_count) = *p;
         // the MPG on my hand is 1-click for a full-AB-phase-wave.
         // therefore the mpg_count will increase by 4.
@@ -1785,7 +1797,8 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         }
 
         *(stepgen->pos_fb) = (*stepgen->enc_pos) * stepgen->scale_recip;
-        *(stepgen->risc_pos_cmd) = (*stepgen->cmd_fbs) * stepgen->scale_recip;
+        *(stepgen->risc_pos_cmd) = (*stepgen->cmd_pos) * stepgen->scale_recip;
+        *(stepgen->ferror) = *(stepgen->risc_pos_cmd) - *(stepgen->pos_fb);
 
         // update velocity-feedback based on RISC-reported encoder-velocity
         // enc_vel_p is in 16.16 pulse per servo-period format
@@ -1869,9 +1882,10 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
                     * stepgen->pos_scale;
         }
-        *stepgen->vel_cmd = (tick_jcmd->pos_cmd[n] - (stepgen->prev_pos_cmd));
+        stepgen->vel_cmd_t = (tick_jcmd->pos_cmd[n] - (stepgen->prev_pos_cmd));
+        *stepgen->vel_cmd = stepgen->vel_cmd_t * recip_dt;
 
-        integer_pos_cmd = (int32_t) (*stepgen->vel_cmd * (stepgen->pos_scale)
+        integer_pos_cmd = (int32_t) (stepgen->vel_cmd_t * (stepgen->pos_scale)
                 * FIXED_POINT_SCALE);
 
         // integer_pos_cmd is indeed pulse_vel (velocity in pulse)
@@ -1879,17 +1893,17 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         {
             pulse_accel = integer_pos_cmd - stepgen->pulse_vel;
             pulse_jerk = pulse_accel - stepgen->pulse_accel;
-            printf("j[%d], pos_fb(%f) \n", n, (*stepgen->pos_fb));
-            printf("j[%d], vel_cmd(%f) pos_cmd(%f) prev_pos_cmd(%f)\n", n,
+            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d]: assert(integer_pos_cmd(%d) > pulse_maxv(%d))\n", n, integer_pos_cmd, stepgen->pulse_maxv);
+            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pos_fb(%f) ferror(%f)\n", n, (*stepgen->pos_fb), (*stepgen->ferror));
+            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], vel_cmd(%f,unit/s) pos_cmd(%f) prev_pos_cmd(%f)\n", n,
                     *stepgen->vel_cmd, tick_jcmd->pos_cmd[n],
                     (stepgen->prev_pos_cmd));
-            printf("j[%d], pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n", n,
+            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n", n,
                     integer_pos_cmd, pulse_accel, pulse_jerk);
-            printf(
-                    "j[%d], PREV pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
+            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], PREV pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
                     n, stepgen->pulse_vel, stepgen->pulse_accel,
                     stepgen->pulse_jerk);
-            printf("j[%d], pulse_maxv(%d), pulse_maxa(%d), pulse_maxj(%d)\n", n,
+            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_maxv(%d), pulse_maxa(%d), pulse_maxj(%d)\n", n,
                     stepgen->pulse_maxv, stepgen->pulse_maxa,
                     stepgen->pulse_maxj);
         }
@@ -1909,11 +1923,10 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 
             if (wosi_pos_cmd >= 8192)
             {
-                fprintf(stderr,
-                        "j(%d) pos_cmd(%f) prev_pos_cmd(%f) vel_cmd(%f)\n", n,
+                rtapi_print_msg(RTAPI_MSG_ERR, "j(%d) pos_cmd(%f) prev_pos_cmd(%f) vel_cmd_t(%f)\n", n,
                         tick_jcmd->pos_cmd[n], (stepgen->prev_pos_cmd),
-                        *stepgen->vel_cmd);
-                fprintf(stderr, "wosi.c: wosi_pos_cmd(%d) too large\n",
+                        stepgen->vel_cmd_t);
+                rtapi_print_msg(RTAPI_MSG_ERR, "wosi.c: wosi_pos_cmd(%d) too large\n",
                         wosi_pos_cmd);
                 assert(0);
             }
@@ -2013,6 +2026,14 @@ static int export_analog(analog_t * addr)
     // export Analog OUT
     for (i = 0; i < 4; i++)
     {
+        retval = hal_pin_float_newf(HAL_OUT, &(addr->out_fb[i]), comp_id,
+                "wosi.analog.out.%d.fb", i);
+        if (retval != 0)
+        {
+            return retval;
+        }
+        *(addr->out_fb[i]) = 0;
+
         retval = hal_pin_float_newf(HAL_IN, &(addr->out[i]), comp_id,
                 "wosi.analog.out.%d", i);
         if (retval != 0)
@@ -2030,8 +2051,8 @@ static int export_stepgen(int num, stepgen_t * addr)
 {
     int retval;
 
-    retval = hal_pin_s32_newf(HAL_OUT, &(addr->cmd_fbs), comp_id,
-            "wosi.stepgen.%d.cmd-fbs", num);
+    retval = hal_pin_s32_newf(HAL_OUT, &(addr->cmd_pos), comp_id,
+            "wosi.stepgen.%d.cmd-pos", num);
     if (retval != 0)
     {
         return retval;
@@ -2076,6 +2097,13 @@ static int export_stepgen(int num, stepgen_t * addr)
 
     retval = hal_pin_float_newf(HAL_OUT, &(addr->risc_pos_cmd), comp_id,
             "wosi.stepgen.%d.risc-pos-cmd", num);
+    if (retval != 0)
+    {
+        return retval;
+    }
+
+    retval = hal_pin_float_newf(HAL_OUT, &(addr->ferror), comp_id,
+            "wosi.stepgen.%d.ferror", num);
     if (retval != 0)
     {
         return retval;
@@ -2184,6 +2212,7 @@ static int export_stepgen(int num, stepgen_t * addr)
     *(addr->rawcount32) = 0;
     *(addr->enc_pos) = 0;
     *(addr->pos_fb) = 0.0;
+    *(addr->ferror) = 0.0;
     *(addr->vel_fb) = 0;
     *(addr->vel_cmd) = 0.0;
     addr->pulse_vel = 0;
