@@ -641,6 +641,10 @@ static void process_inputs(void)
              * truncate all TC commands from primary queue,
              * and keep all its status variables, such as progress, ... etc.
              */
+            double current_z;
+
+            // this z position is pause offset position and it is update in handle_usb_sync()
+	    current_z = emcmotQueue->currentPos.tran.z;
             emcmotConfig->vtp->tpTcqInit(emcmotPrimQueue);
 
 	    // switch to primary queue and resume.
@@ -648,9 +652,11 @@ static void process_inputs(void)
 	    emcmotStatus->resuming = 0;
 	    emcmotDebug->stepping = 0;
 	    emcmotQueue = emcmotPrimQueue;
+	    // update z position from emcmotAltQueue to emcmotPrimQueue
+            emcmotQueue->currentPos.tran.z = current_z;
 	    emcmotConfig->vtp->tpResume(emcmotQueue);
-	     *emcmot_hal_data->pause_state = PS_RUNNING;
-	     break;
+	    *emcmot_hal_data->pause_state = PS_RUNNING;
+	    break;
 	}
 	if (emcmotDebug->stepping) {
 	    rtapi_print_msg(RTAPI_MSG_DBG, "step signalled - resuming\n");
@@ -673,6 +679,8 @@ static void process_inputs(void)
             {
                 EmcPose here;
                 emcmotConfig->vtp->tpGetPos(emcmotQueue, &here);
+                // z-axis no need return move
+                emcmotStatus->pause_carte_pos.tran.z = here.tran.z;
                 if (EQUAL_EMC_POSE(emcmotStatus->pause_carte_pos,here)) {
                     // at initial pause position.
                     *emcmot_hal_data->pause_state = PS_PAUSED;
@@ -1089,12 +1097,13 @@ static void check_for_faults(void)
 		    // We don't want it to stop motion when PHL or NHL are toggled
 		    // emcmotDebug->enabling = 0;
 		}
-	    } else {
+	    }
+	    else if (((!GET_JOINT_PHL_FLAG(joint) && (neg_limit_override))) &&
+	             ((!GET_JOINT_NHL_FLAG(joint) && (pos_limit_override))))
+	    {
                 // clean override mask after leave hard limits.
-                if ((!GET_JOINT_PHL_FLAG(joint)) && (!GET_JOINT_NHL_FLAG(joint))) {
-                    emcmotStatus->overrideLimitMask &= ~( 2 << (joint_num*2));
-                    emcmotStatus->overrideLimitMask &= ~( 1 << (joint_num*2));
-                }
+                emcmotStatus->overrideLimitMask &= ~( 2 << (joint_num*2));
+                emcmotStatus->overrideLimitMask &= ~( 1 << (joint_num*2));
             }
 
 	    /* check for amp fault */

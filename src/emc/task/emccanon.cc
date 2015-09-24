@@ -1076,11 +1076,6 @@ static void flush_segments(void) {
     linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
     AccelData lineaccdata = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
     double acc = lineaccdata.acc;
-//    if (acc <= 0){
-//        printf("%s %s:%d FIXME: vel(%f) acc(%f) synched(%d) line_no(%d)\n", __FILE__, __FUNCTION__, __LINE__,
-//                vel, acc, synched,line_no);
-//        acc = FROM_EXT_LEN(MAX3(axis_max_acceleration[0], axis_max_acceleration[1], axis_max_acceleration[2]));
-//    }
     linearMoveMsg.acc = toExtAcc(acc);
 
     linearMoveMsg.type = EMC_MOTION_TYPE_FEED;
@@ -1681,7 +1676,7 @@ void ARC_FEED(int line_number,
         double fa=FROM_PROG_LEN(first_axis), sa=FROM_PROG_LEN(second_axis);
         rotate_and_offset_pos(fe, se, ae, unused, unused, unused, unused, unused, unused);
         rotate_and_offset_pos(fa, sa, unused, unused, unused, unused, unused, unused, unused);
-        if (chord_deviation(lx, ly, fe, se, fa, sa, rotation, mx, my) < canonNaivecamTolerance/10000) {
+        if (chord_deviation(lx, ly, fe, se, fa, sa, rotation, mx, my) < canonNaivecamTolerance) {
             rotate_and_offset_pos(unused, unused, unused, a, b, c, u, v, w);
             printf("%s (%s:%d) FIXME: why see_segment(line_number-1,...)?\n", __FILE__, __FUNCTION__, __LINE__);
             see_segment(line_number-1, _tag, mx, my,
