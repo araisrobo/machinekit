@@ -1115,11 +1115,10 @@ static int load_parameters(FILE *fp)
                 sync_cmd = SYNC_DAC | (n << 8) | (0x55); /* DAC, ID:n, ADDR: 0x55(Control Register) */
                 dac_ctrl_reg = (uint32_t) strtoul(token, NULL, 16);
                 send_sync_cmd(sync_cmd, &dac_ctrl_reg, 1);
-           
-                // reset DAC output value as 0
-                dac_ctrl_reg = 0; 
-                sync_cmd = SYNC_DAC | (n << 8) | (0x01); /* DAC(n) AD5422-ADDR: 0x01(set data value) */
-                send_sync_cmd(sync_cmd, &dac_ctrl_reg, 1); /* reset DAC output value as 0 */
+
+                // to reset DAC output value as 0 at next update cycle
+                analog->prev_out[n] = 0.1;
+                *(analog->out[n]) = 0;
             }
         }
     }
