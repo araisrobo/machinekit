@@ -383,7 +383,6 @@ int tpClearDIOs(TP_STRUCT * const tp) {
     //XXX: All IO's will be flushed on next synced aio/dio! Is it ok?
     unsigned int i;
     tp->syncdio.anychanged = 0;
-    tp->syncdio.dio_mask = 0ull;
     tp->syncdio.aio_mask = 0ull;
     for (i = 0; i < get_num_dio(tp->shared); i++) {
         tp->syncdio.dios[i] = 0;
@@ -2327,7 +2326,6 @@ void tpToggleDIOs(TP_STRUCT const * const tp,
     unsigned int i = 0;
     if (tc->syncdio.anychanged != 0) { // we have DIO's to turn on or off
         for (i=0; i < get_num_dio(tp->shared); i++) {
-            if (!(tc->syncdio.dio_mask & (1ull << i))) continue;
             if (tc->syncdio.dios[i] > 0) dioWrite(tp->shared, i, 1); // turn DIO[i] on
             if (tc->syncdio.dios[i] < 0) dioWrite(tp->shared, i, 0); // turn DIO[i] off
         }
@@ -3395,7 +3393,6 @@ int tpSetDout(TP_STRUCT * const tp, unsigned int index, unsigned char start, uns
         return TP_ERR_FAIL;
     }
     tp->syncdio.anychanged = 1; //something has changed
-    tp->syncdio.dio_mask |= (1ull << index);
     if (start > 0)
         tp->syncdio.dios[index] = 1; // the end value can't be set from canon currently, and has the same value as start
     else
