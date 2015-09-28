@@ -1566,10 +1566,9 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     if (*machine_control->ahc_level != machine_control->prev_ahc_level)
     {
         immediate_data = (uint32_t) (*(machine_control->ahc_level));
-        immediate_data *= 65536; //coonvert from 32.0 to 16.16
-        write_machine_param(AHC_LEVEL, immediate_data);
+        write_machine_param(AHC_LEVEL, immediate_data); // 32.0
         machine_control->prev_ahc_level = *(machine_control->ahc_level);
-        fprintf(stderr, "wosi.c: ahc_level(%d)\n",
+        rtapi_print_msg(RTAPI_MSG_INFO, "wosi.c: ahc_level(%d)\n",
                 (uint32_t) *(machine_control->ahc_level));
         machine_control->prev_ahc_level = *(machine_control->ahc_level);
     }
