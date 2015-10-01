@@ -84,6 +84,7 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
     char axisString[16];
     const char *inistring;
     EmcAxisType axisType;
+    AxisEncType enc_type; // type for absolute/incremental
     double units;
     double backlash;
     double input_scale;
@@ -93,6 +94,7 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
     double search_vel;
     double latch_vel;
     double home_final_vel; // moving from OFFSET to HOME
+    double home_enc_pos; // initial encoder for HOME position
     bool use_index;
     bool ignore_limits;
     bool is_shared;
@@ -212,6 +214,11 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
         axisIniFile->Find(&latch_vel, "HOME_LATCH_VEL", axisString);
         home_final_vel = -1;	                // default (rapid)
         axisIniFile->Find(&home_final_vel, "HOME_FINAL_VEL", axisString);
+        home_enc_pos = 0;                    // default
+        axisIniFile->Find(&home_enc_pos, "HOME_ENC_POS", axisString);
+        // set encoder type
+        enc_type = INCREMENTAL;                    // default
+        axisIniFile->Find(&enc_type, "ENC_TYPE", axisString);
         is_shared = false;	        // default
         axisIniFile->Find(&is_shared, "HOME_IS_SHARED", axisString);
         use_index = false;	        // default
@@ -230,8 +237,8 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
         emcAxisSetSyncId(axis, sync_id); //!< the axis with lower ID is GANTRY_MASTER
 
         // issue NML message to set all params
-        if (0 != emcAxisSetHomingParams(axis, home, offset, home_final_vel, search_vel,
-                                        latch_vel, (int)use_index, (int)ignore_limits,
+        if (0 != emcAxisSetHomingParams(axis, home, offset, home_final_vel, home_enc_pos, search_vel,
+                                        latch_vel, (int)use_index, (int)ignore_limits, enc_type,
                                         (int)is_shared, sequence, volatile_home, locking_indexer)) {
             if (emc_debug & EMC_DEBUG_CONFIG) {
                 rcs_print_error("bad return from emcAxisSetHomingParams\n");

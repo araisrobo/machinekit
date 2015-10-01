@@ -385,9 +385,9 @@ extern int emcAxisSetMotorOffset(int axis, double offset);
 extern int emcAxisSetFerror(int axis, double ferror);
 extern int emcAxisSetMinFerror(int axis, double ferror);
 extern int emcAxisSetHomingParams(int axis, double home, double offset, double home_final_vel,
-				  double search_vel, double latch_vel,
-				  int use_index, int ignore_limits,
-				  int is_shared, int home_sequence, int volatile_home, int locking_indexer);
+                                    double home_enc_pos,double search_vel, double latch_vel,
+                                    int use_index, int ignore_limits, int enc_type,
+                                    int is_shared, int home_sequence, int volatile_home, int locking_indexer);
 extern int emcAxisSetMaxVelocity(int axis, double vel);
 extern int emcAxisSetMaxAcceleration(int axis, double acc);
 extern int emcAxisSetMaxJerk(int axis, double jerk);
@@ -576,6 +576,12 @@ extern EMC_MOTION_STAT *emcMotionStatus;
 enum EmcAxisType {
     EMC_AXIS_LINEAR             = 1,
     EMC_AXIS_ANGULAR            = 2,
+};
+
+// values for AxisEncType
+enum AxisEncType {
+    INCREMENTAL            = 1,
+    ABSOLUTE               = 2,
 };
 
 /**
