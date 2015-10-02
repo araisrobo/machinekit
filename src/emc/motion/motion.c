@@ -338,6 +338,13 @@ static int init_hal_io(void)
     *emcmot_hal_data->rcmd_state = RCMD_IDLE;
 #endif // USB_MOTION_ENABLE
 
+    if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->xuu_per_rev), mot_comp_id, "motion.spindle.xuu-per-rev")) < 0) goto error;
+    if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->yuu_per_rev), mot_comp_id, "motion.spindle.yuu-per-rev")) < 0) goto error;
+    if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->zuu_per_rev), mot_comp_id, "motion.spindle.zuu-per-rev")) < 0) goto error;
+    *emcmot_hal_data->xuu_per_rev = 0.0;
+    *emcmot_hal_data->yuu_per_rev = 0.0;
+    *emcmot_hal_data->zuu_per_rev = 0.0;
+
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->usb_busy), mot_comp_id, "motion.usb-busy")) < 0) goto error;
     /* allocate shared memory for joint data */
     joints = hal_malloc(sizeof(emcmot_joint_t) * EMCMOT_MAX_JOINTS);
@@ -1549,5 +1556,9 @@ static int init_shared(tp_shared_t *tps,
     tps->rtp_running = hal->rtp_running;        //!< for G38.X
     tps->probing = hal->probing;                //!< for G38.X
     tps->update_pos_req = hal->update_pos_req;  //!< for RISC-JOG, AHC, etc
+    tps->xuu_per_rev = hal->xuu_per_rev;        //!< for RISC-SpindleSyncMotion
+    tps->yuu_per_rev = hal->yuu_per_rev;        //!< for RISC-SpindleSyncMotion
+    tps->zuu_per_rev = hal->zuu_per_rev;        //!< for RISC-SpindleSyncMotion
+
     return 0;
 }

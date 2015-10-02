@@ -2805,6 +2805,43 @@ void tpToggleDIOs(TP_STRUCT const * const tp,
     }
 }
 
+static void update_uu_per_rev(TP_STRUCT * const tp, TC_STRUCT * const tc)
+{
+    rtapi_print("%s (%s:%d) tc->uu_updated(%d)\n", __FILE__, __FUNCTION__, __LINE__,
+                tc->uu_updated);
+    if(tc->uu_updated == 0)
+    {
+        rtapi_print("TODO: 在這裡更新 xuu_per_rev, yuu_per_rev, 要確認外面讀得到...\n");
+        tc->uu_updated = 1;
+        rtapi_print("%s (%s:%d) tc->uu_per_rev(%f)\n", __FILE__, __FUNCTION__, __LINE__,
+                     tc->uu_per_rev);
+        if (tc->uu_per_rev != 0.0)
+        {
+            rtapi_print("%s (%s:%d) uVec.x(%f)\n", __FILE__, __FUNCTION__, __LINE__,
+                    tc->coords.spindle_sync.xyz.uVec.x);
+            if (tc->coords.spindle_sync.xyz.uVec.x > TP_POS_EPSILON) {
+                set_xuu_per_rev(tp->shared,
+                                tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.x);
+            }
+            if (tc->coords.spindle_sync.xyz.uVec.y > TP_POS_EPSILON) {
+                set_yuu_per_rev(tp->shared,
+                                tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.y);
+            }
+            if (tc->coords.spindle_sync.xyz.uVec.z > TP_POS_EPSILON) {
+                set_zuu_per_rev(tp->shared,
+                                tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.z);
+            }
+        } else
+        {
+            set_xuu_per_rev(tp->shared, 0.0);
+            set_yuu_per_rev(tp->shared, 0.0);
+            set_zuu_per_rev(tp->shared, 0.0);
+        }
+    }
+    return;
+}
+
+
 /**
  * Update emcMotStatus with information about trajectory motion.
  * Based on the specified trajectory segment tc, read its progress and status
@@ -2832,6 +2869,8 @@ STATIC int tpUpdateMovementStatus(TP_STRUCT * const tp, TC_STRUCT const * const 
 
     EmcPose tc_pos;
     tcGetEndpoint(tc, &tc_pos);
+
+    update_uu_per_rev(tp, tc);
 
     tc_debug_print("tc id = %u canon_type = %u mot type = %u\n",
             tc->id, tc->canon_motion_type, tc->motion_type);

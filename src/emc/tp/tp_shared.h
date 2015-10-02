@@ -32,6 +32,10 @@ typedef struct tp_shared_t {
     hal_float_t *maxFeedScale;
     hal_float_t *net_feed_scale;
 
+    hal_float_t *xuu_per_rev;   /* user unit per revolution for AXIS_X */
+    hal_float_t *yuu_per_rev;   /* user unit per revolution for AXIS_Y */
+    hal_float_t *zuu_per_rev;   /* user unit per revolution for AXIS_Z */
+
     hal_float_t *acc_limit[3];
     hal_float_t *vel_limit[3];
 
@@ -104,6 +108,23 @@ static inline hal_float_t get_current_vel(tp_shared_t *ts)
 { return *(ts->current_vel); }
 static inline void set_current_vel(tp_shared_t *ts, hal_float_t n)
 { *(ts->current_vel) = n; }
+
+static inline hal_float_t get_xuu_per_rev(tp_shared_t *ts)
+{ return *(ts->xuu_per_rev); }
+static inline void set_xuu_per_rev(tp_shared_t *ts, hal_float_t n)
+{ *(ts->xuu_per_rev) = n;
+rtapi_print("%s (%s:%d) xuu_per_rev(%f)\n", __FILE__, __FUNCTION__, __LINE__,
+             n);}
+
+static inline hal_float_t get_yuu_per_rev(tp_shared_t *ts)
+{ return *(ts->yuu_per_rev); }
+static inline void set_yuu_per_rev(tp_shared_t *ts, hal_float_t n)
+{ *(ts->yuu_per_rev) = n; }
+
+static inline hal_float_t get_zuu_per_rev(tp_shared_t *ts)
+{ return *(ts->zuu_per_rev); }
+static inline void set_zuu_per_rev(tp_shared_t *ts, hal_float_t n)
+{ *(ts->zuu_per_rev) = n; }
 
 static inline hal_float_t get_requested_vel(tp_shared_t *ts)
 { return *(ts->requested_vel); }

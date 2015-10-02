@@ -563,6 +563,10 @@ int tcInit(TC_STRUCT * const tc,
     tc->feed_override = 0.0;
     tc->cur_accel = 0.0;
     tc->currentvel = 0.0;
+
+    tc->uu_updated = 0; // 更新 x/y/z uu_per_rev 之後，再設為 1
+    tc->uu_per_rev = 0.0; // 預設 uu_per_rev 為 0, 有必要時，再設為 tp->uu_per_rev
+
     return TP_ERR_OK;
 }
 

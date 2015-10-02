@@ -104,6 +104,10 @@ typedef struct {
     hal_bit_t *update_pos_ack;
     hal_u32_t *rcmd_state;
 
+    hal_float_t *xuu_per_rev;   /* user unit per revolution for AXIS_X */
+    hal_float_t *yuu_per_rev;   /* user unit per revolution for AXIS_Y */
+    hal_float_t *zuu_per_rev;   /* user unit per revolution for AXIS_Z */
+
     hal_bit_t *usb_busy;
     hal_bit_t *rtp_running;
     hal_bit_t *mpg_scale_x1;    /* is MPG scale at x1 mode? */
