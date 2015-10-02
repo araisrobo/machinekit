@@ -12,3 +12,4 @@ CONCURRENCY_LEVEL=`getconf _NPROCESSORS_ONLN`
 # make -j${CONCURRENCY_LEVEL} OPT='-O0' EXTRA_DEBUG='-DTC_DEBUG -DTP_DEBUG -DTP_INFO_LOGGING' V=1 && sudo make setuid
 make -j${CONCURRENCY_LEVEL} EXTRA_DEBUG='-DTC_DEBUG -DTP_DEBUG -DTP_INFO_LOGGING' V=1 && sudo make setuid
 cd -
+sudo cp /dev/null /var/log/linuxcnc.log

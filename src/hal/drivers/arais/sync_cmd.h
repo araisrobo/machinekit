@@ -253,14 +253,27 @@ enum motion_parameter_addr {
     SCALE             ,     // unit_pulses/servo_period : 16.16 format, 
     ENC_SCALE         ,     // encoder scale: 16.16 format
     SSYNC_SCALE       ,     // spindle sync compensation scale: 16.16 format
-    // PWM: begin
-    FULL_PWM_PULSE    ,
-    MAX_PWM_OUT       ,
-    PWM_PER_PULSE     ,
-    PULSE_PER_PWM     ,
-    // PWM: end
+    // OUTPUT: begin
+    OUT_DEV           ,     // output device：AB-PHASE/STEP-DIR/PWM/DAC
+                            // [31:28] TYPE: ANALOG/DIGITAL
+                            // [27:24] CHANNEL: DAC channel
+                            // [23: 0] RESERVED
+    OUT_RANGE         ,     // [31:16] MIN_OUT [15:0] MAX_OUT
+    OUT_MAX_IPULSE    ,     // Max input pulse for the output device, Q16.16
+    OUT_SCALE         ,     // output scale per pulse, Q16.16
+    OUT_OFFSET        ,     // output offset, Q16.16
+                            // output = ipulse * OUT_SCALE + OUT_OFFSET
+    OUT_SCALE_RECIP   ,     // reciprocol of OUT_SCALE, Q16.16
+    // OUTPUT: end
     MAX_PARAM_ITEM
 };
 #define NUM_PID_PARAMS 14   // pid params: from P_GAIN to MAXOUTPUT
+#define OUT_DEV_TYPE_MASK   0xF0000000 // [31:28] TYPE: ANALOG/PWM/PULSE
+#define OUT_DEV_CH_MASK     0x0F000000 // [27:24] CHANNEL: DAC channel
+#define OUT_RANGE_MAX_MASK  0x0000FFFF // [15: 0] MAX_OUT
+#define OUT_RANGE_MIN_MASK  0xFFFF0000 // [31:16] MIN_OUT
+#define OUT_TYPE_PULSE      (0<<28)    // digital pulse type: AB-PHASE or STEP-DIR
+#define OUT_TYPE_PWM        (1<<28)    // PWM-DIR type: 100% PWM + DIR signal
+#define OUT_TYPE_DAC_0_20mA (2<<28)    // DAC output type, 0~20mA
 
 #endif // __sync_cmd_h__
