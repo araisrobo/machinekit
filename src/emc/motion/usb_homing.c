@@ -339,6 +339,11 @@ void do_usb_homing(void)
                         {/*for joint with (home search and latch vel = 0, and never get probed),
                            prevent it from moving to HOME_OFFSET*/
                             joint->probed_pos = joint->pos_fb + joint->motor_offset;
+                            if (joint->enc_type == HOME_ABSOLUTE)
+                            {
+                                joint->probed_pos += (-joint->last_enc_pos+joint->home_enc_pos);
+// for debug:                                printf("line:%d J[%d] joint->pos_cmd(%f)\n", __LINE__, joint_num, joint->pos_cmd);
+                            }
                         }
                         joint->home_state = HOME_SET_SWITCH_POSITION;
                         immediate_state = 1;
@@ -783,7 +788,7 @@ void do_usb_homing(void)
                         }
                     }
                 }
-
+// for debug                printf("line:%d J[%d] joint->pos_cmd(%f) joint->pos_fb(%f)\n", __LINE__, joint_num, joint->pos_cmd, joint->pos_fb);
                 if ((*emcmot_hal_data->rcmd_state) != RCMD_IDLE)
                 {   // wait for RCMD_IDLE
                     emcmotStatus->update_pos_ack = (*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ);
@@ -792,7 +797,10 @@ void do_usb_homing(void)
 
                 /* plan a move to home position */
                 rtapi_print ("comment out the next line to calculate GANTRY joints offset\n");
-                joint->free_pos_cmd = joint->home;
+                if (joint->enc_type == HOME_INCREMENTAL)
+                {
+                    joint->free_pos_cmd = joint->home;
+                }
                 /* if home_vel is set (>0) then we use that, otherwise we rapid there */
                 if (joint->home_final_vel > 0) {
                     joint->free_vel_lim = fabs(joint->home_final_vel);
