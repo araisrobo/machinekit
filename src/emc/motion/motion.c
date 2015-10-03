@@ -1409,13 +1409,22 @@ static int init_threads(void)
     return 0;
 }
 
-void emcmotSetCycleTime(unsigned long nsec ) {
+void emcmotSetCycleTime(unsigned long nsec)
+{
     int servo_mult;
     servo_mult = traj_period_nsec / nsec;
     if(servo_mult < 0) servo_mult = 1;
     setTrajCycleTime(nsec * 1e-9);
     setServoCycleTime(nsec * servo_mult * 1e-9);
 }
+
+void emcmotSetUuPerRev(PmCartesian uu_per_rev)
+{
+    *(emcmot_hal_data->xuu_per_rev) = uu_per_rev.x;
+    *(emcmot_hal_data->yuu_per_rev) = uu_per_rev.y;
+    *(emcmot_hal_data->zuu_per_rev) = uu_per_rev.z;
+}
+
 /* call this when setting the trajectory cycle time */
 static int setTrajCycleTime(double secs)
 {
@@ -1556,9 +1565,7 @@ static int init_shared(tp_shared_t *tps,
     tps->rtp_running = hal->rtp_running;        //!< for G38.X
     tps->probing = hal->probing;                //!< for G38.X
     tps->update_pos_req = hal->update_pos_req;  //!< for RISC-JOG, AHC, etc
-    tps->xuu_per_rev = hal->xuu_per_rev;        //!< for RISC-SpindleSyncMotion
-    tps->yuu_per_rev = hal->yuu_per_rev;        //!< for RISC-SpindleSyncMotion
-    tps->zuu_per_rev = hal->zuu_per_rev;        //!< for RISC-SpindleSyncMotion
+    tps->SetUuPerRev = emcmotSetUuPerRev;
 
     return 0;
 }
