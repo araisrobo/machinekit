@@ -35,6 +35,8 @@
 #include <mk-service.hh>
 #include <mk-backtrace.h>
 
+#include <stdio.h>
+
 int print_container; // see pbutil.cc
 
 // configuration defaults
@@ -56,6 +58,24 @@ static htconf_t conf = {
     true, // trap_signals
 };
 
+static const char* get_process_name_by_pid(const int pid)
+{
+    char* name = (char*)calloc(1024,sizeof(char));
+    if(name){
+        sprintf(name, "/proc/%d/cmdline",pid);
+        FILE* f = fopen(name,"r");
+        if(f){
+            size_t size;
+            size = fread(name, sizeof(char), 1024, f);
+            if(size>0){
+                if('\n'==name[size-1])
+                    name[size-1]='\0';
+            }
+            fclose(f);
+        }
+    }
+    return name;
+}
 
 static int
 handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
@@ -70,10 +90,12 @@ handle_signal(zloop_t *loop, zmq_pollitem_t *poller, void *arg)
     }
     switch (fdsi.ssi_signo) {
     default:
-	rtapi_print_msg(RTAPI_MSG_ERR, "%s: signal %d - '%s' received\n",
+	rtapi_print_msg(RTAPI_MSG_ERR, "%s: signal %d - '%s' received from %s(%d)\n",
 			self->cfg->progname,
 			fdsi.ssi_signo,
-			strsignal(fdsi.ssi_signo));
+			strsignal(fdsi.ssi_signo),
+			get_process_name_by_pid(fdsi.ssi_pid),
+			fdsi.ssi_pid);
     }
     self->interrupted = true;
     return -1; // exit reactor with -1
