@@ -43,7 +43,6 @@
 #include "canon_position.hh"		// data type for a machine position
 #include "interpl.hh"		// interp_list
 #include "emcglb.h"		// TRAJ_MAX_VELOCITY
-#include <assert.h>
 #include "modal_state.hh"
 
 //#define EMCCANON_DEBUG
@@ -443,6 +442,13 @@ static void canonUpdateEndPoint(double x, double y, double z,
     canonEndPoint.u = u;
     canonEndPoint.v = v;
     canonEndPoint.w = w;
+}
+
+static void canonUpdateEndPoint(double x, double y, double z)
+{
+    canonEndPoint.x = x;
+    canonEndPoint.y = y;
+    canonEndPoint.z = z;
 }
 
 static void canonUpdateEndPoint(const CANON_POSITION & pos)
@@ -1223,7 +1229,7 @@ void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_
     double spindle_speed;
 
     if (ssm_mode < 2)
-    {   // G33, G33.1
+    {   // G33(ssm_mode==0), G33.1(ssm_mode==1)
         if(css_maximum) {
             // for CSS(G96)
             spindle_speed = css_maximum;
@@ -1271,9 +1277,9 @@ void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_
 
     flush_segments();
     
-//    DP("x(%f) y(%f) z(%f)\n", x, y, z);
-//    DP("vel(%f) acc(%f) jerk(%f)\n", vel, acc, spindleSyncMotionMsg.ini_maxjerk);
-//    DP("spindleSpeed(%f) spindle_dir(%d)\n", spindleSpeed, spindle_dir);
+    canon_debug("x(%f) y(%f) z(%f)\n", x, y, z);
+    canon_debug("vel(%f) acc(%f) jerk(%f)\n", vel, acc, spindleSyncMotionMsg.ini_maxjerk);
+    canon_debug("spindle_speed(%f) spindle_dir(%d)\n", spindle_speed, spindle_dir);
 
     assert (vel != 0);
     assert (acc > 0);
@@ -1283,6 +1289,11 @@ void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_
         interp_list.append(spindleSyncMotionMsg);
     }
 
+    if (ssm_mode == 0) {
+        // update canonEndPoint for G33 motion
+        canonUpdateEndPoint(x, y, z);
+    }
+    // after the RIGID_TAP cycle we'll be in the same spot
     // don't move the endpoint because after this move, we are back where we started
 }
 
