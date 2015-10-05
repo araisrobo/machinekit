@@ -121,6 +121,7 @@ typedef struct {
     hal_bit_t	*enabled;		// if set: control VFD via Modbus commands, panel control disabled
     hal_bit_t   *update_enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
     hal_float_t *init_enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
+    hal_float_t *input_scale[NUM_JOINTS];  /* RPI: input scale, with comp */
 } haldata_t;
 
 // configuration and execution state
@@ -439,6 +440,8 @@ int hal_setup(int id, haldata_t *h, const char *name)
         *(h->init_enc_pos[n]) = 0;
         PIN(hal_pin_bit_newf(HAL_IO, &(h->update_enc_pos[n]), id, "%s.%d.update-enc-pos", name, n));
         *(h->update_enc_pos[n]) = 1;
+        PIN(hal_pin_float_newf(HAL_IN, &(h->input_scale[n]), id, "%s.%d.input-scale", name, n));
+        *(h->input_scale[n]) = 0;
     }
 
     return 0;
