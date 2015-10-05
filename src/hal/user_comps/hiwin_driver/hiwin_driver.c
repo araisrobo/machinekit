@@ -392,7 +392,7 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
             }
             GETIREGS(REG_FEEFBACK_POS, &pos32_fb);
             // TODO: input_scale from inifile
-            *(haldata->init_enc_pos[n]) = pos32_fb/2063.1173;
+            *(haldata->init_enc_pos[n]) = pos32_fb/(*(haldata->input_scale[n]));
             retval = modbus_read_input_registers(p->ctx, REG_ERROE_POS, 2, &pos32_err);
             *(haldata->update_enc_pos[n]) = 0;
 //            printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%4.4x\n", p->slave[n], n, *(haldata->init_enc_pos[n]), pos32_fb, pos32_fb);
