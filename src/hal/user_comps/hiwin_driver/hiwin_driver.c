@@ -285,11 +285,11 @@ int findkwd(param_pointer p, const char *name, int *result, const char *keyword,
 
 int read_ini(param_pointer p)
 {
-    const char *s;
+    const char *s, *string;
     int value;
-    char* slave;
-    char* string;
-    int n;
+    char str[100];
+    char* parts[NUM_JOINTS] = {0};
+    unsigned int index = 0;
 
     if ((p->fp = fopen(p->inifile,"r")) != NULL) {
         if (!p->debug)
@@ -299,7 +299,6 @@ int read_ini(param_pointer p)
         iniFindInt(p->fp, "BITS", p->section, &p->bits);
         iniFindInt(p->fp, "BAUD", p->section, &p->baud);
         iniFindInt(p->fp, "STOPBITS", p->section, &p->stopbits);
-//        iniFindInt(p->fp, "TARGET", p->section, &p->slave);
         iniFindInt(p->fp, "POLLCYCLES", p->section, &p->pollcycles);
         iniFindInt(p->fp, "RECONNECT_DELAY", p->section, &p->reconnect_delay);
 
@@ -308,13 +307,18 @@ int read_ini(param_pointer p)
 
         string = iniFind(p->fp, "TARGET", p->section);
 
-        if (string != NULL) {
-          n=0;
-          while ((slave = strsep(&string, ",")) != NULL)
-          {
-            p->slave[n]= atoi(slave);
-            n++;
-          }
+        strncpy(str, string, sizeof(str));
+        parts[index] = strtok(str,",");
+        p->slave[index] = atoi(parts[index]);
+
+        while(parts[index] != 0)
+        {
+            ++index;
+            parts[index] = strtok(0, ",");
+            if (parts[index] != NULL)
+            {
+                p->slave[index] = atoi(parts[index]);
+            }
         }
 
         if ((s = iniFind(p->fp, "DEVICE", p->section))) {
@@ -379,23 +383,24 @@ void usage(int argc, char **argv) {
 int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
 {
     int retval;
-    uint16_t curr_reg;
-    int32_t pos32_fb, pos32_err;
+    uint16_t curr_reg, pos16_err;
+    uint16_t pos16_fb[MODBUS_MAX_READ_REGISTERS];
+    int32_t pos32_fb;
     int n;
 
     static int pollcount = 0;
     for (n = 0; n < (sizeof(p->slave)/sizeof(int)); n++)
     {
-        if ((p->slave[n] != NULL) && (*(haldata->update_enc_pos[n]))) {
+        if ((p->slave[n] != 0) && (*(haldata->update_enc_pos[n]))) {
             if (modbus_set_slave(p->ctx, p->slave[n]) < 0) {
                 fprintf(stderr, "%s: ERROR: invalid slave number: %d\n", p->modname, p->slave[n]);
             }
-            GETIREGS(REG_FEEFBACK_POS, &pos32_fb);
-            // TODO: input_scale from inifile
+            GETIREGS(REG_FEEFBACK_POS, pos16_fb);
+            pos32_fb = ((pos16_fb[1] << 16) | pos16_fb[0]);
             *(haldata->init_enc_pos[n]) = pos32_fb/(*(haldata->input_scale[n]));
-            retval = modbus_read_input_registers(p->ctx, REG_ERROE_POS, 2, &pos32_err);
+            retval = modbus_read_input_registers(p->ctx, REG_ERROE_POS, 2, &pos16_err);
             *(haldata->update_enc_pos[n]) = 0;
-//            printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%4.4x\n", p->slave[n], n, *(haldata->init_enc_pos[n]), pos32_fb, pos32_fb);
+            printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%8.8x\n", p->slave[n], n, *(haldata->init_enc_pos[n]), pos32_fb, pos32_fb);
         }
     }
 
@@ -463,7 +468,7 @@ int set_defaults(param_pointer p)
 
 int main(int argc, char **argv)
 {
-    struct timespec loop_timespec, remaining;
+    struct timespec loop_timespec;
     int opt;
     param_pointer p = &param;
     int retval = -1;
