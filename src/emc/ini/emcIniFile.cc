@@ -46,6 +46,19 @@ EmcIniFile::Find(EmcAxisType *result,
     return(IniFile::Find((int *)result, axisTypeMap, tag, section, num));
 }
 
+IniFile::StrIntPair         EmcIniFile::axisEncTypeMap[] = {
+    {"ABSOLUTE", ABSOLUTE},
+    {"INCREMENTAL", INCREMENTAL},
+    { NULL, 0 },
+};
+
+EmcIniFile::ErrorCode
+EmcIniFile::Find(AxisEncType *result,
+                 const char *tag, const char *section, int num)
+{
+    return(IniFile::Find((int *)result, axisEncTypeMap, tag, section, num));
+}
+
 
 IniFile::StrIntPair         EmcIniFile::boolMap[] = {
     {"TRUE", 1},

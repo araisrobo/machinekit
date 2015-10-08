@@ -1,0 +1,15 @@
+ifdef HAVE_LIBMODBUS3
+
+VFDB_SRCS = hal/user_comps/hiwin_driver/hiwin_driver.c
+VFDB_CFLAGS = -DDEBUG $(LIBMODBUS_CFLAGS)
+VFDB_LIBS = $(LIBMODBUS_LIBS) -lm
+
+$(call TOOBJSDEPS, $(VFDB_SRCS)) : EXTRAFLAGS += $(VFDB_CFLAGS)
+
+USERSRCS += $(VFDB_SRCS)
+../bin/hiwin_driver: $(call TOOBJS, $(VFDB_SRCS)) ../lib/liblinuxcnchal.so.0 ../lib/liblinuxcncini.so.0
+	$(ECHO) Linking $(notdir $@)
+	$(Q)$(CC) $(LDFLAGS) -o $@ $^ $(VFDB_LIBS) 
+
+TARGETS += ../bin/hiwin_driver
+endif  # HAVE_LIBMODBUS3

@@ -805,6 +805,10 @@ static int export_joint(int num, joint_hal_t * addr)
     if (retval != 0) {
 	return retval;
     }
+    retval = hal_pin_float_newf(HAL_IN, &(addr->last_enc_pos), mot_comp_id, "axis.%d.last-enc-pos", num);
+    if (retval != 0) {
+        return retval;
+    }
     retval = hal_pin_bit_newf(HAL_IN, &(addr->pos_lim_sw), mot_comp_id, "axis.%d.pos-lim-sw-in", num);
     if (retval != 0) {
 	return retval;
@@ -1175,6 +1179,8 @@ static int init_comm_buffers(void)
 	joint->home_search_vel = 0.0;
 	joint->home_latch_vel = 0.0;
 	joint->home_final_vel = -1;
+        joint->home_enc_pos = 0.0;
+        joint->enc_type = 1;    //!< INCREMENTAL = 1,ABSOLUTE = 2,
 	*(joint->home_offset) = 0.0;
 	*(joint->home) = 0.0;
 	joint->home_flags = 0;
@@ -1209,7 +1215,8 @@ static int init_comm_buffers(void)
 	joint->backlash_vel = 0.0;
         joint->blender_offset = 0.0;
         joint->motor_pos_cmd = 0.0;
-	joint->motor_pos_fb = 0.0;
+        joint->motor_pos_fb = 0.0;
+        joint->last_enc_pos = 0.0;
 	joint->pos_fb = 0.0;
 	joint->ferror = 0.0;
 	joint->ferror_limit = joint->min_ferror;
