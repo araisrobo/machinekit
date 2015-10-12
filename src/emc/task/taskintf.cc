@@ -247,8 +247,7 @@ int emcAxisSetHomingParams(int axis, double home, double offset, double home_fin
 {
 #ifdef ISNAN_TRAP
     if (rtapi_isnan(home) || rtapi_isnan(offset) || rtapi_isnan(home_final_vel) ||
-	rtapi_isnan(search_vel) || rtapi_isnan(latch_vel) || rtapi_isnan(home_enc_pos) ||
-	rtapi_isnan(enc_type)) {
+	rtapi_isnan(search_vel) || rtapi_isnan(latch_vel) || rtapi_isnan(home_enc_pos)) {
 	printf("isnan error in emcAxisSetHoming()\n");
 	return -1;
     }
