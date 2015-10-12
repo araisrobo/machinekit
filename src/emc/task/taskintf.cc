@@ -241,13 +241,14 @@ int emcAxisSetMinFerror(int axis, double ferror)
 }
 
 int emcAxisSetHomingParams(int axis, double home, double offset, double home_final_vel,
-			   double search_vel, double latch_vel,
-			   int use_index, int ignore_limits, int is_shared,
-			   int sequence,int volatile_home, int locking_indexer)
+                            double home_enc_pos, double search_vel, double latch_vel,
+                            int use_index, int ignore_limits, int enc_type, int is_shared,
+                            int sequence,int volatile_home, int locking_indexer)
 {
 #ifdef ISNAN_TRAP
     if (rtapi_isnan(home) || rtapi_isnan(offset) || rtapi_isnan(home_final_vel) ||
-	rtapi_isnan(search_vel) || rtapi_isnan(latch_vel)) {
+	rtapi_isnan(search_vel) || rtapi_isnan(latch_vel) || rtapi_isnan(home_enc_pos) ||
+	rtapi_isnan(enc_type)) {
 	printf("isnan error in emcAxisSetHoming()\n");
 	return -1;
     }
@@ -262,8 +263,10 @@ int emcAxisSetHomingParams(int axis, double home, double offset, double home_fin
     emcmotCommand.home = home;
     emcmotCommand.offset = offset;
     emcmotCommand.home_final_vel = home_final_vel;
+    emcmotCommand.home_enc_pos = home_enc_pos;
     emcmotCommand.search_vel = search_vel;
     emcmotCommand.latch_vel = latch_vel;
+    emcmotCommand.enc_type = enc_type;
     emcmotCommand.flags = 0;
     emcmotCommand.home_sequence = sequence;
     emcmotCommand.volatile_home = volatile_home;
