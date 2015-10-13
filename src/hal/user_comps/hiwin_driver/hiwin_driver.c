@@ -122,6 +122,7 @@ typedef struct {
     hal_bit_t   *update_enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
     hal_float_t *init_enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
     hal_float_t *input_scale[NUM_JOINTS];  /* RPI: input scale, with comp */
+    hal_float_t *enc_pol[NUM_JOINTS];  /* RPI: input scale, with comp */
 } haldata_t;
 
 // configuration and execution state
@@ -397,9 +398,9 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
             }
             GETIREGS(REG_FEEFBACK_POS, pos16_fb);
             pos32_fb = ((pos16_fb[1] << 16) | pos16_fb[0]);
-            *(haldata->init_enc_pos[n]) = pos32_fb/(*(haldata->input_scale[n]));
+            *(haldata->init_enc_pos[n]) = *(haldata->enc_pol[n]) * (pos32_fb/(*(haldata->input_scale[n])));
             retval = modbus_read_input_registers(p->ctx, REG_ERROE_POS, 2, &pos16_err);
-            *(haldata->update_enc_pos[n]) = 0;
+            // *(haldata->update_enc_pos[n]) = 0;
             printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%8.8x\n", p->slave[n], n, *(haldata->init_enc_pos[n]), pos32_fb, pos32_fb);
         }
     }
@@ -447,6 +448,8 @@ int hal_setup(int id, haldata_t *h, const char *name)
         *(h->update_enc_pos[n]) = 1;
         PIN(hal_pin_float_newf(HAL_IN, &(h->input_scale[n]), id, "%s.%d.input-scale", name, n));
         *(h->input_scale[n]) = 0;
+        PIN(hal_pin_float_newf(HAL_IN, &(h->enc_pol[n]), id, "%s.%d.enc-pol", name, n));
+        *(h->enc_pol[n]) = 1.0;
     }
 
     return 0;
