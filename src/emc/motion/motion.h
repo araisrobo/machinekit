@@ -250,7 +250,9 @@ extern "C" {
 	double scale;		/* velocity scale or spindle_speed scale arg */
 	double offset;		/* input, output, or home offset arg */
 	double home;		/* joint home position */
-	double home_final_vel;	/* joint velocity for moving from OFFSET to HOME */
+        double home_final_vel;  /* joint velocity for moving from OFFSET to HOME */
+        double home_enc_pos;    /* joint initial encoder to HOME */
+        int enc_type;           /* joint encoder type */
 	double search_vel;	/* home search velocity */
 	double latch_vel;	/* home latch velocity */
 	int flags;		/* homing config flags, other boolean args */
@@ -485,6 +487,11 @@ Suggestion: Split this in to an Error and a Status flag register..
 	EMCMOT_ORIENT_FAULTED,
     } orient_state_t;
 
+    typedef enum {
+        HOME_INCREMENTAL            = 1,
+        HOME_ABSOLUTE               = 2,
+    } home_enc_type;
+
 /* flags for homing */
 #define HOME_IGNORE_LIMITS	1
 #define HOME_USE_INDEX		2
@@ -526,7 +533,9 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double min_ferror;	/* zero speed following error limit */
 	double max_ferror;	/* max speed following error limit */
 	double home_search_vel;	/* dir/spd to look for home switch */
-	double home_final_vel;  /* speed to travel from OFFSET to HOME position */
+        double home_final_vel;  /* speed to travel from OFFSET to HOME position */
+        double home_enc_pos;    /* initial encoder to HOME position */
+        int enc_type;        /* initial encoder type */
 	double home_latch_vel;	/* dir/spd to latch switch/index pulse */
 	hal_float_t *home_offset;	/* dir/dist from switch to home point */
 	hal_float_t *home;	/* joint coordinate of home point */
@@ -549,7 +558,8 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double backlash_filt;	/* filtered backlash correction */
 	double backlash_vel;	/* backlash velocity variable */
 	double motor_pos_cmd;	/* commanded position, with comp */
-	double motor_pos_fb;	/* position feedback, with comp */
+        double motor_pos_fb;    /* position feedback, with comp */
+        double last_enc_pos;    /* last encoder position, with comp */
 	double pos_fb;		/* position feedback, comp removed */
         double risc_pos_cmd;    /* position command issued by RISC */
         double scale_recip;     //!< the reciprocal of scale, which is unit/pulse

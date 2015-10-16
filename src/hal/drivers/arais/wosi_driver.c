@@ -49,6 +49,8 @@
 #define FP_SCALE_RECIP      0.0000152587890625  // (1.0/65536.0)
 #define FRACTION_MASK 0x0000FFFF
 
+#undef PRINT_BANDWIDTH  // call wosi_status() to print WOSI bandwidth utilization
+
 // to disable DP(): #define TRACE 0
 // to dump JOINT status, #define TRACE 1
 // to dump JOINT status and time statics, #define TRACE 2
@@ -62,8 +64,8 @@ static FILE *dptrace;
 //MODULE_AUTHOR("Yishin Li");
 //MODULE_DESCRIPTION("HAL for Wishbone Over Serial Interface");
 //MODULE_LICENSE("GPL");
-# define GPIO_IN_NUM    80
-# define GPIO_OUT_NUM   32
+# define GPIO_IN_NUM    96
+# define GPIO_OUT_NUM   96
 
 static const char wosi_id = 0;
 static wosi_param_t w_param;
@@ -166,8 +168,8 @@ typedef struct
     hal_float_t *feed_scale;
     hal_bit_t *rt_abort; // realtime abort to FPGA
     /* sync input pins (input to motmod) */
-    hal_bit_t *in[80];
-    hal_bit_t *in_n[80];
+    hal_bit_t *in[96];
+    hal_bit_t *in_n[96];
     uint32_t prev_in0;
     uint32_t prev_in1;
     uint32_t prev_in2;
@@ -184,8 +186,8 @@ typedef struct
     hal_u32_t *crc_error_counter;
 
     /* sync output pins (output from motmod) */
-    hal_bit_t *out[32];
-    uint32_t prev_out; //ON or OFF
+    hal_bit_t *out[GPIO_OUT_NUM];
+    uint32_t prev_out[(GPIO_OUT_NUM >> 5)]; //ON or OFF
 
     uint32_t prev_ahc_state;
     hal_bit_t *ahc_state; // 0: disable 1:enable
@@ -382,13 +384,13 @@ static void fetchmail(const uint8_t *buf_head)
             }
         }
 
-        // update gpio_in[79:64]
+        // update gpio_in[95:64]
         // compare if there's any GPIO.DIN bit got toggled
         if (machine_control->prev_in2 != din[2])
         {
             // avoid for-loop to save CPU cycles
             machine_control->prev_in2 = din[2];
-            for (i = 64; i < 80; i++)
+            for (i = 64; i < 96; i++)
             {
                 *(machine_control->in[i]) = ((machine_control->prev_in2)
                         >> (i - 64)) & 0x01;
@@ -1464,7 +1466,7 @@ void wosi_receive()
 void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 {
     stepgen_t *stepgen;
-    int n, i;
+    int n, i, j;
 
     uint16_t sync_cmd;
     int32_t wosi_pos_cmd, integer_pos_cmd;
@@ -1477,7 +1479,9 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     static uint32_t _dt = 0;
 #endif
 
+#ifdef PRINT_BANDWIDTH
     wosi_status(&w_param); // print bandwidth utilization
+#endif
 
     /* begin set analog trigger level*/
     if (*machine_control->analog_ref_level
@@ -1641,24 +1645,25 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     /* end: process motion synchronized input */
 
     /* begin: process motion synchronized output */
-    sync_out_data = 0;
-    for (i = 0; i < GPIO_OUT_NUM; i++)
+    for (j=0; j<(GPIO_OUT_NUM >> 5); j++)
     {
-        if (((machine_control->prev_out >> i) & 0x01)
-                != (*(machine_control->out[i])))
+        sync_out_data = 0;
+        for (i=0; i<32; i++)
         {
+            if (((machine_control->prev_out[j] >> i) & 0x01)
+                    != (*(machine_control->out[j*32+i])))
             {
                 // write a wosi frame for sync output into command FIFO
-                sync_cmd = SYNC_DOUT | PACK_IO_ID(i)
-                        | PACK_DO_VAL(*(machine_control->out[i]));
+                sync_cmd = SYNC_DOUT | PACK_IO_ID(j*32+i)
+                                     | PACK_DO_VAL(*(machine_control->out[j*32+i]));
                 memcpy(data, &sync_cmd, sizeof(uint16_t));
                 wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
                         sizeof(uint16_t), data);
             }
+            sync_out_data |= ((*(machine_control->out[j*32+i])) << i);
         }
-        sync_out_data |= ((*(machine_control->out[i])) << i);
+        machine_control->prev_out[j] = sync_out_data;
     }
-    machine_control->prev_out = sync_out_data;
     /* end: process motion synchronized output */
 
     /* DAC: fixed as 4 dac channels */
@@ -1689,7 +1694,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     {
         // force updating prev_out and ignore "out[] for RISC" if ESTOP is pressed
         // The dout0 is forced by ALARM_OUT when ESTOP is pressed
-        machine_control->prev_out = *machine_control->dout0;
+        machine_control->prev_out[0] = *machine_control->dout0;
     }
 
     if ((*machine_control->pso_req == 1))
@@ -2452,7 +2457,10 @@ static int export_machine_control(machine_control_t * machine_control)
     }
     *(machine_control->crc_error_counter) = 0;
 
-    machine_control->prev_out = 0;
+    for (i=0; i<(GPIO_OUT_NUM >> 5); i++)
+    {
+        machine_control->prev_out[i] = 0;
+    }
 
     retval = hal_pin_bit_newf(HAL_IN, &(machine_control->teleop_mode), comp_id,
             "wosi.motion.teleop-mode");
