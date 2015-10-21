@@ -81,7 +81,8 @@
 // status registers for DELTA VFD-B Inverter
 #define REG_FEEFBACK_POS        0x0000                  //
 #define REG_REFERENCE_POS       0x0002                   //
-#define REG_ERROE_POS           0x0006                   // 0.01Hz units
+#define REG_ERROE_POS           0x0006
+#define REG_BATTERY             0x0FAA          // battery warning
 #define ST_EMERGENCY_STOPPED    0x0021          // EF1/ESTOP
 
 #define SR_MOTOR_SPEED          0x210C          // RPM
@@ -386,7 +387,8 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
     int retval;
     uint16_t curr_reg, pos16_err;
     uint16_t pos16_fb[MODBUS_MAX_READ_REGISTERS];
-    int32_t pos32_fb;
+    uint16_t battery[MODBUS_MAX_READ_REGISTERS];
+    int32_t pos32_fb, battery32;
     int n;
 
     static int pollcount = 0;
@@ -402,6 +404,17 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
             retval = modbus_read_input_registers(p->ctx, REG_ERROE_POS, 2, &pos16_err);
             // *(haldata->update_enc_pos[n]) = 0;
             printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%8.8x\n", p->slave[n], n, *(haldata->init_enc_pos[n]), pos32_fb, pos32_fb);
+        }
+        if ((p->slave[n] != 0) && (*(haldata->update_enc_pos[n]))) {
+            if (modbus_set_slave(p->ctx, p->slave[n]) < 0) {
+                fprintf(stderr, "%s: ERROR: invalid slave number: %d\n", p->modname, p->slave[n]);
+            }
+            // retval = modbus_read_input_registers(p->ctx, REG_BATTERY, 2, battery);
+            GETIREGS(REG_BATTERY, battery);
+            battery32 = ((battery[1] << 16) | battery[0]);
+            retval = modbus_read_input_registers(p->ctx, REG_ERROE_POS, 2, &pos16_err);
+            // *(haldata->update_enc_pos[n]) = 0;
+            printf("slave: %d n(%d) -- battery:(%d)\n", p->slave[n], n, battery32);
         }
     }
 
