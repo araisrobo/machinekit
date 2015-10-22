@@ -7,9 +7,9 @@
  *    SYNC_JNT           2'b00    {DIR_W, POS_W}    DIR_W[13]:    Direction, (positive(1), negative(0))
  *                                                  POS_W[12:0]:  Relative Angle Distance (0 ~ 8191)
  *    NAME        OP_CODE[15:12]  OPERAND[11:0]     Description
- *    SYNC_DOUT          4'b0100  {ID, VAL}         ID[11:6]: Output PIN ID
+ *    SYNC_DOUT          4'b0100  {ID, VAL}         ID[11:4]: Output PIN ID
  *                                                  VAL[0]:   ON(1), OFF(0)
- *    SYNC_DIN           4'b0101  {ID, TYPE}        ID[11:6]: Input PIN ID
+ *    SYNC_DIN           4'b0101  {ID, TYPE}        ID[11:4]: Input PIN ID
  *                                                  TYPE[2:0]: LOW(000), HIGH(001), FALL(010), RISE(011)
  *                                                             TIMEOUT(100)
  *    RESERVED           4'b0110  
@@ -66,9 +66,6 @@
 #define POS_MASK                        0x1FFF
 
 #define SYNC_OP_CODE_MASK               0xF000
-#define SYNC_DI_DO_PIN_MASK             0x0FC0
-#define SYNC_DOUT_VAL_MASK              0x0001
-#define SYNC_DIN_TYPE_MASK              0x0007
 #define SYNC_DATA_MASK                  0x00FF
 #define SYNC_MOT_PARAM_ID_MASK          0x0F00
 #define SYNC_MOT_PARAM_ADDR_MASK        0x00FF
@@ -87,10 +84,21 @@
 #define SYNC_DAC_ADDR_MASK              0x00FF
 #define SYNC_DAC_VAL_MASK               0xFFFF
 
-//      SFIFO DATA MACROS
-#define GET_IO_ID(i)                    (((i) & SYNC_DI_DO_PIN_MASK) >> 6)
-#define GET_DO_VAL(v)                   (((v) & SYNC_DOUT_VAL_MASK))
-#define GET_DI_TYPE(t)                  (((t) & SYNC_DIN_TYPE_MASK))
+// SFIFO DATA MACROS
+// SYNC_DOUT          4'b0100  {ID, VAL}         ID[11:4]: Output PIN ID
+//                                               VAL[0]:   ON(1), OFF(0)
+// SYNC_DIN           4'b0101  {ID, TYPE}        ID[11:4]: Input PIN ID
+//                                               TYPE[2:0]: LOW(000), HIGH(001), FALL(010), RISE(011)
+//                                                          TIMEOUT(100)
+#define SYNC_DI_DO_PIN_MASK             0x0FF0
+#define SYNC_DOUT_VAL_MASK              0x0001
+#define SYNC_DIN_TYPE_MASK              0x0007
+#define DIO_PIN_OFFSET                  4
+#define GET_IO_ID(i)                    (((i) & SYNC_DI_DO_PIN_MASK) >> DIO_PIN_OFFSET)
+#define DO_VAL(v)                       (((v) & SYNC_DOUT_VAL_MASK))
+#define DI_TYPE(t)                      (((t) & SYNC_DIN_TYPE_MASK))
+#define PACK_IO_ID(i)                   (((i) << DIO_PIN_OFFSET) & SYNC_DI_DO_PIN_MASK)
+
 #define GET_DATA_VAL(t)                 (((t) & SYNC_DATA_MASK))
 #define GET_MOT_PARAM_ID(t)             (((t) & SYNC_MOT_PARAM_ID_MASK) >> 8)
 #define GET_MOT_PARAM_ADDR(t)           (((t) & SYNC_MOT_PARAM_ADDR_MASK))
@@ -101,9 +109,6 @@
 #define GET_DAC_VAL(v)                  ((v) & SYNC_DAC_VAL_MASK)
 
 #define PACK_SYNC_DATA(t)               ((t & 0xFF))
-#define PACK_IO_ID(i)                   (((i) & 0x3F) << 6)
-#define PACK_DO_VAL(v)                  (((v) & 0x01))
-#define PACK_DI_TYPE(t)                 (((t) & 0x07))
 #define PACK_MOT_PARAM_ID(t)            (((t) << 8) & SYNC_MOT_PARAM_ID_MASK)
 #define PACK_MOT_PARAM_ADDR(t)          ((t) & SYNC_MOT_PARAM_ADDR_MASK)
 #define PACK_MACH_PARAM_ADDR(t)         ((t) & SYNC_MACH_PARAM_ADDR_MASK)

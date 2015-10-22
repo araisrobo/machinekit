@@ -1636,7 +1636,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         // begin: trigger sync in and wait timeout
         sync_cmd = SYNC_DIN
                 | PACK_IO_ID((uint32_t)*(machine_control->sync_in_index))
-                | PACK_DI_TYPE((uint32_t)*(machine_control->wait_type));
+                | DI_TYPE((uint32_t)*(machine_control->wait_type));
         wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
                 sizeof(uint16_t), (uint8_t *) &sync_cmd);
         // end: trigger sync in and wait timeout
@@ -1655,7 +1655,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             {
                 // write a wosi frame for sync output into command FIFO
                 sync_cmd = SYNC_DOUT | PACK_IO_ID(j*32+i)
-                                     | PACK_DO_VAL(*(machine_control->out[j*32+i]));
+                                     | DO_VAL(*(machine_control->out[j*32+i]));
                 memcpy(data, &sync_cmd, sizeof(uint16_t));
                 wosi_cmd(&w_param, WB_WR_CMD, (JCMD_BASE | JCMD_SYNC_CMD),
                         sizeof(uint16_t), data);
