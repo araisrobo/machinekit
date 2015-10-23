@@ -1,0 +1,47 @@
+G21
+G97     (RPM mode)
+
+; #1=0
+; o101 while[#1 lt 100]
+
+G90
+G0 X200  
+;G0 X670
+
+m62p9 (start gangi)
+
+G96 D250 S93.25 (MAX-RPM=250, SURFACE-SPEED=93.25m/min)
+
+M3
+;G33 X300 K2 (move to X=300mm, pitch=2mm)
+;G33 X200 K2 (move to X=300mm, pitch=2mm)
+G33 X100 K2 (move to X=300mm, pitch=2mm)
+;G33 X60 K2 (move to X.., pitch=2mm)
+;G33 X45 K2 (move to X.., pitch=2mm)
+;G33 X600 K2.5 (move to X.., pitch=2mm)
+
+
+m63p9 (stop gangi)
+
+G91
+G0 X50
+G90
+
+M5
+
+; G97     (RPM mode)
+; M3S200
+; G04P1
+(debug, B.pos-fb=#<_hal[axis.4.joint-pos-fb]>)
+(debug, B.pos-fb=#<_hal[axis.4.joint-pos-fb]>)
+;G0 B[#<_hal[axis.4.joint-pos-fb]>]
+;G0 X200
+(debug, B.pos-fb=#<_hal[axis.4.joint-pos-fb]>)
+;M5
+; #1 = [#1 + 1]
+; o101 endwhile
+;G04P1
+;G0 X100
+
+;M5
+M2

@@ -1,0 +1,13 @@
+G21
+G64P0.5
+
+m64p21 (left small spindle cylinder forward ON)
+m64p23 (right small spindle cylinder forward ON)
+g04p3
+m65p21 (left small spindle cylinder forward OFF)
+m65p23 (right small spindle cylinder forward OFF)
+g04p3                                             
+
+M2
+
+%

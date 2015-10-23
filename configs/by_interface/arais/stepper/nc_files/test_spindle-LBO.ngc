@@ -1,0 +1,39 @@
+G64P0.5
+
+#1=0
+o101 while [#1 lt 100]
+
+m64p21 (LSO-ON) 
+g04p3
+m65p21 (LSO-OFF)
+
+m64p26 (LBO-FB-ON) 
+g04p5
+m65p26 (LBO-FB-OFF)
+
+m64p27 (LBI-ON) 
+g04p3
+m65p27 (LBI-OFF)
+
+m64p18 (LBO-BM-ON) 
+g04p5
+m65p18 (LBO-BM-OFF)
+
+m64p27 (LBI-ON) 
+g04p3
+m65p27 (LBI-OFF)
+
+m64p26 (LBO-FB-ON) 
+m64p18 (LBO-BM-ON) 
+g04p5
+m65p26 (LBO-FB-OFF)
+m65p18 (LBO-BM-OFF)
+
+g04p10
+
+#1 = [#1 + 1]
+o101 endwhile
+
+M2
+
+%

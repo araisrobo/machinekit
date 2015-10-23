@@ -1,0 +1,43 @@
+G64P0.5
+
+#1=0
+o101 while [#1 lt 100]
+
+m64p27 (LBI-ON) 
+g04p3
+m65p27 (LBI-OFF)
+
+m64p21 (LSO-ON) 
+g04p3
+m65p21 (LSO-OFF)
+
+m64p20 (LSI-CB-ON) 
+g04p5
+m65p20 (LSI-CB-OFF)
+
+m64p21 (LSO-ON) 
+g04p3
+m65p21 (LSO-OFF)
+
+m64p29 (LSI-GM-ON) 
+g04p5
+m65p29 (LSI-GM-OFF)
+
+m64p21 (LSO-ON) 
+g04p3
+m65p21 (LSO-OFF)
+
+m64p20 (LSI-CB-ON) 
+m64p29 (LSI-GM-ON) 
+g04p5
+m65p20 (LSI-CB-OFF)
+m65p29 (LSI-GM-OFF)
+
+g04p10
+
+#1 = [#1 + 1]
+o101 endwhile
+
+M2
+
+%

@@ -1,0 +1,60 @@
+G21
+G64P0.5
+
+#1=0
+o101 while [#1 lt 100]
+
+;G91
+
+m64p21 (left small spindle cylinder forward ON)
+m64p23 (right small spindle cylinder forward ON)
+g04p3
+m65p21 (left small spindle cylinder forward OFF)
+m65p23 (right small spindle cylinder forward OFF)
+g04p3                                             
+
+m64p18 (left big spindle cylinder forward ON)
+m64p17 (right big spindle cylinder forward ON)
+g04p3                                            
+m65p18 (left big spindle cylinder forward OFF)
+m65p17 (right big spindle cylinder forward OFF)
+
+m64p25 (nose bar close ON)
+g04p5
+
+m64p8  (spindle FWD ON)
+m64p9  (gangi ON)
+m64p14 (fan clear ON)
+m64p15 (oiling ON)
+m65p25 (nose bar close OFF)
+g04p5
+
+m65p8  (spindle FWD OFF)
+m65p9  (gangi OFF)
+m65p15 (oiling OFF)
+
+m64p27 (left big spindle cylinder backward ON)
+m64p16 (right big spindle cylinder backward ON)
+g04p3                                             
+m65p27 (left big spindle cylinder backward OFF)
+m65p16 (right big spindle cylinder backward OFF)
+g04p3                                             
+
+m64p20 (left small spindle cylinder backward ON)
+m64p22 (right small spindle cylinder backward ON)
+g04p3                                             
+m65p20 (left small spindle cylinder backward OFF)
+m65p22 (right small spindle cylinder backward OFF)
+
+m65p14 (fan clear OFF)
+m64p24 (nose bar open ON)
+g04p5
+m65p24 (nose bar open OFF)
+
+#1 = [#1 + 1]
+o101 endwhile
+
+
+M2
+
+%

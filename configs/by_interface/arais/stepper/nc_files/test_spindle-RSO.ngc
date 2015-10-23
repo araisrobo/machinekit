@@ -1,0 +1,43 @@
+G64P0.5
+
+#1=0
+o101 while [#1 lt 100]
+
+m64p16 (RBI-AB-ON) 
+g04p3
+m65p16 (RBI-AB-OFF)
+
+m64p22 (RSI-ON) 
+g04p3
+m65p22 (RSI-OFF)
+
+m64p23 (RSO-DB-ON) 
+g04p5
+m65p23 (RSO-DB-OFF)
+
+m64p22 (RSI-ON) 
+g04p3
+m65p22 (RSI-OFF)
+
+m64p28 (RSO-GM-ON) 
+g04p5
+m65p28 (RSO-GM-OFF)
+
+m64p22 (RSI-ON) 
+g04p3
+m65p22 (RSI-OFF)
+
+m64p23 (RSO-DB-ON) 
+m64p28 (RSO-GM-ON) 
+g04p5
+m65p23 (RSO-DB-OFF)
+m65p28 (RSO-GM-OFF)
+
+g04p10
+
+#1 = [#1 + 1]
+o101 endwhile
+
+M2
+
+%

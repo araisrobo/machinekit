@@ -1,0 +1,20 @@
+G64P0.5
+
+m64p16 (RBI-AB-ON) 
+m64p27 (LBI-ON) 
+g04p3
+m65p16 (RBI-AB-OFF) 
+m65p27 (LBI-OFF)
+
+g04p3
+
+m64p20 (LSI-CB-ON) 
+m64p22 (RSI-ON) 
+g04p3
+m65p20 (LSI-CB-OFF) 
+m65p22 (RSI-OFF)
+
+M2
+
+%
+

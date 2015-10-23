@@ -1,0 +1,21 @@
+G64P0.5
+
+#1=0
+o101 while [#1 lt 100]
+
+m64p24 (Nose bar open ON) 
+g04p6
+m65p24 (Nose bar open OFF) 
+
+m64p25 (Nose bar close ON) 
+g04p6
+m65p25 (Nose bar close OFF) 
+
+g04p3
+
+#1 = [#1 + 1]
+o101 endwhile
+
+M2
+
+%

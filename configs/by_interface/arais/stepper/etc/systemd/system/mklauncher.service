@@ -1,0 +1,14 @@
+[Unit]
+Description=Starts Mklauncher for MEINAN
+After=syslog.target network.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -a -c "source /home/artek/proj/machinekit/scripts/rip-environment && \
+                           /usr/bin/python /home/artek/proj/machinekit/bin/mklauncher /home/artek/proj/kinabalu/meinan"
+ExecStopPost=/bin/bash -a -c "/home/artek/bin/linuxcnc_stop"
+User=artek
+LimitMEMLOCK=33554432
+
+[Install]
+WantedBy=multi-user.target

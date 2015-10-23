@@ -1,0 +1,16 @@
+G21
+G64P0.5
+
+; #1=0
+; o101 while [#1 lt 100]
+
+; G91
+
+m64p20 (left small spindle cylinder backward ON)
+m64p22 (right small spindle cylinder backward ON)
+g04p3                                             
+m65p20 (left small spindle cylinder backward OFF)
+m65p22 (right small spindle cylinder backward OFF)
+M2
+
+%

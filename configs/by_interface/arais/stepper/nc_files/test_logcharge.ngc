@@ -1,0 +1,22 @@
+G21
+G64P0.5
+
+#1=0
+o101 while [#1 lt 100]
+
+G91
+; M3S500
+; m65p9  (gangi OFF)
+G21 G91 F35000 G1Y2000
+
+; M3S700
+; m64p9  (gangi ON)
+G21 G91 F35000 G1Y-2000
+
+#1 = [#1 + 1]
+o101 endwhile
+
+
+M2
+
+%
