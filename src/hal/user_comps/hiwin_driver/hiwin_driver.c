@@ -81,7 +81,8 @@
 // status registers for DELTA VFD-B Inverter
 #define REG_FEEFBACK_POS        0x0000                  //
 #define REG_REFERENCE_POS       0x0002                   //
-#define REG_ERROE_POS           0x0006                   // 0.01Hz units
+#define REG_ERROE_POS           0x0006
+#define REG_STATUS3             0x0FAA          // battery warning
 #define ST_EMERGENCY_STOPPED    0x0021          // EF1/ESTOP
 
 #define SR_MOTOR_SPEED          0x210C          // RPM
@@ -120,6 +121,7 @@ typedef struct {
     hal_float_t	looptime;
     hal_bit_t	*enabled;		// if set: control VFD via Modbus commands, panel control disabled
     hal_bit_t   *update_enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
+    hal_bit_t   *battery_warning[NUM_JOINTS];  /* RPI: last encoder position, with comp */
     hal_float_t *init_enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
     hal_float_t *input_scale[NUM_JOINTS];  /* RPI: input scale, with comp */
     hal_float_t *enc_pol[NUM_JOINTS];  /* RPI: input scale, with comp */
@@ -384,9 +386,9 @@ void usage(int argc, char **argv) {
 int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
 {
     int retval;
-    uint16_t curr_reg, pos16_err;
-    uint16_t pos16_fb[MODBUS_MAX_READ_REGISTERS];
-    int32_t pos32_fb;
+    uint16_t curr_reg;
+    uint16_t tmp_value[MODBUS_MAX_READ_REGISTERS];
+    int32_t pos32_fb, status3;
     int n;
 
     static int pollcount = 0;
@@ -396,12 +398,15 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
             if (modbus_set_slave(p->ctx, p->slave[n]) < 0) {
                 fprintf(stderr, "%s: ERROR: invalid slave number: %d\n", p->modname, p->slave[n]);
             }
-            GETIREGS(REG_FEEFBACK_POS, pos16_fb);
-            pos32_fb = ((pos16_fb[1] << 16) | pos16_fb[0]);
+            GETIREGS(REG_FEEFBACK_POS, tmp_value);
+            pos32_fb = ((tmp_value[1] << 16) | tmp_value[0]);
             *(haldata->init_enc_pos[n]) = *(haldata->enc_pol[n]) * (pos32_fb/(*(haldata->input_scale[n])));
-            retval = modbus_read_input_registers(p->ctx, REG_ERROE_POS, 2, &pos16_err);
+            GETIREGS(REG_STATUS3, tmp_value);
+            status3 = ((tmp_value[1] << 16) | tmp_value[0]);
+            *(haldata->battery_warning[n]) = (status3 && 0x0040);
             // *(haldata->update_enc_pos[n]) = 0;
-            printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%8.8x\n", p->slave[n], n, *(haldata->init_enc_pos[n]), pos32_fb, pos32_fb);
+            // printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%8.8x\n", p->slave[n], n, *(haldata->init_enc_pos[n]), pos32_fb, pos32_fb);
+            // printf("slave: %d n(%d) -- battery:(%d) (%d)\n", p->slave[n], n, status3, *(haldata->battery_warning[n]));
         }
     }
 
@@ -446,6 +451,8 @@ int hal_setup(int id, haldata_t *h, const char *name)
         *(h->init_enc_pos[n]) = 0;
         PIN(hal_pin_bit_newf(HAL_IO, &(h->update_enc_pos[n]), id, "%s.%d.update-enc-pos", name, n));
         *(h->update_enc_pos[n]) = 1;
+        PIN(hal_pin_bit_newf(HAL_IO, &(h->battery_warning[n]), id, "%s.%d.battery-warning", name, n));
+        *(h->battery_warning[n]) = 0;
         PIN(hal_pin_float_newf(HAL_IN, &(h->input_scale[n]), id, "%s.%d.input-scale", name, n));
         *(h->input_scale[n]) = 0;
         PIN(hal_pin_float_newf(HAL_IN, &(h->enc_pol[n]), id, "%s.%d.enc-pol", name, n));
