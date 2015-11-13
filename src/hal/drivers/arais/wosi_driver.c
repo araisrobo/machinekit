@@ -73,7 +73,6 @@ static wosi_param_t w_param;
 #define FIXED_POINT_SCALE       65536.0             // (double (1 << FRACTION_BITS))
 #define MAX_DSIZE               127     // Maximum WOSI data size
 #define MAX_CHAN                8
-#define JOINT_NUM               6
 
 static char reload_ini_file[80];
 
@@ -107,7 +106,10 @@ typedef struct
     // hal_param_*_newf: varaiable not necessary to be pointer
     int64_t rawcount; /* precision: 64.16; accumulated pulse sent to FPGA */
     hal_s32_t *rawcount32; /* 32-bit integer part of rawcount */
-    char pulse_type; /* A(AB-PHASE), S(STEP-DIR), P(PWM) */
+    char out_type; /* A(AB-PHASE), S(STEP-DIR), P(PWM), D(DAC) */
+    char enc_type; /* A(AB-PHASE), S(STEP-DIR), L(LOOPBACK) */
+    double enc_scale; /* encoder scale */
+    char alr_id; /* alarm id */
     hal_s32_t *enc_pos; /* pin: encoder position from servo drive, captured from FPGA */
     hal_float_t pos_scale; /* param: steps per position unit */
     double scale_recip; /* reciprocal value used for scaling */
@@ -220,7 +222,8 @@ typedef struct
     hal_u32_t *rcmd_seq_num_ack;
     hal_u32_t *rcmd_state;
 
-    hal_u32_t *max_tick_time;
+    hal_u32_t *cur_tick;        // RISC cycle-time(20ns) ticks of current servo-period
+    hal_u32_t *max_tick;
 
     // machine_status bits
     hal_bit_t *ahc_doing;
@@ -442,7 +445,10 @@ static void fetchmail(const uint8_t *buf_head)
         }
 
         p += 1;
-        *(machine_control->max_tick_time) = *p;
+        *(machine_control->cur_tick) = *p;
+
+        p += 1;
+        *(machine_control->max_tick) = *p;
 
         p += 1;
         *machine_control->rcmd_state = *p;
@@ -620,24 +626,24 @@ static int system_initialize(FILE *fp)
         return -1;
     }
 
-    // Update num_joints based on [KINS]JOINTS
+    // Update num_joints based on [ARAIS]JOINTS
     // JOINTS: the number of joint to be controlled by FPGA
-    s = iniFind(fp, "JOINTS", "KINS");
+    s = iniFind(fp, "JOINTS", "ARAIS");
     if (s == NULL)
     {
         rtapi_print_msg(RTAPI_MSG_ERR,
-                "WOSI: ERROR: no [KINS]JOINTS defined\n");
+                "WOSI: ERROR: no [ARAIS]JOINTS defined\n");
         return -1;
     } else
     {
-        rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: [KINS]JOINTS=%s\n", s);
+        rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: [ARAIS]JOINTS=%s\n", s);
         num_joints = atoi(s);
         assert(num_joints > 0);
-        assert(num_joints <= 6); // support up to 6 joints for USB/7i43
+        assert(num_joints <= 8); // support up to 8 joints for AR11
         /* to clear PULSE/ENC/SWITCH/INDEX positions for all joints*/
 
         // issue a WOSI_WRITE to RESET SSIF position registers
-        data[0] = (1 << num_joints) - 1; // bit-map-for-num_joints (tx. 6'b111111)
+        data[0] = (1 << num_joints) - 1; // bit-map-for-num_joints (ex. 8'b11111111)
         wosi_cmd(&w_param, WB_WR_CMD, SSIF_BASE | SSIF_RST_POS, 1, data);
         while (wosi_flush(&w_param) == -1)
             ;
@@ -774,243 +780,6 @@ static int load_parameters(FILE *fp)
     while (wosi_flush(&w_param) == -1)
         ;
 
-    // "pulse type (AB-PHASE(a) or STEP-DIR(s) or PWM-DIR(p)) for up to 8 channels")
-    s = iniFind(fp, "PULSE_TYPE", "ARAIS");
-    if (s == NULL)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no pulse_type defined\n");
-        return -1;
-    }
-    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: PULSE_TYPE=%s\n", s);
-    data[0] = 0; // SSIF_PULSE_TYPE j3 ~ j0
-    data[1] = 0; // SSIF_PULSE_TYPE J5 ~ j4
-    immediate_data = 0; // reset SSIF_MODE of all joints to POSITION-MODE(0)
-    for (n = 0, t = (char *) s;; n++, t = NULL)
-    {
-        token = strtok(t, ",");
-        if (token == NULL)
-            break;
-        else
-        {
-            if (toupper(token[0]) == 'A')
-            {
-                // PULSE_TYPE(0): ab-phase
-            } else if (toupper(token[0]) == 'S')
-            {
-                // PULSE_TYPE(1): step-dir
-                if (n < 4)
-                {
-                    data[0] |= (1 << (n * 2));
-                } else
-                {
-                    data[1] |= (1 << ((n - 4) * 2));
-                }
-            } else if (toupper(token[0]) == 'P')
-            {
-                // PULSE_TYPE(1): pwm-dir
-                immediate_data |= (1 << n); // joint[n]: set SSIF_MODE as PWM-MODE
-                if (n < 4)
-                {
-                    data[0] |= (3 << (n * 2));
-                } else
-                {
-                    data[1] |= (3 << ((n - 4) * 2));
-                }
-            } else
-            {
-                rtapi_print_msg(RTAPI_MSG_ERR, "ERROR: pulse_type: %s\n", s);
-                rtapi_print_msg(RTAPI_MSG_ERR,
-                        "ERROR: bad pulse_type(%s) for joint[%i] (must be 'A' or 'S' or 'P')\n",
-                        token, n);
-                return -1;
-            }
-//            pulse_type[n][0] = toupper(token[0]);
-            stepgen_array[n].pulse_type = toupper(token[0]);
-        }
-    }
-    wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_PULSE_TYPE),
-            (uint8_t) 2, data);                         // for FPGA
-    write_machine_param(SSIF_MODE, immediate_data);     // for RISC
-    rtapi_print_msg(RTAPI_MSG_INFO, "STEPGEN: PULSE_TYPE[J3:J0]: 0x%02X\n",
-            data[0]);
-    rtapi_print_msg(RTAPI_MSG_INFO, "STEPGEN: PULSE_TYPE[J7:J4]: 0x%02X\n",
-            data[1]);
-    // end of pulse_type[]
-
-    // "encoder type: (REAL(r) or LOOP-BACK(l)) for up to 8 channels"
-    s = iniFind(fp, "ENC_TYPE", "ARAIS");
-    if (s == NULL)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no ENC_TYPE defined\n");
-        return -1;
-    }
-    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: ENC_TYPE=%s\n", s);
-    data[0] = 0; // ENC_TYPE J3 ~ J0
-    data[1] = 0; // ENC_TYPE J5 ~ j4
-    for (n = 0, t = (char *) s;; n++, t = NULL)
-    {
-        token = strtok(t, ",");
-        if (token == NULL)
-            break;
-        else
-        {
-            if (toupper(token[0]) == 'L')
-            {
-                // ENC_TYPE(00): fake ENCODER counts (loop PULSE_CMD to ENCODER)
-            } else if (toupper(token[0]) == 'A')
-            {
-                // ENC_TYPE(10): real ENCODER counts, AB-Phase
-                if (n < 4)
-                {
-                    data[0] |= (2 << (n * 2));
-                } else
-                {
-                    data[1] |= (2 << ((n - 4) * 2));
-                }
-            } else if (toupper(token[0]) == 'S')
-            {
-                // ENC_TYPE(11): real ENCODER counts, STEP-DIR
-                if (n < 4)
-                {
-                    data[0] |= (3 << (n * 2));
-                } else
-                {
-                    data[1] |= (3 << ((n - 4) * 2));
-                }
-            } else
-            {
-                rtapi_print_msg(RTAPI_MSG_ERR,
-                        "STEPGEN: ERROR: bad enc_type '%s' for joint %i (must be 'a', 's', or 'l')\n",
-                        token, n);
-                return -1;
-            }
-        }
-    }
-    wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_ENC_TYPE),
-            (uint8_t) 2, data);
-    rtapi_print_msg(RTAPI_MSG_INFO, "STEPGEN: ENC_TYPE[J3:J0]: 0x%02X\n",
-            data[0]);
-    rtapi_print_msg(RTAPI_MSG_INFO, "STEPGEN: ENC_TYPE[J7:J4]: 0x%02X\n",
-            data[1]);
-    // end of ENC_TYPE
-
-    // "encoder polarity (POSITIVE(p) or NEGATIVE(n)) for up to 8 channels"
-    s = iniFind(fp, "ENC_POL", "ARAIS");
-    if (s == NULL)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no ENC_POL defined\n");
-        return -1;
-    }
-    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: ENC_POL=%s\n", s);
-    data[0] = 0;
-    for (n = 0, t = (char *) s;; n++, t = NULL)
-    {
-        token = strtok(t, ",");
-        if (token == NULL)
-            break;
-        else
-        {
-            if (toupper(token[0]) == 'P')
-            {
-                // ENC_POL(0): POSITIVE ENCODER POLARITY (default)
-            } else if (toupper(token[0]) == 'N')
-            {
-                // ENC_POL(1): NEGATIVE ENCODER POLARITY
-                data[0] |= (1 << n);
-            } else
-            {
-                ERRP(
-                        "ERROR: bad enc_pol '%s' for joint %i (must be 'p' or 'n')\n",
-                        token, n);
-                return -1;
-            }
-        }
-    }
-    wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_ENC_POL),
-            (uint8_t) 1, data);
-
-    // "set LSP_ID/LSN_ID for up to 8 channels"
-    // LSP_ID: gpio pin id for limit-switch-positive(lsp)
-    s = iniFind(fp, "LSP_ID", "ARAIS");
-    if (s == NULL)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no LSP_ID defined\n");
-        return -1;
-    }
-    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: LSP_ID=%s\n", s);
-    for (n = 0, t = (char *) s;; n++, t = NULL)
-    {
-        token = strtok(t, ",");
-        if (token == NULL)
-            break;
-        else
-        {
-            lsp_id[n] = atoi(token);
-        }
-    }
-
-    s = iniFind(fp, "LSN_ID", "ARAIS");
-    if (s == NULL)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no LSN_ID defined\n");
-        return -1;
-    }
-    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: LSN_ID=%s\n", s);
-    for (n = 0, t = (char *) s;; n++, t = NULL)
-    {
-        token = strtok(t, ",");
-        if (token == NULL)
-            break;
-        else
-        {
-            lsn_id[n] = atoi(token);
-            immediate_data = (n << 16) | (lsp_id[n] << 8) | (lsn_id[n]);
-            write_machine_param(JOINT_LSP_LSN, immediate_data);
-            while (wosi_flush(&w_param) == -1)
-                ;
-        }
-    }
-    // end of LSP_ID and LSN_ID
-
-    // "set JOG JSP_ID/JSN_ID for up to 8 channels"
-    s = iniFind(fp, "JSP_ID", "ARAIS");
-    if (s == NULL)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no JSP_ID defined\n");
-        return -1;
-    }
-    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: JSP_ID=%s\n", s);
-    for (n = 0, t = (char *) s;; n++, t = NULL)
-    {
-        token = strtok(t, ",");
-        if (token == NULL)
-            break;
-        else
-        {
-            jsp_id[n] = atoi(token);
-        }
-    }
-    s = iniFind(fp, "JSN_ID", "ARAIS");
-    if (s == NULL)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no JSN_ID defined\n");
-        return -1;
-    }
-    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: JSN_ID=%s\n", s);
-    for (n = 0, t = (char *) s;; n++, t = NULL)
-    {
-        token = strtok(t, ",");
-        if (token == NULL)
-            break;
-        else
-        {
-            jsn_id[n] = atoi(token);
-            immediate_data = (n << 16) | (jsp_id[n] << 8) | (jsn_id[n]);
-            write_machine_param(JOINT_JSP_JSN, immediate_data);
-            while (wosi_flush(&w_param) == -1)
-                ;
-        }
-    }
 
     // ALARM_EN: let ALARM/ESTOP signal to stall SSIF and reset DOUT port
     int alarm_en;
@@ -1033,38 +802,7 @@ static int load_parameters(FILE *fp)
             (uint8_t) 1, data);
     // end of ALARM_EN
 
-    // "set ALR_ID (gpio id of alarm signal) for up to 8 channels"
-    s = iniFind(fp, "ALR_ID", "ARAIS");
-    if (s == NULL)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no ALR_ID defined\n");
-        return -1;
-    }
-    rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: ALR_ID=%s\n", s);
-    immediate_data = alarm_en; // reset ALR_EN_BITS to ALARM_EN/ESTOP_EN/DIN[0] bit
-    for (n = 0, t = (char *) s;; n++, t = NULL)
-    {
-        token = strtok(t, ",");
-        if (token == NULL)
-            break;
-        else
-        {
-            int alr;
-            alr = atoi(token);
-            if (alr != 255)
-            {
-                immediate_data |= (1 << alr);
-                rtapi_print_msg(RTAPI_MSG_DBG, "WOSI: ALR_ID[%d] token(%s) alr(%d)\n", 
-                                               n, token, alr);
-                assert(alr < 7); // AR08: ALARM maps to GPIO[6:1]
-                assert(alr > 0);
-            }
-        }
-    }
-    write_machine_param(ALR_EN_BITS, immediate_data);
-    while (wosi_flush(&w_param) == -1)
-        ;
-    // end of ALR_ID (ALR_EN_BITS)
+
 
     // configure alarm output (the GPIO-DOUT PORT while E-Stop was pressed)
     // ALR_OUTPUT_0: "DOUT[31:0]  while E-Stop is pressed";
@@ -1101,7 +839,9 @@ static int load_parameters(FILE *fp)
         rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: no DAC_CTRL_REG defined\n");
     } else
     {
-        rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: DAC_CTRL_REG=%s\n", s);
+        uint16_t sync_cmd;
+        uint32_t dac_reg;
+        char buf[80];
 
         for (n = 0, t = (char *) s;; n++, t = NULL)
         {
@@ -1110,18 +850,30 @@ static int load_parameters(FILE *fp)
                 break;
             else
             {
-                uint16_t sync_cmd;
-                uint32_t dac_ctrl_reg;
-                
                 // write DAC control register to AD5422
-                sync_cmd = SYNC_DAC | (n << 8) | (0x55); /* DAC, ID:n, ADDR: 0x55(Control Register) */
-                dac_ctrl_reg = (uint32_t) strtoul(token, NULL, 16);
-                send_sync_cmd(sync_cmd, &dac_ctrl_reg, 1);
-
-                // to reset DAC output value as 0 at next update cycle
-                analog->prev_out[n] = 0.1;
-                *(analog->out[n]) = 0;
+                sync_cmd = SYNC_DAC | (n << 8) | (SYNC_DAC_CTRL); /* DAC, ID:n, ADDR: 0x55(Control Register) */
+                dac_reg = (uint32_t) strtoul(token, NULL, 16);
+                send_sync_cmd(sync_cmd, &dac_reg, 1);
             }
+        }
+
+        for (int i=0; i<n; i++)
+        {   // read DAC_OFFSET_n from INI file
+            snprintf(buf, sizeof(buf), "DAC_OFFSET_%d", i);
+            s = iniFind(fp, buf, "ARAIS");
+            if (s == NULL)
+            {
+                rtapi_print_msg(RTAPI_MSG_ERR,
+                        "WOSI: ERROR: no %s defined\n", buf);
+                return -1;
+            }
+            sync_cmd = SYNC_DAC | (i << 8) | (SYNC_DAC_OFFSET); /* DAC, ID:n, OFFSET: 0x99 */
+            dac_reg = (uint32_t) strtoul(s, NULL, 10);  // DAC_OFFSET_n, base is 10
+            send_sync_cmd(sync_cmd, &dac_reg, 1);
+
+            // to force output DAC value as DAC_OFFSET at next update cycle
+            analog->prev_out[i] = (double) (dac_reg + 1) ;
+            *(analog->out[i]) = (double) dac_reg;
         }
     }
     // end of DAC_CTRL_REG
@@ -1182,6 +934,7 @@ static int load_parameters(FILE *fp)
         write_mot_param(n, (ENC_SCALE), immediate_data);
         while (wosi_flush(&w_param) == -1)
             ;
+        stepgen_array[n].enc_scale = enc_scale;
 
         /* unit_pulse_scale per servo_period */
         immediate_data = (int32_t) (FIXED_POINT_SCALE * pos_scale * dt);
@@ -1239,7 +992,201 @@ static int load_parameters(FILE *fp)
         write_mot_param(n, (MAXFOLLWING_ERR), immediate_data);
         while (wosi_flush(&w_param) == -1)
             ;
+
+        int ch;
+        ch = atoi(iniFind(fp, "OUT_CH", section));
+
+        s = iniFind(fp, "OUT_DEV", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_DEV defined for %s\n", section);
+            return -1;
+        }
+
+        if (toupper(s[0]) == 'A') {
+            immediate_data = (OUT_TYPE_AB_PHASE << 28) | (ch << 24);
+            stepgen_array[n].out_type = OUT_TYPE_AB_PHASE;
+        } else if (toupper(s[0]) == 'S') {
+            immediate_data = (OUT_TYPE_STEP_DIR << 28) | (ch << 24);
+            stepgen_array[n].out_type = OUT_TYPE_STEP_DIR;
+        } else if (toupper(s[0]) == 'P') {
+            immediate_data = (OUT_TYPE_PWM << 28) | (ch << 24);
+            stepgen_array[n].out_type = OUT_TYPE_PWM;
+        } else if (toupper(s[0]) == 'D') {
+            immediate_data = (OUT_TYPE_DAC << 28) | (ch << 24);
+            stepgen_array[n].out_type = OUT_TYPE_DAC;
+        } else {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: unsupported OUT_DEV(%s) for %s\n", s, section);
+            return -1;
+        }
+        write_mot_param(n, (OUT_DEV), immediate_data);
+        while (wosi_flush(&w_param) == -1)
+            ;
+
+        if ((toupper(s[0]) == 'P') || (toupper(s[0]) == 'D'))
+        {
+            int omin, omax;
+            omin = atoi(iniFind(fp, "OUT_MIN", section));
+            omax = atoi(iniFind(fp, "OUT_MAX", section));
+            if (omin < -32768) { omin = -32768; } //!< omin: int16_t
+            if (omin > 32767) { omin = 32767; }
+            if (omax < -32768) { omax = -32768; } //!< omax: int16_t
+            if (omax > 32767) { omax = 32767; }
+            immediate_data = ((omin) << 16) | (omax); //!< {MIN(int16_t), MAX(int16_t)}
+            write_mot_param(n, (OUT_RANGE), immediate_data);
+            while (wosi_flush(&w_param) == -1)
+                ;
+
+            immediate_data = atoi(iniFind(fp, "OUT_MAX_IPULSE", section));
+            write_mot_param(n, (OUT_MAX_IPULSE), immediate_data);
+            while (wosi_flush(&w_param) == -1)
+                ;
+
+            immediate_data = atoi(iniFind(fp, "OUT_SCALE", section));
+            write_mot_param(n, (OUT_SCALE), immediate_data);
+            while (wosi_flush(&w_param) == -1)
+                ;
+
+            immediate_data = atoi(iniFind(fp, "OUT_SCALE_RECIP", section));
+            write_mot_param(n, (OUT_SCALE_RECIP), immediate_data);
+            while (wosi_flush(&w_param) == -1)
+                ;
+
+            immediate_data = atoi(iniFind(fp, "OUT_OFFSET", section));
+            write_mot_param(n, (OUT_OFFSET), immediate_data);
+            while (wosi_flush(&w_param) == -1)
+                ;
+        }
+
+        // begin of enc_type
+        s = iniFind(fp, "ENC_TYPE", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no ENC_TYPE defined for %s\n", section);
+            return -1;
+        }
+        if (toupper(s[0]) == 'L') {
+            // ENC_TYPE(00): fake ENCODER counts (loop PULSE_CMD to ENCODER)
+            stepgen_array[n].enc_type = ENC_TYPE_LOOPBACK;
+        } else if (toupper(s[0]) == 'A') {
+            // ENC_TYPE(10): real ENCODER counts, AB-Phase
+            stepgen_array[n].enc_type = ENC_TYPE_AB_PHASE;
+        } else if (toupper(s[0]) == 'S') {
+            // ENC_TYPE(11): real ENCODER counts, STEP-DIR
+            stepgen_array[n].enc_type = ENC_TYPE_STEP_DIR;
+        } else {
+            rtapi_print_msg(RTAPI_MSG_ERR,
+                    "STEPGEN: ERROR: bad enc_type '%s' for joint_%i (must be 'a', 's', or 'l')\n",
+                    s, n);
+            return -1;
+        }
+        // end of enc_type
+
+        // "set LSP_ID/LSN_ID for up to 8 channels"
+        // LSP_ID: gpio pin id for limit-switch-positive(lsp)
+        s = iniFind(fp, "LSP_ID", section);
+        if (s == NULL)
+        {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no LSP_ID defined for JOINT_%d\n", n);
+            return -1;
+        }
+        lsp_id[n] = atoi(s);
+
+        s = iniFind(fp, "LSN_ID", section);
+        if (s == NULL)
+        {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no LSN_ID defined for JOINT_%d\n", n);
+            return -1;
+        }
+        lsn_id[n] = atoi(s);
+        immediate_data = (n << 16) | (lsp_id[n] << 8) | (lsn_id[n]);
+        write_machine_param(JOINT_LSP_LSN, immediate_data);
+        while (wosi_flush(&w_param) == -1)
+            ;
+        // end of LSP_ID and LSN_ID
+
+        // "set JOG JSP_ID/JSN_ID for up to 8 channels"
+        s = iniFind(fp, "JSP_ID", section);
+        if (s == NULL)
+        {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no JSP_ID defined for JOINT_%d\n", n);
+            return -1;
+        }
+        jsp_id[n] = atoi(s);
+
+        s = iniFind(fp, "JSN_ID", section);
+        if (s == NULL)
+        {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no JSN_ID defined for JOINT_%d\n", n);
+            return -1;
+        }
+        jsn_id[n] = atoi(s);
+        immediate_data = (n << 16) | (jsp_id[n] << 8) | (jsn_id[n]);
+        write_machine_param(JOINT_JSP_JSN, immediate_data);
+        while (wosi_flush(&w_param) == -1)
+            ;
+
+        // "set ALR_ID (gpio id of alarm signal) for up to 8 channels"
+        s = iniFind(fp, "ALR_ID", section);
+        if (s == NULL)
+        {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no ALR_ID defined for JOINT_%d\n", n);
+            return -1;
+        }
+        stepgen_array[n].alr_id = atoi(s);
+        // end of ALR_ID (ALR_EN_BITS)
+
+    } // for-loop for num_joints
+
+    /* configure out_type */
+    data[0] = 0; // SSIF_PULSE_TYPE j3 ~ j0
+    data[1] = 0; // SSIF_PULSE_TYPE J7 ~ j4
+    for (n = 0; n < num_joints; n++) {
+        if (n < 4) {
+            data[0] |= (stepgen_array[n].out_type << (n * 2));
+        } else {
+            data[1] |= (stepgen_array[n].out_type << ((n - 4) * 2));
+        }
+    } // for-loop for out_type
+    wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_PULSE_TYPE),
+            (uint8_t) 2, data); // for FPGA
+    // end of out_type[]
+
+    /* configure enc_type */
+    data[0] = 0; // SSIF_ENC_TYPE j3 ~ j0
+    data[1] = 0; // SSIF_ENC_TYPE J7 ~ j4
+    for (n = 0; n < num_joints; n++) {
+        if (n < 4) {
+            data[0] |= (stepgen_array[n].enc_type << (n * 2));
+        } else {
+            data[1] |= (stepgen_array[n].enc_type << ((n - 4) * 2));
+        }
+    } // for-loop for enc_type
+    wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_ENC_TYPE),
+            (uint8_t) 2, data); // for FPGA
+    // end of enc_type[]
+
+    // "encoder polarity (POSITIVE(p) or NEGATIVE(n)) for up to 8 channels"
+    rtapi_print_msg(RTAPI_MSG_INFO, "TODO: REMOVE: WOSI: SSIF_ENC_POL\n");
+    data[0] = 0; // SSIF_ENC_POL j7 ~ j0
+    wosi_cmd(&w_param, WB_WR_CMD, (uint16_t) (SSIF_BASE | SSIF_ENC_POL),
+            (uint8_t) 1, data); // for FPGA
+    // end of enc_scale[]
+
+    // begin of ALR_EN_BITS
+    immediate_data = alarm_en; // reset ALR_EN_BITS to ALARM_EN/ESTOP_EN/DIN[0] bit
+    for (n = 0; n < num_joints; n++) {
+        char alr;
+        alr = stepgen_array[n].alr_id;
+        if (alr != 255)
+        {
+            immediate_data |= (1 << alr);
+            assert(alr < 32); // ALARM-ID maps to GPIO[31:1]
+            assert(alr > 0);
+        }
     }
+    write_machine_param(ALR_EN_BITS, immediate_data);
+    while (wosi_flush(&w_param) == -1)
+        ;
+    // end of ALR_EN_BITS
 
     // config PID parameter
     for (n = 0; n < MAX_CHAN; n++)
@@ -1674,7 +1621,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             uint32_t tmp_a;
             analog->prev_out[i] = *(analog->out[i]);
             tmp_a = analog->prev_out[i];
-            sync_cmd = SYNC_DAC | (i << 8) | (0x01); /* DAC, ID:i, ADDR: 0x01 */
+            sync_cmd = SYNC_DAC | (i << 8) | (SYNC_DAC_DATA); /* DAC, ID:i, ADDR: 0x01 */
             send_sync_cmd(sync_cmd, &tmp_a, 1);
             rtapi_print_msg(RTAPI_MSG_DBG, "analog->out[%d]=%f\n", i, *(analog->out[i]));
         }
@@ -2206,7 +2153,7 @@ static int export_stepgen(int num, stepgen_t * addr)
 
     addr->pos_scale = 0.0;
     addr->scale_recip = 0.0;
-    addr->pulse_type = 0;
+    addr->out_type = 0;
     /* init the step generator core to zero output */
     addr->rawcount = 0;
     addr->prev_pos_cmd = 0;
@@ -2511,13 +2458,21 @@ static int export_machine_control(machine_control_t * machine_control)
     }
     *(machine_control->rcmd_seq_num_ack) = 0;
 
-    retval = hal_pin_u32_newf(HAL_OUT, &(machine_control->max_tick_time),
-            comp_id, "wosi.max_tick_time");
-    *(machine_control->max_tick_time) = 0; // pin index must not beyond index
+    retval = hal_pin_u32_newf(HAL_OUT, &(machine_control->cur_tick),
+            comp_id, "wosi.cur_tick");
     if (retval != 0)
     {
         return retval;
     }
+    *(machine_control->cur_tick) = 0;
+
+    retval = hal_pin_u32_newf(HAL_OUT, &(machine_control->max_tick),
+            comp_id, "wosi.max_tick");
+    if (retval != 0)
+    {
+        return retval;
+    }
+    *(machine_control->max_tick) = 0;
 
     retval = hal_pin_bit_newf(HAL_OUT, &(machine_control->ahc_doing), comp_id,
             "wosi.ahc.doing");

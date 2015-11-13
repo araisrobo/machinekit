@@ -27,8 +27,9 @@
  *                                                  VAL[7:0]: one byte data
  *    SYNC_EOF           4'b1101                    End of frame                                            
  *    SYNC_DAC           4'b1110  {ID, ADDR}        write into DAC register with {ID[11:8], ADDR[7:0]}
- *                                                  ADDR: 0x01 ... Data register
- *                                                  ADDR: 0x55 ... Control register
+ *                                                  ADDR: 0x01 ... Data register for AD5422
+ *                                                  ADDR: 0x55 ... Control register for AD5422
+ *                                                  ADDR: 0x99 ... DAC_OFFSET for RISC
  *    Write 2nd byte of SYNC_CMD[] will push it into SFIFO.
  *    The WB_WRITE got stalled if SFIFO is full.
  */
@@ -83,6 +84,9 @@
 #define SYNC_DAC_ID_MASK                0x0F00
 #define SYNC_DAC_ADDR_MASK              0x00FF
 #define SYNC_DAC_VAL_MASK               0xFFFF
+#define SYNC_DAC_DATA                   0x01 // DAC_DATA at ADDR field
+#define SYNC_DAC_CTRL                   0x55 // DAC_CTRL at ADDR field
+#define SYNC_DAC_OFFSET                 0x99 // DAC_OFFSET at ADDR field
 
 // SFIFO DATA MACROS
 // SYNC_DOUT          4'b0100  {ID, VAL}         ID[11:4]: Output PIN ID
@@ -201,10 +205,6 @@ enum machine_parameter_addr {
     ALR_EN_BITS,            // the bitmap of ALARM bits for all joints (DIN[6:1])
                             //             as well as ALARM_EN/ESTOP bit (DIN[0])
 
-    SSIF_MODE,              // [7:0]    bitwise mapping of mode for SSIF_PULSE_TYPE
-                            //          0: POSITION MODE (STEP-DIR or AB-PHASE)
-                            //          1: PWM MODE (velocity or torque)
-
     MACHINE_CTRL,           // [31:28]  JOG_VEL_SCALE
                             // [27:24]  SPINDLE_JOINT_ID
                             // [23:16]  NUM_JOINTS
@@ -273,12 +273,18 @@ enum motion_parameter_addr {
     MAX_PARAM_ITEM
 };
 #define NUM_PID_PARAMS 14   // pid params: from P_GAIN to MAXOUTPUT
-#define OUT_DEV_TYPE_MASK   0xF0000000 // [31:28] TYPE: ANALOG/PWM/PULSE
-#define OUT_DEV_CH_MASK     0x0F000000 // [27:24] CHANNEL: DAC channel
-#define OUT_RANGE_MAX_MASK  0x0000FFFF // [15: 0] MAX_OUT
-#define OUT_RANGE_MIN_MASK  0xFFFF0000 // [31:16] MIN_OUT
-#define OUT_TYPE_PULSE      (0<<28)    // digital pulse type: AB-PHASE or STEP-DIR
-#define OUT_TYPE_PWM        (1<<28)    // PWM-DIR type: 100% PWM + DIR signal
-#define OUT_TYPE_DAC_0_20mA (2<<28)    // DAC output type, 0~20mA
+#define OUT_DEV_TYPE_MASK   0xF0000000  // [31:28] TYPE: ANALOG/PWM/PULSE
+#define OUT_DEV_CH_MASK     0x0F000000  // [27:24] CHANNEL: DAC channel
+#define OUT_RANGE_MAX_MASK  0x0000FFFF  // [15: 0] MAX_OUT
+#define OUT_RANGE_MIN_MASK  0xFFFF0000  // [31:16] MIN_OUT
+
+#define OUT_TYPE_AB_PHASE   (0)         // digital pulse type: AB-PHASE 
+#define OUT_TYPE_STEP_DIR   (1)         // digital pulse type: STEP-DIR
+#define OUT_TYPE_DAC        (2)         // DAC output type, +/-10V, 0~10V, 0~20mA ... etc.
+#define OUT_TYPE_PWM        (3)         // PWM-DIR type: 100% PWM + DIR signal
+
+#define ENC_TYPE_LOOPBACK   (0)
+#define ENC_TYPE_AB_PHASE   (2)
+#define ENC_TYPE_STEP_DIR   (3)
 
 #endif // __sync_cmd_h__

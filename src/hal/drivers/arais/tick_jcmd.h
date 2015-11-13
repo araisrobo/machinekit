@@ -1,7 +1,7 @@
 #ifndef __TICK_JOINT_CMD_H__
 #define __TICK_JOINT_CMD_H__
 
-#define TICK_JOINT_NUM 6
+#define TICK_JOINT_NUM 8
 
 typedef struct {
     int         _tick;
