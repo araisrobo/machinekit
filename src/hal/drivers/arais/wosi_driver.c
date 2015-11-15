@@ -1789,9 +1789,8 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             // do RISC_PROBE
             int32_t dbuf[4];
             dbuf[0] = RCMD_RISC_PROBE;
-            dbuf[1] = n
-                    | // joint_num
-                    (*stepgen->risc_probe_type << 8)
+            dbuf[1] = n  // joint_num
+                    | (*stepgen->risc_probe_type << 8)
                     | (*stepgen->risc_probe_pin << 16);
             dbuf[2] = tick_jcmd->risc_probe_vel[n] * stepgen->pos_scale * dt
                       *FIXED_POINT_SCALE; // fixed-point 16.16
@@ -1860,9 +1859,6 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         assert(abs(integer_pos_cmd) <= stepgen->pulse_maxv);
         pulse_accel = integer_pos_cmd - stepgen->pulse_vel;
         pulse_jerk = pulse_accel - stepgen->pulse_accel;
-        /* TODO: there's S-CURVE decel bug in tp.c; enable maxa, maxj assertions after resolving it */
-        // TODO: assert (abs(pulse_accel) <= stepgen->pulse_maxa);
-        // TODO: assert (abs(pulse_jerk) <= stepgen->pulse_maxj);
         stepgen->pulse_vel = integer_pos_cmd;
         stepgen->pulse_accel = pulse_accel;
         stepgen->pulse_jerk = pulse_jerk;
