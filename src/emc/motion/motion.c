@@ -1180,7 +1180,6 @@ static int init_comm_buffers(void)
 	joint->home_latch_vel = 0.0;
 	joint->home_final_vel = -1;
         joint->home_enc_pos = 0.0;
-        joint->enc_type = 1;    //!< INCREMENTAL = 1,ABSOLUTE = 2,
 	*(joint->home_offset) = 0.0;
 	*(joint->home) = 0.0;
 	joint->home_flags = 0;

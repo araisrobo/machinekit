@@ -242,7 +242,7 @@ int emcAxisSetMinFerror(int axis, double ferror)
 
 int emcAxisSetHomingParams(int axis, double home, double offset, double home_final_vel,
                             double home_enc_pos, double search_vel, double latch_vel,
-                            int use_index, int ignore_limits, int enc_type, int is_shared,
+                            int use_index, int ignore_limits, int is_shared,
                             int sequence,int volatile_home, int locking_indexer)
 {
 #ifdef ISNAN_TRAP
@@ -265,7 +265,6 @@ int emcAxisSetHomingParams(int axis, double home, double offset, double home_fin
     emcmotCommand.home_enc_pos = home_enc_pos;
     emcmotCommand.search_vel = search_vel;
     emcmotCommand.latch_vel = latch_vel;
-    emcmotCommand.enc_type = enc_type;
     emcmotCommand.flags = 0;
     emcmotCommand.home_sequence = sequence;
     emcmotCommand.volatile_home = volatile_home;

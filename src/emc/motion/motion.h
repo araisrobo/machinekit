@@ -252,7 +252,6 @@ extern "C" {
 	double home;		/* joint home position */
         double home_final_vel;  /* joint velocity for moving from OFFSET to HOME */
         double home_enc_pos;    /* joint initial encoder to HOME */
-        int enc_type;           /* joint encoder type */
 	double search_vel;	/* home search velocity */
 	double latch_vel;	/* home latch velocity */
 	int flags;		/* homing config flags, other boolean args */
@@ -487,11 +486,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 	EMCMOT_ORIENT_FAULTED,
     } orient_state_t;
 
-    typedef enum {
-        HOME_INCREMENTAL            = 1,
-        HOME_ABSOLUTE               = 2,
-    } home_enc_type;
-
 /* flags for homing */
 #define HOME_IGNORE_LIMITS	1
 #define HOME_USE_INDEX		2
@@ -535,7 +529,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double home_search_vel;	/* dir/spd to look for home switch */
         double home_final_vel;  /* speed to travel from OFFSET to HOME position */
         double home_enc_pos;    /* initial encoder to HOME position */
-        int enc_type;        /* initial encoder type */
 	double home_latch_vel;	/* dir/spd to latch switch/index pulse */
 	hal_float_t *home_offset;	/* dir/dist from switch to home point */
 	hal_float_t *home;	/* joint coordinate of home point */

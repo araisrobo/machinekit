@@ -38,10 +38,6 @@
    'home_do_moving_checks()' can access it */
 static int immediate_state;
 
-static emcmot_joint_t* master_gantry_joint = 0;
-static emcmot_joint_t* slave_gantry_joint = 0;
-static emcmot_joint_t* sync_gantry_joint = 0;       // synchronized gantry joint
-
 static const char * const home_state_names[] =
 {
     "HOME_IDLE",
@@ -100,19 +96,11 @@ static void home_start_move(emcmot_joint_t * joint, double vel, int probe_type)
     if (probe_type == RISC_PROBE_INDEX) {
         joint->risc_probe_pin = joint->id;
     }
-    if (joint->home_flags & HOME_GANTRY_JOINT) {
-        sync_gantry_joint->risc_probe_vel = vel;
-        sync_gantry_joint->risc_probe_pin = joint->risc_probe_pin;
-        sync_gantry_joint->risc_probe_type = probe_type;
-    }
 }
 
 static void home_stop_move(emcmot_joint_t * joint)
 {
     joint->risc_probe_vel = 0;
-    if (joint->home_flags & HOME_GANTRY_JOINT) {
-        sync_gantry_joint->risc_probe_vel = 0;
-    }
 }
 
 /***********************************************************************
@@ -150,6 +138,8 @@ void do_usb_homing_sequence(void)
             {
                 // wait until RISC is finishing UPDATE_POS_REQ after ESTOP-RST and MACHINE-ON
                 emcmotStatus->update_pos_ack = (*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ);
+                /* reset risc-probe-vel to 0 */
+                home_stop_move(joint);
                 return;
             }
         }
@@ -252,6 +242,7 @@ void do_usb_homing(void)
     {
         /* point to joint struct */
         joint = &joints[joint_num];
+
         if (!GET_JOINT_ACTIVE_FLAG(joint)) {
             /* if joint is not active, skip it */
             continue;
@@ -269,14 +260,6 @@ void do_usb_homing(void)
             joint->prev_home_state = joint->home_state;
             switch (joint->home_state) {
             case HOME_IDLE:
-                // update master and slave gantry joint pointers
-                if (joint->home_flags & HOME_GANTRY_JOINT) {
-                    if (joint->home_flags & HOME_GANTRY_MASTER) {
-                        master_gantry_joint = joint;
-                    } else {
-                        slave_gantry_joint = joint;
-                    }
-                }
                 /* nothing to do */
                 break;
 
@@ -285,6 +268,15 @@ void do_usb_homing(void)
 		   started.  It doesn't actually do anything, it simply
 		   determines what state is next */
 
+                /* reset risc-probe-vel to 0 */
+                home_stop_move(joint);
+                // wait until RISC is finishing UPDATE_POS_REQ after ESTOP-RST and MACHINE-ON
+                if (*emcmot_hal_data->rcmd_state != RCMD_IDLE)
+                {
+                    emcmotStatus->update_pos_ack = (*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ);
+                    return;
+                }
+
                 /* set flags that communicate with the rest of EMC */
                 SET_JOINT_HOMING_FLAG(joint, 1);
                 SET_JOINT_HOMED_FLAG(joint, 0);
@@ -292,40 +284,6 @@ void do_usb_homing(void)
                 /* stop any existing motion */
                 joint->free_tp_enable = 0;
                 
-                if (joint->home_flags & HOME_GANTRY_JOINT) {
-                    assert (master_gantry_joint); // the master pointer must not be null
-                    assert (slave_gantry_joint); // the slave pointer must not be null
-                    // 先做 SLAVE JOINT HOMING
-                    // 再做 MASTER JOINT HOMING
-                    if (joint->home_flags & HOME_GANTRY_MASTER) {
-                        if (slave_gantry_joint->home_state == HOME_FINAL_MOVE_START)
-                        {
-                            // slave_gantry_joint has finished its homing process
-                            rtapi_print ("j[%d] Begin HOME_GANTRY_MASTER\n", joint_num);
-                            // 做 MASTER JOINT HOMING 時，被同步的軸是 SLAVE
-                            sync_gantry_joint = slave_gantry_joint;
-                        } else
-                        {
-                            // ("j[%d] we are doing slave-gantry-joint-homing\n", joint_num);
-                            if (slave_gantry_joint->home_state == HOME_IDLE) {
-                                slave_gantry_joint->home_state = HOME_START;
-                            }
-                            break;
-                        }
-                    } else {
-                        if (master_gantry_joint->home_state != HOME_START) {
-                            if (master_gantry_joint->home_state == HOME_IDLE) {
-                                master_gantry_joint->home_state = HOME_START;
-                            }
-                            // wait until master_gantry_joint starts homing
-                            break;
-                        }
-                        // 做 SLAVE JOINT HOMING 時，被同步的軸是 MASTER
-                        sync_gantry_joint = master_gantry_joint;
-                        // ("Begin HOME_GANTRY_SLAVE\n");
-                    }
-                }
-
                 if (joint->home_flags & HOME_UNLOCK_FIRST) {
                     joint->home_state = HOME_UNLOCK;
                 } else {
@@ -353,11 +311,11 @@ void do_usb_homing(void)
                         {/*for joint with (home search and latch vel = 0, and never get probed),
                            prevent it from moving to HOME_OFFSET*/
                             joint->probed_pos = joint->pos_fb + joint->motor_offset;
-                            if (joint->enc_type == HOME_ABSOLUTE)
-                            {
-                                joint->probed_pos += (-joint->last_enc_pos+joint->home_enc_pos);
-// for debug:                                printf("line:%d J[%d] joint->pos_cmd(%f)\n", __LINE__, joint_num, joint->pos_cmd);
-                            }
+// TODO:
+//                            if (*(joint->home_abs))
+//                            {   // HAL signal home-abs is true for ABSOLUTE-HOMING
+//                                joint->probed_pos += (-joint->last_enc_pos+joint->home_enc_pos);
+//                            }
                         }
                         joint->home_state = HOME_SET_SWITCH_POSITION;
                         immediate_state = 1;
@@ -401,6 +359,7 @@ void do_usb_homing(void)
 		   starts a move away from the switch. */
                 /* set up a move at '-search_vel' to back off of switch */
                 home_start_move(joint, -joint->home_search_vel, RISC_PROBE_HIGH); /* artek: our home-switches are low-active */
+                emcmotStatus->update_pos_ack = 0; // to park rcmd_state at RCMD_UPDATE_POS_REQ
                 if(*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ)
                 {
                     /* stop issue risc-probe-command */
@@ -432,6 +391,7 @@ void do_usb_homing(void)
 
                 /* set up a move at 'search_vel' to find switch */
                 home_start_move(joint, joint->home_search_vel, RISC_PROBE_LOW); /* artek: our home-switches are low-active */
+                emcmotStatus->update_pos_ack = 0; // to park rcmd_state at RCMD_UPDATE_POS_REQ
                 if(*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ)
                 {
                     /* stop issue risc-probe-command */
@@ -507,6 +467,7 @@ void do_usb_homing(void)
 		   final slow move that captures the exact switch location. */
                 /* set up a move at '-search_vel' to back off of switch */
                 home_start_move(joint, -joint->home_search_vel, RISC_PROBE_HIGH); /* artek: our home-switches are low-active */
+                emcmotStatus->update_pos_ack = 0; // to park rcmd_state at RCMD_UPDATE_POS_REQ
                 if(*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ)
                 {   /* stop issue risc-probe-command */
                     home_stop_move(joint);
@@ -538,6 +499,7 @@ void do_usb_homing(void)
 
                 /* set up a move at 'latch_vel' to locate the switch */
                 home_start_move(joint, joint->home_latch_vel, RISC_PROBE_LOW); /* artek: our home-switches are low-active */
+                emcmotStatus->update_pos_ack = 0; // to park rcmd_state at RCMD_UPDATE_POS_REQ
                 if(*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ)
                 {
                     /* stop issue risc-probe-command */
@@ -581,6 +543,7 @@ void do_usb_homing(void)
 
                 /* set up a move at 'latch_vel' to locate the switch */
                 home_start_move(joint, joint->home_latch_vel, RISC_PROBE_HIGH); /* artek: our home-switches are low-active */
+                emcmotStatus->update_pos_ack = 0; // to park rcmd_state at RCMD_UPDATE_POS_REQ
                 if(*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ)
                 {
                     /* stop issue risc-probe-command */
@@ -695,14 +658,8 @@ void do_usb_homing(void)
 		   next index pulse arrives. */
 
                 /* set up a move at 'latch_vel' to find the index LOCK signal */
-//                if ((joint->home_search_vel * joint->home_latch_vel) > 0.0) {
-                    /* search and latch vel are same direction */
-                    home_start_move(joint, joint->home_latch_vel, RISC_PROBE_INDEX);
-//                } else {
-//                    /* search and latch vel are opposite directions */
-//                    home_start_move(joint, -joint->home_latch_vel, RISC_PROBE_INDEX);
-//                }
-
+                home_start_move(joint, joint->home_latch_vel, RISC_PROBE_INDEX);
+                emcmotStatus->update_pos_ack = 0; // to park rcmd_state at RCMD_UPDATE_POS_REQ
                 if(*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ)
                 {
                     /* stop issue risc-probe-command */
@@ -745,7 +702,7 @@ void do_usb_homing(void)
                 emcmotStatus->update_pos_ack = 1; // to synchronize prev_pos_cmd with new pos_cmd
 
                 rtapi_print_msg(RTAPI_MSG_DBG,
-                        _("HOME_SET_INDEX_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
+                        _("HOME_SET_INDEX_POSITION: j[%d] home_offset(%f) risc_pos_cmd(%f) probed_pos(%f) pos_cmd(%f) pos_fb(%f) free_pos_cmd(%f) motor_offset(%f)\n"),
                         joint_num,
                         *(joint->home_offset),
                         joint->risc_pos_cmd,
@@ -755,20 +712,6 @@ void do_usb_homing(void)
                         joint->free_pos_cmd,
                         joint->motor_offset);
                 
-//                 if (joint->home_flags & HOME_GANTRY_JOINT)
-//                 {   // TODO: to calculate GANTRY joints offset
-//                     printf (
-//                             _("HOME_SET_INDEX_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
-//                             joint_num,
-//                             *(joint->home_offset),
-//                             joint->risc_pos_cmd,
-//                             joint->probed_pos,
-//                             joint->pos_cmd,
-//                             joint->pos_fb,
-//                             joint->free_pos_cmd,
-//                             joint->motor_offset);
-//                 }
-
                 /* next state */
                 joint->home_state = HOME_FINAL_MOVE_START;
                 break;
@@ -779,40 +722,23 @@ void do_usb_homing(void)
 		   which is not neccessarily the position of the home switch
 		   or index pulse. */
 
-                if (joint->home_flags & HOME_GANTRY_JOINT)
-                {
-                    // SLAVE HOMING 會先做，所以 SLAVE 要等 MASTER 做完再 FINAL_MOVE
-                    if (joint == slave_gantry_joint)
-                    {
-                        if (master_gantry_joint->home_state != HOME_FINAL_MOVE_WAIT)
-                        {
-//                            rtapi_print("wait until master_gantry_joint found its home switch\n");
-                            break;
-                        } else
-                        {   // update new pos_cmd for SLAVE-GANTRY-JOINT
-                            joint->pos_cmd = joint->risc_pos_cmd - joint->motor_offset;
-                            joint->free_pos_cmd = joint->pos_cmd;
-                            emcmotStatus->update_pos_ack = 1; // to synchronize prev_pos_cmd with new pos_cmd
-//                            assert(0);
-                        }
-                    }
-                }
-// for debug                printf("line:%d J[%d] joint->pos_cmd(%f) joint->pos_fb(%f)\n", __LINE__, joint_num, joint->pos_cmd, joint->pos_fb);
                 if ((*emcmot_hal_data->rcmd_state) != RCMD_IDLE)
                 {   // wait for RCMD_IDLE
                     emcmotStatus->update_pos_ack = (*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ);
                     break;
                 }
 
+                // TODO: implement ABS-HOMING without modifying usb_homing.c
+//                if (*(joint->home_abs) == 0)
+//                {   // HAL signal home-abs is FALSE for INCREMENTAL-HOMING
+//                    joint->free_pos_cmd = *(joint->home);
+//                }
+
                 /* plan a move to home position */
-                rtapi_print ("comment out the next line to calculate GANTRY joints offset\n");
-                if (joint->enc_type == HOME_INCREMENTAL)
-                {
-                    joint->free_pos_cmd = *(joint->home);
-                }
+                joint->free_pos_cmd = *(joint->home);
 
                 /* if home_vel is set (>0) then we use that, otherwise we rapid there */
-                if (joint->home_final_vel > 0) {
+                if (joint->home_final_vel != 0) {
                     joint->free_vel_lim = rtapi_fabs(joint->home_final_vel);
                 } else {
                     joint->free_vel_lim = joint->vel_limit;

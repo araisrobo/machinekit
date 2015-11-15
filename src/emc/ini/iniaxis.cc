@@ -84,7 +84,6 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
     char axisString[16];
     const char *inistring;
     EmcAxisType axisType;
-    AxisEncType enc_type; // type for absolute/incremental
     double units;
     double backlash;
     double input_scale;
@@ -216,9 +215,6 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
         axisIniFile->Find(&home_final_vel, "HOME_FINAL_VEL", axisString);
         home_enc_pos = 0;                    // default
         axisIniFile->Find(&home_enc_pos, "HOME_ENC_POS", axisString);
-        // set encoder type
-        enc_type = INCREMENTAL;                    // default
-        axisIniFile->Find(&enc_type, "ENC_TYPE", axisString);
         is_shared = false;	        // default
         axisIniFile->Find(&is_shared, "HOME_IS_SHARED", axisString);
         use_index = false;	        // default
@@ -238,7 +234,7 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
 
         // issue NML message to set all params
         if (0 != emcAxisSetHomingParams(axis, home, offset, home_final_vel, home_enc_pos, search_vel,
-                                        latch_vel, (int)use_index, (int)ignore_limits, enc_type,
+                                        latch_vel, (int)use_index, (int)ignore_limits,
                                         (int)is_shared, sequence, volatile_home, locking_indexer)) {
             if (emc_debug & EMC_DEBUG_CONFIG) {
                 rcs_print_error("bad return from emcAxisSetHomingParams\n");
