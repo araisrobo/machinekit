@@ -199,7 +199,7 @@ enum machine_parameter_addr {
     GANTRY_CTRL,            // [31]     GANTRY_EN
                             
     JOINT_LSP_LSN,          // format: {JOINT[31:16], LSP_ID[15:8], LSN_ID[7:0]}
-    JOINT_JSP_JSN,          // format jog: {JOINT[31:16], LSP_ID[15:8], LSN_ID[7:0]}
+    JOINT_JOGP_JOGN,        // format jog: {JOINT[31:16], JOGP_ID[15:8], LOGN_ID[7:0]}
     ALR_OUTPUT_0,           // DOUT_0 value, dout[31:0], when ESTOP is pressed
     ALR_OUTPUT_1,           // DOUT_1 value, dout[63:32], when ESTOP is pressed
     ALR_EN_BITS,            // the bitmap of ALARM bits for all joints (DIN[6:1])

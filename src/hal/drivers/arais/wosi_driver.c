@@ -41,7 +41,7 @@
 #include "tick_jcmd.h"
 #include "inifile.h"
 
-#define MAX_CHAN 8
+#define MAX_NUM_JOINT 8
 #define MAX_STEP_CUR 255
 #define PLASMA_ON_BIT 0x02
 #define FRACTION_BITS 16
@@ -72,7 +72,6 @@ static wosi_param_t w_param;
 
 #define FIXED_POINT_SCALE       65536.0             // (double (1 << FRACTION_BITS))
 #define MAX_DSIZE               127     // Maximum WOSI data size
-#define MAX_CHAN                8
 
 static char reload_ini_file[80];
 
@@ -81,13 +80,9 @@ static int initialized = 0; //!< flag to determine if the board is initialized
 //!< servo_period_ns: servo period for velocity control, unit: ns
 static int servo_period_ns = 0;
 //!< lsp_id: gpio pin id for limit-switch-positive(lsp)
-static int lsp_id[MAX_CHAN];
+static int lsp_id[MAX_NUM_JOINT];
 //!< lsn_id: gpio pin id for limit-switch-negative(lsn)
-static int lsn_id[MAX_CHAN];
-//!< jsn_id: gpio pin id for jog-switch-negative(jsn)
-static int jsn_id[MAX_CHAN];
-//!< jsp_id: gpio pin id for jog-switch-positive(jsp)
-static int jsp_id[MAX_CHAN];
+static int lsn_id[MAX_NUM_JOINT];
 
 /***********************************************************************
  *                STRUCTURES AND GLOBAL VARIABLES                       *
@@ -769,10 +764,29 @@ static int load_parameters(FILE *fp)
     uint8_t data[MAX_DSIZE];
     int32_t immediate_data;
     int n;
+    int32_t jogp_en;
+    int32_t jogn_en;
+    int32_t jogp_id;
+    int32_t jogn_id;
+
+    // JOGP_EN/JOGN_EN
+    ret = iniFindInt(fp, "JOGP_EN", "ARAIS", &jogp_en);
+    if (ret != 0) // can not find jogp_en
+        jogp_en = 255; // default to disable jogp_en
+
+    ret = iniFindInt(fp, "JOGN_EN", "ARAIS", &jogn_en);
+    if (ret != 0) // can not find jogn_en
+        jogn_en = 255; // default to disable jogn_en
+
+    immediate_data = (MAX_NUM_JOINT << 16) | (jogp_en << 8) | (jogn_en);
+    write_machine_param(JOINT_JOGP_JOGN, immediate_data);
+    while (wosi_flush(&w_param) == -1)
+        ;
+
 
     // GANTRY_POLARITY
     ret = iniFindInt(fp, "GANTRY_POLARITY", "ARAIS", &gantry_polarity);
-    if (ret != 0) // can not fine GANTRY_POLARITY
+    if (ret != 0) // can not find GANTRY_POLARITY
         gantry_polarity = 0; // default to disable gantry_polarity
     // gantry_polarity should either be 0, 1, or -1
     assert(abs(gantry_polarity) < 2);
@@ -784,7 +798,7 @@ static int load_parameters(FILE *fp)
     // ALARM_EN: let ALARM/ESTOP signal to stall SSIF and reset DOUT port
     int alarm_en;
     ret = iniFindInt(fp, "ALARM_EN", "ARAIS", &alarm_en);
-    if (ret != 0) // can not fine ALARM_EN
+    if (ret != 0) // can not find ALARM_EN
         alarm_en = 1; // default to enable alarm_en
     if (alarm_en == 1)
     {
@@ -959,6 +973,7 @@ static int load_parameters(FILE *fp)
         while (wosi_flush(&w_param) == -1)
             ;
         stepgen_array[n].pulse_maxv = immediate_data;
+        *(stepgen_array[n].jog_vel) = max_vel * 0.1; // default to 10% of max_vel
 
         /* config acceleration */
         immediate_data = (uint32_t) ((max_accel * abs_scale * dt
@@ -1103,26 +1118,28 @@ static int load_parameters(FILE *fp)
             ;
         // end of LSP_ID and LSN_ID
 
-        // "set JOG JSP_ID/JSN_ID for up to 8 channels"
-        s = iniFind(fp, "JSP_ID", section);
-        if (s == NULL)
-        {
-            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no JSP_ID defined for JOINT_%d\n", n);
-            return -1;
-        }
-        jsp_id[n] = atoi(s);
 
-        s = iniFind(fp, "JSN_ID", section);
+        // "set JOG JOGP_ID/JOGN_ID for up to 8 channels"
+        s = iniFind(fp, "JOGP_ID", section);
         if (s == NULL)
         {
-            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no JSN_ID defined for JOINT_%d\n", n);
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no JOGP_ID defined for JOINT_%d\n", n);
             return -1;
         }
-        jsn_id[n] = atoi(s);
-        immediate_data = (n << 16) | (jsp_id[n] << 8) | (jsn_id[n]);
-        write_machine_param(JOINT_JSP_JSN, immediate_data);
+        jogp_id = atoi(s);
+
+        s = iniFind(fp, "JOGN_ID", section);
+        if (s == NULL)
+        {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no JOGN_ID defined for JOINT_%d\n", n);
+            return -1;
+        }
+        jogn_id = atoi(s);
+        immediate_data = (n << 16) | (jogp_id << 8) | (jogn_id);
+        write_machine_param(JOINT_JOGP_JOGN, immediate_data);
         while (wosi_flush(&w_param) == -1)
             ;
+        // end of JOGP_ID and JOGN_ID
 
         // "set ALR_ID (gpio id of alarm signal) for up to 8 channels"
         s = iniFind(fp, "ALR_ID", section);
@@ -1189,7 +1206,7 @@ static int load_parameters(FILE *fp)
     // end of ALR_EN_BITS
 
     // config PID parameter
-    for (n = 0; n < MAX_CHAN; n++)
+    for (n = 0; n < MAX_NUM_JOINT; n++)
     {
         char name[20];
         int i;
@@ -1684,6 +1701,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             write_mot_param(n, (SSYNC_SCALE), immediate_data); // format: 16.16
             stepgen->prev_uu_per_rev = *stepgen->uu_per_rev;
         }
+
         if (*stepgen->jog_vel != stepgen->prev_jog_vel)
         {
             int32_t dbuf[3];
