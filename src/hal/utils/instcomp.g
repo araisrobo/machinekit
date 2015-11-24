@@ -134,7 +134,7 @@ def parse(filename):
     if not p: raise SystemExit, 1
     if require_license:
         if not finddoc('license'):
-            raise SystemExit, "%s:0: License not specified" % filename
+            raise SystemExit, "Error: %s:0: License not specified" % filename
     return a, b
 
 dirmap = {'r': 'HAL_RO', 'rw': 'HAL_RW', 'in': 'HAL_IN', 'out': 'HAL_OUT', 'io': 'HAL_IO' }
@@ -283,11 +283,11 @@ def to_noquotes(name):
 def prologue(f):
 
     if options.get("userspace"):
-        raise SystemExit, "instcomp does not support userspace components"
+        raise SystemExit, "Error: instcomp does not support userspace components"
 
     if not functions :
         raise SystemExit, """\
-                        Component code must declare a function.
+                        Error: Component code must declare a function.
                         For single functions the default
                         function _; declaration is fine.
                         Multiple functions must be uniquely named.\n"""
@@ -800,7 +800,7 @@ static int comp_id;
 ###############################  rtapi_app_exit()  #####################################################
 
     print >>f, "void rtapi_app_exit(void)\n{"
-    
+
     print >>f, "    hal_exit(comp_id);"
     print >>f, "}\n"
 
@@ -836,7 +836,7 @@ static int comp_id;
 #            strg += "\"%s\", %s);" % (to_c(name), to_c(name))
 #            print >>f, strg
 #####################################################################################################################
-            
+
         print >>f, "    return extra_inst_cleanup(name, inst, inst_size);"
         print >>f, "}\n"
 
@@ -906,7 +906,7 @@ def find_modinc():
         if os.path.exists(e):
             modinc = e
             return e
-    raise SystemExit, "Unable to locate Makefile.modinc"
+    raise SystemExit, "Error: Unable to locate Makefile.modinc"
 
 def build_rt(tempdir, filename, mode, origfilename):
     objname = os.path.basename(os.path.splitext(filename)[0] + ".o")
@@ -931,7 +931,7 @@ def build_rt(tempdir, filename, mode, origfilename):
                 shutil.copy(kobjname, os.path.basename(kobjname))
                 break
         else:
-            raise SystemExit, "Unable to copy module from temporary directory"
+            raise SystemExit, "Error: Unable to copy module from temporary directory"
 
 ######################  docs man pages etc  ###########################################
 
@@ -974,7 +974,22 @@ def document(filename, outfilename):
     print >>f, ".TH %s \"9\" \"%s\" \"Machinekit Documentation\" \"HAL Component\"" % (comp_name.upper(), time.strftime("%F"))
     print >>f, ".de TQ\n.br\n.ns\n.TP \\\\$1\n..\n"
 
-    print >>f, ".SH NAME\n"
+    print >>f, ".SH INSTANTIABLE COMPONENTS"
+    print >>f, ".HP"
+    print >>f, ".HP"
+    print >>f, ".B All instantiable components can be loaded in two manners\n"
+    print >>f, ".LP"
+    print >>f, ".B Using loadrt with or without count= | names= parameters as per legacy components\n"
+    print >>f, ".LP"
+    print >>f, ".B Using newinst, which names the instance and allows further parameters and arguments,\n"
+    print >>f, ".LP"
+    print >>f, ".B primarily pincount= which can set the number of pins created for that instance (where applicable)\n"
+    print >>f, ".HP"
+
+    print >>f, ".RE"
+    print >>f, ".SH NAME"
+    print >>f, ".HP"
+    print >>f, ".HP"
     doc = finddoc('component')
     if doc and doc[2]:
         if '\n' in doc[2]:
@@ -987,16 +1002,28 @@ def document(filename, outfilename):
         rest = ''
         print >>f, "%s" % doc[1]
 
-
     print >>f, ".SH SYNOPSIS"
+    print >>f, ".HP"
+    print >>f, ".HP"
     if rest:
         print >>f, rest
     else:
+        rest = ''
+        print >>f, "%s" % doc[1]
+
+    print >>f, ".SH USAGE SYNOPSIS"
+    print >>f, ".HP"
+    print >>f, ".HP"
+
+    if rest:
+        print >>f, rest
         print >>f, ".HP"
-        print >>f, ".B loadrt %s" % comp_name
-        print >>f, ".HP"
+    else:
+        print >>f, ".B loadrt %s " % comp_name
+	print >>f, ".LP"
         print >>f, ".B newinst %s <newinstname> [ pincount=\\fIN\\fB | iprefix=\\fIprefix\\fB ]" % comp_name
-        print >>f, ".B                          [instanceparamX=\\fIX\\fB | argX=\\fIX\\fB ]"
+        print >>f, ".B                             [instanceparamX=\\fIX\\fB | argX=\\fIX\\fB ]"
+        print >>f, ".HP"
         for type, name, default, doc in modparams:
             print >>f, "[%s=\\fIN\\fB]" % name,
         print >>f
@@ -1019,28 +1046,40 @@ def document(filename, outfilename):
 
     doc = finddoc('descr')
     if doc and doc[1]:
-        print >>f, ".SH DESCRIPTION\n"
+        print >>f, ".SH DESCRIPTION"
+        print >>f, ".HP"
+        print >>f, ".HP"
         print >>f, "%s" % doc[1]
 
     if functions:
         print >>f, ".SH FUNCTIONS"
+        print >>f, ".HP"
+        print >>f, ".HP"
         for _, name, fp, doc in finddocs('funct'):
             print >>f, ".TP"
+            if name != None and name != "_":
+                print >>f, "\\fB%s.N.%s.funct\\fR" % (comp_name, name) ,
+            else :
+                print >>f, "\\fB%s.N.funct\\fR" % comp_name ,
+    	    print >>f, "\n( OR"
             if name != None and name != "_":
                 print >>f, "\\fB<newinstname>.%s.funct\\fR"  % name ,
             else :
                 print >>f, "\\fB<newinstname>.funct\\fR" ,
             if fp:
-                print >>f, "(requires a floating-point thread)"
+                print >>f, "(requires a floating-point thread) )"
             else:
-                print >>f
+                print >>f, " )"
+            print >>f, ".HP"
             print >>f, doc
 
     lead = ".TP"
     print >>f, ".SH PINS"
+    print >>f, ".HP"
+    print >>f, ".HP"
     for _, name, type, array, dir, doc, value in finddocs('pin'):
         print >>f, lead
-        print >>f, ".B %s\\fR" % to_hal_man(name),
+        print >>f, ".B %s.N.%s \\fR" % (comp_name, name),
         print >>f, type, dir,
         if array:
             sz = name.count("#")
@@ -1049,35 +1088,27 @@ def document(filename, outfilename):
             print >>f, "\\fR(default: \\fI%s\\fR)" % value
         else:
             print >>f, "\\fR"
-        if doc:
-            print >>f, doc
-            lead = ".TP"
+	print >>f, "( OR"
+
+        print >>f, ".B <newinstname>.%s \\fR" % name,
+        print >>f, type, dir,
+        if array:
+            sz = name.count("#")
+            print >>f, " (%s=%s..%s)" % ("M" * sz, "0" * sz , array),
+        if value:
+            print >>f, "\\fR(default: \\fI%s\\fR) )\n" % value
         else:
-            lead = ".TQ"
+            print >>f, "\\fR )\n"
+        if doc:
+    	    print >>f, ".HP"
+            print >>f, doc
 
     lead = ".TP"
-    if params:
-        print >>f, ".SH PARAMETERS"
-        for _, name, type, array, dir, doc, value in finddocs('param'):
-            print >>f, lead
-            print >>f, ".B %s\\fR" % to_hal_man(name),
-            print >>f, type, dir,
-            if array:
-                sz = name.count("#")
-                print >>f, " (%s=%s..%s)" % ("M" * sz, "0" * sz , array),
-            if value:
-                print >>f, "\\fR(default: \\fI%s\\fR)" % value
-            else:
-                print >>f, "\\fR"
-            if doc:
-                print >>f, doc
-                lead = ".TP"
-            else:
-                lead = ".TQ"
-
 
     if instanceparams:
         print >>f, ".SH INST_PARAMETERS"
+        print >>f, ".HP"
+        print >>f, ".HP"
         for _, name, type, doc, value in finddocs('instanceparam'):
             print >>f, lead
             print >>f, ".B %s\\fR" % name,
@@ -1094,6 +1125,8 @@ def document(filename, outfilename):
 
     if moduleparams:
         print >>f, ".SH MODULE_PARAMETERS"
+        print >>f, ".HP"
+        print >>f, ".HP"
         for _, name, type, doc, value in finddocs('moduleparam'):
             print >>f, lead
             print >>f, ".B %s\\fR" % name,
@@ -1110,23 +1143,34 @@ def document(filename, outfilename):
 
     doc = finddoc('see_also')
     if doc and doc[1]:
-        print >>f, ".SH SEE ALSO\n"
+        print >>f, ".SH SEE ALSO"
+        print >>f, ".HP"
+        print >>f, ".HP"
         print >>f, "%s" % doc[1]
 
     doc = finddoc('notes')
     if doc and doc[1]:
-        print >>f, ".SH NOTES\n"
+        print >>f, ".SH NOTES"
+        print >>f, ".HP"
+        print >>f, ".HP"
         print >>f, "%s" % doc[1]
 
     doc = finddoc('author')
     if doc and doc[1]:
-        print >>f, ".SH AUTHOR\n"
+        print >>f, ".SH AUTHOR"
+        print >>f, ".HP"
+        print >>f, ".HP"
         print >>f, "%s" % doc[1]
 
     doc = finddoc('license')
     if doc and doc[1]:
-        print >>f, ".SH LICENSE\n"
+        print >>f, ".SH LICENSE"
+        print >>f, ".HP"
+        print >>f, ".HP"
         print >>f, "%s" % doc[1]
+
+###########################################################
+
 
 def process(filename, mode, outfilename):
     tempdir = tempfile.mkdtemp()
@@ -1137,14 +1181,18 @@ def process(filename, mode, outfilename):
             else:
                 outfilename = os.path.join(tempdir,
                     os.path.splitext(os.path.basename(filename))[0] + ".c")
+
         a, b = parse(filename)
+        base_name = os.path.splitext(os.path.basename(outfilename))[0]
+        if comp_name != base_name:
+            raise SystemExit, "Error: Component name (%s) does not match filename (%s)" % (comp_name, base_name)
         f = open(outfilename, "w")
 
         if not pins:
-            raise SystemExit, "Component must have at least one pin"
+            raise SystemExit, "Error: Component must have at least one pin"
         if not "return" in b:
             raise SystemExit, """ \
-            Function code must return with an integer value.
+            Error: Function code must return with an integer value.
            The default is 0, other values are for future use to
            describe error states and improve debugging
            """
@@ -1198,7 +1246,7 @@ def process(filename, mode, outfilename):
             f.write(b)
             f.write("\n}\n")
         else:
-            raise SystemExit, "Must use FUNCTION() when more than one function is defined"
+            raise SystemExit, "Error: Must use FUNCTION() when more than one function is defined"
         epilogue(f)
         f.close()
 
@@ -1237,7 +1285,7 @@ def main():
 
     for k, v in opts:
         if k in ("-u", "--userspace"):
-            raise SystemExit, "instcomp does not support userspace components"
+            raise SystemExit, "Error: instcomp does not support userspace components"
         if k in ("-i", "--install"):
             mode = INSTALL
         if k in ("-c", "--compile"):
@@ -1256,18 +1304,18 @@ def main():
             require_license = True
         if k in ("-o", "--outfile"):
             if len(args) != 1:
-                raise SystemExit, "Cannot specify -o with multiple input files"
+                raise SystemExit, "Error: Cannot specify -o with multiple input files"
             outfile = v
         if k in ("-?", "-h", "--help"):
             usage(0)
 
     if outfile and mode != PREPROCESS and mode != DOCUMENT:
-        raise SystemExit, "Can only specify -o when preprocessing or documenting"
+        raise SystemExit, "Error: Can only specify -o when preprocessing or documenting"
 
     if mode == MODINC:
         if args:
             raise SystemExit, \
-                "Can not specify input files when using --print-modinc"
+                "Error: Can not specify input files when using --print-modinc"
         print find_modinc()
         return 0
 
@@ -1311,7 +1359,7 @@ def main():
                 finally:
                     shutil.rmtree(tempdir)
             else:
-                raise SystemExit, "Unrecognized file type for mode %s: %r" % (modename[mode], f)
+                raise SystemExit, "Error: Unrecognized file type for mode %s: %r" % (modename[mode], f)
         except:
             ex_type, ex_value, exc_tb = sys.exc_info()
             try:

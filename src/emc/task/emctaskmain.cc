@@ -880,7 +880,6 @@ interpret_again:
 			            // if we happen to execute lines before the current point later (due to subroutines).
 			            programStartLine = 0;
 			        }
-
 			    }
 			    else if ((emcStatus->motion.traj.next_tp_reversed == TP_REVERSE) &&
                                      (programStartLine > 0))
