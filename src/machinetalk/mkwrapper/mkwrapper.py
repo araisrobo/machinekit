@@ -4,6 +4,7 @@ import sys
 from stat import *
 import zmq
 import threading
+import multiprocessing
 import time
 import math
 import socket
@@ -15,7 +16,6 @@ import subprocess
 
 import ConfigParser
 import linuxcnc
-import preview
 from machinekit import service
 from machinekit import config
 
@@ -137,38 +137,58 @@ class FileService(threading.Thread):
 class Canon():
     def __init__(self, parameterFile="", debug=False):
         self.debug = debug
-        self.aborted = False
+        self.aborted = multiprocessing.Value('b', False, lock=False)
         self.parameterFile = parameterFile
 
     def do_cancel(self):
         if self.debug:
             print("setting abort flag")
-        self.aborted = True
+        self.aborted.value = True
 
     def check_abort(self):
         if self.debug:
             print("check_abort")
-        return self.aborted
+        return self.aborted.value
 
     def reset(self):
-        self.aborted = False
+        self.aborted.value = False
 
 
+# Preview class works concurrently using multiprocessing
+# Queues are used for communication
 class Preview():
-    def __init__(self, parameterFile="", debug=False):
+    def __init__(self, parameterFile="", initcode="", debug=False):
+        self.debug = debug
         self.filename = ""
         self.unitcode = ""
-        self.initcode = ""
+        self.initcode = initcode
         self.canon = Canon(parameterFile=parameterFile, debug=debug)
-        self.debug = debug
-        self.isRunning = False
+        self.preview = None
         self.errorCallback = None
+
+        # multiprocessing tools
+        self.bindEvent = multiprocessing.Event()
+        self.bindCompletedEvent = multiprocessing.Event()
+        self.previewEvent = multiprocessing.Event()
+        self.previewCompleteEvent = multiprocessing.Event()
+        self.shutdownEvent = multiprocessing.Event()
+        self.errorEvent = multiprocessing.Event()
+        self.isStarted = multiprocessing.Value('b', False, lock=False)
+        self.isBound = multiprocessing.Value('b', False, lock=False)
+        self.isRunning = multiprocessing.Value('b', False, lock=False)
+        self.inqueue = multiprocessing.Queue()  # used to send data to the process
+        self.outqueue = multiprocessing.Queue()  # used to get data from the process
+        self.process = multiprocessing.Process(target=self.run)
+        self.process.start()
 
     def register_error_callback(self, callback):
         self.errorCallback = callback
 
     def bind(self, previewUri, statusUri):
-        return preview.bind(previewUri, statusUri)
+        self.inqueue.put((previewUri, statusUri))
+        self.bindEvent.set()
+        self.bindCompletedEvent.wait()
+        return self.outqueue.get()
 
     def abort(self):
         self.canon.do_cancel()
@@ -180,43 +200,105 @@ class Preview():
             raise Exception("file does not exist " + filename)
 
     def start(self):
-        if self.isRunning:
+        if self.isRunning.value is True:
             raise Exception("Preview already running")
 
-        self.canon.reset()
-        thread = threading.Thread(target=self.run)
+        # start the monitoring daemon
+        thread = threading.Thread(target=self.monitoring_thread)
         thread.daemon = True
         thread.start()
 
+    def stop(self):
+        self.shutdownEvent.set()
+        self.previewCompleteEvent.set()  # in case we are monitoring
+        self.process.join()  # make sure to have one process at exit
+
+    def monitoring_thread(self):
+        if not self.isBound.value:
+            raise Exception('Preview is not bound')
+
+        # put everything on the process queue
+        self.inqueue.put((self.filename, self.unitcode, self.initcode))
+        # reset canon
+        self.canon.reset()
+        # release the dragon
+        self.previewEvent.set()
+        self.previewCompleteEvent.wait()
+        # handle error events
+        if self.errorEvent.wait(0.1):
+            (error, line) = self.outqueue.get()
+            if self.errorCallback is not None:
+                self.errorCallback(error, line)
+            self.errorEvent.clear()
+
     def run(self):
-        self.isRunning = True
+        import preview  # must be imported in new process to work properly
+        self.preview = preview
+
+        self.isStarted.value = True
+
+        # waiting for a bind event
+        while not self.bindEvent.wait(timeout=0.1):
+            if self.shutdownEvent.is_set():  # in case someone shuts down when we are not bound
+                self.isStarted.value = False
+
+        # bind the socket here
+        (previewUri, statusUri) = self.inqueue.get()
+        (previewUri, statusUri) = self.preview.bind(previewUri, statusUri)
+        self.outqueue.put((previewUri, statusUri))
+        self.isBound.value = True
+        self.bindCompletedEvent.set()
+        if self.debug:
+            print('Preview socket bound')
+
+        # wait for preview request or shutdown
+        # event handshaking is used to synchronize the monitoring thread
+        # and the process
+        while not self.shutdownEvent.is_set():
+            if self.previewEvent.wait(timeout=0.1):
+                self.previewCompleteEvent.clear()
+                self.isRunning.value = True
+                self.do_preview()
+                self.previewCompleteEvent.set()
+                self.previewEvent.clear()
+                self.isRunning.value = False
+
+        if self.debug:
+            print('Preview process exited')
+        self.isStarted.value = False
+
+    def do_preview(self):
+        # get all stuff that is modified at runtime
+        (filename, unitcode, initcode) = self.inqueue.get()
         if self.debug:
             print("Preview starting")
-            print("Filename: " + self.filename)
-            print("Unitcode: " + self.unitcode)
-            print("Initcode: " + self.initcode)
+            print("Filename: " + filename)
+            print("Unitcode: " + unitcode)
+            print("Initcode: " + initcode)
         try:
-            result, last_sequence_number = preview.parse(self.filename,
-                                                         self.canon,
-                                                         self.unitcode,
-                                                         self.initcode)
+            # here we do all the actual work...
+            (result, last_sequence_number) = self.preview.parse(
+                filename,
+                self.canon,
+                unitcode,
+                initcode)
 
-            if result > preview.MIN_ERROR:
-                error = " gcode error: %s " % (preview.strerror(result))
+            # check if we encountered a error during execution
+            if result > self.preview.MIN_ERROR:
+                error = " gcode error: %s " % (self.preview.strerror(result))
                 line = last_sequence_number - 1
                 if self.debug:
                     printError("preview: " + self.filename)
                     printError(error + " on line " + str(line))
-                if self.errorCallback is not None:
-
-                    self.errorCallback(error, line)
+                # pass error through queue
+                self.outqueue.put((error, str(line)))
+                self.errorEvent.set()
 
         except Exception as e:
-            printError("preview exception" + str(e))
+            printError("preview exception " + str(e))
 
         if self.debug:
             print("Preview exiting")
-        self.isRunning = False
 
 
 class StatusValues():
@@ -238,9 +320,6 @@ class StatusValues():
 
 class LinuxCNCWrapper():
 
-    def preview_error(self, error, line):
-        self.linuxcncErrors.append(error + "\non line " + str(line))
-
     def __init__(self, context, host='', loopback=False,
                 iniFile=None, svcUuid=None,
                 pollInterval=None, pingInterval=2, debug=False):
@@ -250,6 +329,12 @@ class LinuxCNCWrapper():
         self.pingInterval = pingInterval
         self.shutdown = threading.Event()
         self.running = False
+
+        # synchronization locks
+        self.commandLock = threading.Lock()
+        self.statusLock = threading.Lock()
+        self.errorLock = threading.Lock()
+        self.errorNoteLock = threading.Lock()
 
         # status
         self.status = StatusValues()
@@ -279,7 +364,7 @@ class LinuxCNCWrapper():
 
         self.linuxcncErrors = []
         self.programExtensions = {}
-        
+
         # Linuxcnc
         try:
             self.stat = linuxcnc.stat()
@@ -291,9 +376,10 @@ class LinuxCNCWrapper():
             self.directory = self.ini.find('DISPLAY', 'PROGRAM_PREFIX') or os.getcwd()
             self.directory = os.path.abspath(os.path.expanduser(self.directory))
             self.pollInterval = float(pollInterval or self.ini.find('DISPLAY', 'CYCLE_TIME') or 0.1)
-            self.interpParameterFile = self.ini.find('RS274NGC', 'PARAMETER_FILE') or ""
+            self.interpParameterFile = self.ini.find('RS274NGC', 'PARAMETER_FILE') or "linuxcnc.var"
             self.interpParameterFile = os.path.abspath(os.path.expanduser(self.interpParameterFile))
-            
+            self.interpInitcode = self.ini.find("RS274NGC", "RS274NGC_STARTUP_CODE") or ""
+
             # setup program extensions
             extensions = self.ini.findall("FILTER", "PROGRAM_EXTENSION")
             for line in extensions:
@@ -353,11 +439,12 @@ class LinuxCNCWrapper():
         self.errorPort = self.errorSocket.bind_to_random_port(self.baseUri)
         self.errorDsname = self.errorSocket.get_string(zmq.LAST_ENDPOINT, encoding='utf-8')
         self.errorDsname = self.errorDsname.replace('0.0.0.0', self.host)
-        self.commandSocket = context.socket(zmq.DEALER)
+        self.commandSocket = context.socket(zmq.ROUTER)
         self.commandPort = self.commandSocket.bind_to_random_port(self.baseUri)
         self.commandDsname = self.commandSocket.get_string(zmq.LAST_ENDPOINT, encoding='utf-8')
         self.commandDsname = self.commandDsname.replace('0.0.0.0', self.host)
         self.preview = Preview(parameterFile=self.interpParameterFile,
+                               initcode=self.interpInitcode,
                                debug=self.debug)
         (self.previewDsname, self.previewstatusDsname) = \
             self.preview.bind(self.baseUri + ':*', self.baseUri + ':*')
@@ -417,11 +504,11 @@ class LinuxCNCWrapper():
 
         while not self.shutdown.is_set():
             s = dict(poll.poll(1000))
-            if self.statusSocket in s:
+            if self.statusSocket in s and s[self.statusSocket] == zmq.POLLIN:
                 self.process_status(self.statusSocket)
-            if self.errorSocket in s:
+            if self.errorSocket in s and s[self.errorSocket] == zmq.POLLIN:
                 self.process_error(self.errorSocket)
-            if self.commandSocket in s:
+            if self.commandSocket in s and s[self.commandSocket] == zmq.POLLIN:
                 self.process_command(self.commandSocket)
 
         self.unpublish()
@@ -449,7 +536,8 @@ class LinuxCNCWrapper():
 
     def stop(self):
         self.shutdown.set()
- 
+        self.preview.stop()
+
     # handle program extensions
     def preprocess_program(self, filePath):
         fileName, extension = os.path.splitext(filePath)
@@ -468,10 +556,10 @@ class LinuxCNCWrapper():
                 outFile.close()
                 filePath = newFileName
             except IOError as e:
-                self.linuxcncErrors.append(str(e))
+                self.add_error(str(e))
                 return ''
             except subprocess.CalledProcessError as e:
-                self.linuxcncErrors.append(e.output)
+                self.add_error('%s failed: %s' % (program, str(e)))
                 return ''
         # get number of lines
         with open(filePath) as f:
@@ -662,7 +750,7 @@ class LinuxCNCWrapper():
                 positionOffset = EMC_CONFIG_RELATIVE_OFFSET
             modified |= self.update_config_value('position_offset', positionOffset)
 
-            positionFeedback = self.ini.find('DISPLAY', 'POSITION_OFFSET') or 'ACTUAL'
+            positionFeedback = self.ini.find('DISPLAY', 'POSITION_FEEDBACK') or 'ACTUAL'
             if positionFeedback == 'COMMANDED':
                 positionFeedback = EMC_CONFIG_COMMANDED_FEEDBACK
             else:
@@ -1133,7 +1221,7 @@ class LinuxCNCWrapper():
             self.update_config(stat)
 
     def update_error(self, error):
-        if len(self.linuxcncErrors) > 0:
+        with self.errorNoteLock:
             for linuxcncError in self.linuxcncErrors:
                 self.txError.note.append(linuxcncError)
                 self.send_error_msg('error', MT_EMC_NML_ERROR)
@@ -1163,6 +1251,13 @@ class LinuxCNCWrapper():
         elif (kind == linuxcnc.OPERATOR_DISPLAY):
             if self.displaySubscribed:
                 self.send_error_msg('display', MT_EMC_OPERATOR_DISPLAY)
+
+    def add_error(self, note):
+        with self.errorNoteLock:
+            self.linuxcncErrors.append(note)
+
+    def preview_error(self, error, line):
+        self.add_error("%s\non line %s" % (error, str(line)))
 
     def send_config(self, data, type):
         self.txStatus.emc_status_config.MergeFrom(data)
@@ -1195,22 +1290,25 @@ class LinuxCNCWrapper():
         self.send_status_msg('interp', type)
 
     def send_status_msg(self, topic, type):
-        self.txStatus.type = type
-        txBuffer = self.txStatus.SerializeToString()
-        self.txStatus.Clear()
-        self.statusSocket.send_multipart([topic, txBuffer])
+        with self.statusLock:
+            self.txStatus.type = type
+            txBuffer = self.txStatus.SerializeToString()
+            self.statusSocket.send_multipart([topic, txBuffer], zmq.NOBLOCK)
+            self.txStatus.Clear()
 
     def send_error_msg(self, topic, type):
-        self.txError.type = type
-        txBuffer = self.txError.SerializeToString()
-        self.txError.Clear()
-        self.errorSocket.send_multipart([topic, txBuffer])
+        with self.errorLock:
+            self.txError.type = type
+            txBuffer = self.txError.SerializeToString()
+            self.errorSocket.send_multipart([topic, txBuffer], zmq.NOBLOCK)
+            self.txError.Clear()
 
-    def send_command_msg(self, type):
-        self.txCommand.type = type
-        txBuffer = self.txCommand.SerializeToString()
-        self.txCommand.Clear()
-        self.commandSocket.send(txBuffer)
+    def send_command_msg(self, identity, type):
+        with self.commandLock:
+            self.txCommand.type = type
+            txBuffer = self.txCommand.SerializeToString()
+            self.commandSocket.send_multipart([identity, txBuffer], zmq.NOBLOCK)
+            self.txCommand.Clear()
 
     def add_pparams(self):
         parameters = ProtocolParameters()
@@ -1271,7 +1369,7 @@ class LinuxCNCWrapper():
 
     def process_status(self, socket):
         try:
-            rc = socket.recv(zmq.NOBLOCK)
+            rc = socket.recv()
             subscription = rc[1:]
             status = (rc[0] == "\x01")
 
@@ -1306,7 +1404,7 @@ class LinuxCNCWrapper():
 
     def process_error(self, socket):
         try:
-            rc = socket.recv(zmq.NOBLOCK)
+            rc = socket.recv()
             subscription = rc[1:]
             status = (rc[0] == "\x01")
 
@@ -1339,54 +1437,90 @@ class LinuxCNCWrapper():
                 gcodes.append('G' + str(rawGCode / 10.0))
         return ' '.join(gcodes)
 
-    def send_command_wrong_params(self):
+    def send_command_wrong_params(self, identity):
         self.txCommand.note.append("wrong parameters")
-        self.send_command_msg(MT_ERROR)
+        self.send_command_msg(identity, MT_ERROR)
+
+    def command_completion_process(self, event):
+        self.command.wait_complete()  # wait for emcmodule
+        event.set()  # inform the listening thread
+
+    def command_completion_thread(self, identity, ticket):
+        event = multiprocessing.Event()
+        # wait in separate process to prevent GIL from causing problems
+        multiprocessing.Process(target=self.command_completion_process,
+                                args=(event,)).start()
+        # wait until the command is completed
+        event.wait()
+        self.txCommand.reply_ticket = ticket
+        self.send_command_msg(identity, MT_EMCCMD_COMPLETED)
+
+        if self.debug:
+            print('command #%i from %s completed' % (ticket, identity))
+
+    def wait_complete(self, identity, ticket):
+        self.txCommand.reply_ticket = ticket
+        self.send_command_msg(identity, MT_EMCCMD_EXECUTED)
+
+        if self.debug:
+            print('waiting for command #%ifrom %s to complete' % (ticket, identity))
+
+        # kick off the monitoring thread
+        threading.Thread(target=self.command_completion_thread,
+                         args=(identity, ticket, )).start()
 
     def process_command(self, socket):
-        if self.debug:
-            print("process command called")
-
-        message = socket.recv()
+        (identity, message) = socket.recv_multipart()
         self.rx.ParseFromString(message)
+
+        if self.debug:
+            print("process command called, id: %s" % identity)
 
         try:
             if self.rx.type == MT_PING:
-                self.send_command_msg(MT_PING_ACKNOWLEDGE)
+                self.send_command_msg(identity, MT_PING_ACKNOWLEDGE)
 
             elif self.rx.type == MT_SHUTDOWN:
-                self.send_command_msg(MT_CONFIRM_SHUTDOWN)
+                self.send_command_msg(identity, MT_CONFIRM_SHUTDOWN)
                 self.stop()  # trigger the shutdown event
 
             elif self.rx.type == MT_EMC_TASK_ABORT:
                 if self.rx.HasField('interp_name'):
                     if self.rx.interp_name == 'execute':
                         self.command.abort()
+                        if self.rx.HasField('ticket'):
+                            self.wait_complete(identity, self.rx.ticket)
                     elif self.rx.interp_name == 'preview':
                         self.preview.abort()
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TASK_PLAN_PAUSE:
                 if self.rx.HasField('interp_name'):
                     if self.rx.interp_name == 'execute':
                         self.command.auto(linuxcnc.AUTO_PAUSE)
+                        if self.rx.HasField('ticket'):
+                            self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TASK_PLAN_RESUME:
                 if self.rx.HasField('interp_name'):
                     if self.rx.interp_name == 'execute':
                         self.command.auto(linuxcnc.AUTO_RESUME)
+                        if self.rx.HasField('ticket'):
+                            self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TASK_PLAN_STEP:
                 if self.rx.HasField('interp_name'):
                     if self.rx.interp_name == 'execute':
                         self.command.auto(linuxcnc.AUTO_STEP)
+                        if self.rx.HasField('ticket'):
+                            self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TASK_PLAN_RUN:
                 if self.rx.HasField('emc_command_params') \
@@ -1395,54 +1529,73 @@ class LinuxCNCWrapper():
                     if self.rx.interp_name == 'execute':
                         lineNumber = self.rx.emc_command_params.line_number
                         self.command.auto(linuxcnc.AUTO_RUN, lineNumber)
+                        if self.rx.HasField('ticket'):
+                            self.wait_complete(identity, self.rx.ticket)
                     elif self.rx.interp_name == 'preview':
+                        self.preview.unitcode = "G%d" % (20 + (self.stat.linear_units == 1))
                         self.preview.start()
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_SPINDLE_BRAKE_ENGAGE:
                 self.command.brake(linuxcnc.BRAKE_ENGAGE)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_SPINDLE_BRAKE_RELEASE:
                 self.command.brake(linuxcnc.BRAKE_RELEASE)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_SET_DEBUG:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('debug_level'):
                     debugLevel = self.rx.emc_command_params.debug_level
                     self.command.debug(debugLevel)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TRAJ_SET_SCALE:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('scale'):
                     feedrate = self.rx.emc_command_params.scale
                     self.command.feedrate(feedrate)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_COOLANT_FLOOD_ON:
                 self.command.flood(linuxcnc.FLOOD_ON)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_COOLANT_FLOOD_OFF:
                 self.command.flood(linuxcnc.FLOOD_OFF)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_AXIS_HOME:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('index'):
                     axis = self.rx.emc_command_params.index
                     self.command.home(axis)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_AXIS_ABORT:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('index'):
                     axis = self.rx.emc_command_params.index
                     self.command.jog(linuxcnc.JOG_STOP, axis)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_AXIS_JOG:
                 if self.rx.HasField('emc_command_params') \
@@ -1451,8 +1604,10 @@ class LinuxCNCWrapper():
                     axis = self.rx.emc_command_params.index
                     velocity = self.rx.emc_command_params.velocity
                     self.command.jog(linuxcnc.JOG_CONTINUOUS, axis, velocity)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_AXIS_INCR_JOG:
                 if self.rx.HasField('emc_command_params') \
@@ -1463,19 +1618,25 @@ class LinuxCNCWrapper():
                     velocity = self.rx.emc_command_params.velocity
                     distance = self.rx.emc_command_params.distance
                     self.command.jog(linuxcnc.JOG_INCREMENT, axis, velocity, distance)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TOOL_LOAD_TOOL_TABLE:
                 self.command.load_tool_table()
+                if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_TRAJ_SET_MAX_VELOCITY:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('velocity'):
                     velocity = self.rx.emc_command_params.velocity
                     self.command.maxvel(velocity)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TASK_PLAN_EXECUTE:
                 if self.rx.HasField('emc_command_params') \
@@ -1484,14 +1645,20 @@ class LinuxCNCWrapper():
                     if self.rx.interp_name == 'execute':
                         command = self.rx.emc_command_params.command
                         self.command.mdi(command)
+                        if self.rx.HasField('ticket'):
+                            self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_COOLANT_MIST_ON:
                 self.command.mist(linuxcnc.MIST_ON)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_COOLANT_MIST_OFF:
                 self.command.mist(linuxcnc.MIST_OFF)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_TASK_SET_MODE:
                 if self.rx.HasField('emc_command_params') \
@@ -1499,11 +1666,15 @@ class LinuxCNCWrapper():
                 and self.rx.HasField('interp_name'):
                     if self.rx.interp_name == 'execute':
                         self.command.mode(self.rx.emc_command_params.task_mode)
+                        if self.rx.HasField('ticket'):
+                            self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_AXIS_OVERRIDE_LIMITS:
                 self.command.override_limits()
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_TASK_PLAN_OPEN:
                 if self.rx.HasField('emc_command_params') \
@@ -1514,25 +1685,31 @@ class LinuxCNCWrapper():
                     if fileName is not '':
                         if self.rx.interp_name == 'execute':
                             self.command.program_open(fileName)
+                            if self.rx.HasField('ticket'):
+                                self.wait_complete(identity, self.rx.ticket)
                         elif self.rx.interp_name == 'preview':
                             self.preview.program_open(fileName)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TASK_PLAN_INIT:
                 if self.rx.HasField('interp_name'):
                     if self.rx.interp_name == 'execute':
                         self.command.reset_interpreter()
+                        if self.rx.HasField('ticket'):
+                            self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_MOTION_ADAPTIVE:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('enable'):
                     adaptiveFeed = self.rx.emc_command_params.enable
                     self.command.set_adaptive_feed(adaptiveFeed)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identit, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_MOTION_SET_AOUT:
                 if self.rx.HasField('emc_command_params') \
@@ -1541,16 +1718,20 @@ class LinuxCNCWrapper():
                     axis = self.rx.emc_command_params.index
                     value = self.rx.emc_command_params.value
                     self.command.set_analog_output(axis, value)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TASK_PLAN_SET_BLOCK_DELETE:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('enable'):
                     blockDelete = self.rx.emc_command_params.enable
                     self.command.set_block_delete(blockDelete)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_MOTION_SET_DOUT:
                 if self.rx.HasField('emc_command_params') \
@@ -1559,24 +1740,30 @@ class LinuxCNCWrapper():
                     axis = self.rx.emc_command_params.index
                     value = self.rx.emc_command_params.enable
                     self.command.set_digital_output(axis, value)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TRAJ_SET_FH_ENABLE:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('enable'):
                     feedHold = self.rx.emc_command_params.enable
                     self.command.set_feed_hold(feedHold)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TRAJ_SET_FO_ENABLE:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('enable'):
                     feedOverride = self.rx.emc_command_params.enable
                     self.command.set_feed_override(feedOverride)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_AXIS_SET_MAX_POSITION_LIMIT:
                 if self.rx.HasField('emc_command_params') \
@@ -1585,8 +1772,10 @@ class LinuxCNCWrapper():
                     axis = self.rx.emc_command_params.index
                     value = self.rx.emc_command_params.value
                     self.command.set_max_limit(axis, value)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_AXIS_SET_MIN_POSITION_LIMIT:
                 if self.rx.HasField('emc_command_params') \
@@ -1595,24 +1784,30 @@ class LinuxCNCWrapper():
                     axis = self.rx.emc_command_params.index
                     value = self.rx.emc_command_params.value
                     self.command.set_min_limit(axis, value)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TASK_PLAN_SET_OPTIONAL_STOP:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('enable'):
                     optionalStop = self.rx.emc_command_params.enable
                     self.command.set_optional_stop(optionalStop)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TRAJ_SET_SO_ENABLE:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('enable'):
                     spindleOverride = self.rx.emc_command_params.enable
                     self.command.set_spindle_override(spindleOverride)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_SPINDLE_ON:
                 if self.rx.HasField('emc_command_params') \
@@ -1620,28 +1815,40 @@ class LinuxCNCWrapper():
                     speed = self.rx.emc_command_params.velocity
                     direction = linuxcnc.SPINDLE_FORWARD    # always forwward, speed can be signed
                     self.command.spindle(direction, speed)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_SPINDLE_INCREASE:
                 self.command.spindle(linuxcnc.SPINDLE_INCREASE)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_SPINDLE_DECREASE:
                 self.command.spindle(linuxcnc.SPINDLE_DECREASE)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_SPINDLE_CONSTANT:
                 self.command.spindle(linuxcnc.SPINDLE_CONSTANT)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_SPINDLE_OFF:
                 self.command.spindle(linuxcnc.SPINDLE_OFF)
+                if self.rx.HasField('ticket'):
+                    self.wait_complete(identity, self.rx.ticket)
 
             elif self.rx.type == MT_EMC_TRAJ_SET_SPINDLE_SCALE:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('scale'):
                     scale = self.rx.emc_command_params.scale
                     self.command.spindleoverride(scale)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TASK_SET_STATE:
                 if self.rx.HasField('emc_command_params') \
@@ -1649,16 +1856,20 @@ class LinuxCNCWrapper():
                 and self.rx.HasField('interp_name'):
                     if self.rx.interp_name == 'execute':
                         self.command.state(self.rx.emc_command_params.task_state)
+                        if self.rx.HasField('ticket'):
+                            self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TRAJ_SET_TELEOP_ENABLE:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('enable'):
                     teleopEnable = self.rx.emc_command_params.enable
                     self.command.teleop_enable(teleopEnable)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TRAJ_SET_TELEOP_VECTOR:
                 if self.rx.HasField('emc_command_params') \
@@ -1682,8 +1893,11 @@ class LinuxCNCWrapper():
                             self.command.teleop_vector(a, b, c, u)
                     else:
                         self.command.teleop_vector(a, b, c)
+
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TOOL_SET_OFFSET:
                 if self.rx.HasField('emc_command_params') \
@@ -1704,41 +1918,49 @@ class LinuxCNCWrapper():
                     orientation = self.rx.emc_command_params.tool_data.orientation
                     self.command.tool_offset(toolno, z_offset, x_offset, diameter,
                         frontangle, backangle, orientation)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_TRAJ_SET_MODE:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('traj_mode'):
                     self.command.traj_mode(self.rx.emc_command_params.traj_mode)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             elif self.rx.type == MT_EMC_AXIS_UNHOME:
                 if self.rx.HasField('emc_command_params') \
                 and self.rx.emc_command_params.HasField('index'):
                     axis = self.rx.emc_command_params.index
                     self.command.unhome(axis)
+                    if self.rx.HasField('ticket'):
+                        self.wait_complete(identity, self.rx.ticket)
                 else:
-                    self.send_command_wrong_params()
+                    self.send_command_wrong_params(identity)
 
             else:
                 self.txCommand.note.append("unknown command")
-                self.send_command_msg(MT_ERROR)
+                self.send_command_msg(identity, MT_ERROR)
 
         except linuxcnc.error as detail:
-            self.linuxcncErrors.append(detail)
+            self.add_error(detail)
         except UnicodeEncodeError:
-            self.linuxcncErrors.append("Please use only ASCII characters")
+            self.add_error("Please use only ASCII characters")
         except Exception as e:
             printError('uncaught exception ' + str(e))
-            self.linuxcncErrors.append(str(e))
+            self.add_error(str(e))
 
 
 shutdown = False
 
 
 def _exitHandler(signum, frame):
+    del signum
+    del frame
     global shutdown
     shutdown = True
 
@@ -1819,7 +2041,7 @@ def main():
         mkwrapper.stop()
 
     # wait for all threads to terminate
-    while threading.active_count() > 1:
+    while threading.active_count() > 2:  # one thread for every process is left
         time.sleep(0.1)
 
     print("threads stopped")
