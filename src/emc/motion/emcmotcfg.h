@@ -31,7 +31,6 @@
 #define EMCMOT_MAX_DIO 128
 #define EMCMOT_MAX_AIO 64
 
-/* EMCMOT_MAX_DIO constrain is removed */
 #if (EMCMOT_MAX_AIO > 64)
 #error A 64 bit bitmask is used in the planner.  Don't increase these until that's fixed.
 #endif

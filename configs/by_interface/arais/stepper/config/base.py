@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: UTF-8 -*
+
 from machinekit import hal
 from machinekit import rtapi as rt
 from machinekit import config as c
@@ -242,10 +245,12 @@ def setup_io():
             # it is with 2 sec delay after servo-on,
             # to earn a 2 sec RISC-ON delay after AC-SVO-ON
             hal.Pin("son_delay.out").link(dout_pin)
-            hal.Pin("wosi.machine-on").link(dout_pin)
-        elif (i == 8):  # dout_8 is for spindle-on
+            # 將延時過的 amp-enable 接給 FPGA/RISC.machine-on
+            hal.Pin("wosi.machine-on").link(dout_pin) 
+        elif (i == 32):  # dout_32 is for spindle-on
             hal.Pin("motion.spindle-on").link(dout_pin)
-        elif (i < 10):           # default to M64Pxx operations
+        elif (i <= 33):           # default to M64Pxx operations
+            # dout-33 is for GANGI
             hal.Pin("motion.digital-out-%02d" % i).link(dout_pin)
 
     for i in range(0,96):
@@ -285,7 +290,8 @@ def setup_motion():
     hal.Pin("motion.spindle.xuu-per-rev").link(xuu_pin)
     hal.Pin("wosi.stepgen.0.uu-per-rev").link(xuu_pin)
 
-    for i in range(0,6):
+    # TODO: get joint number from INI file
+    for i in range(0,5):
         enc_pos_pin = hal.newsig("enc_pos_j%d" % i, hal.HAL_S32)
         hal.Pin("wosi.stepgen.%d.enc_pos" % i).link(enc_pos_pin)
         cmd_pos_pin = hal.newsig("cmd_pos_j%d" % i, hal.HAL_S32)
