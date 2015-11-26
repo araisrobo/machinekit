@@ -1219,10 +1219,6 @@ static int load_parameters(FILE *fp)
             continue;
         }
         rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: %s=%s\n", name, s);
-        rtapi_print_msg(RTAPI_MSG_INFO,
-                "#   0:P 1:I 2:D 3:FF0 4:FF1 5:FF2 6:DB 7:BI 8:M_ER 9:M_EI 10:M_ED 11:MCD 12:MCDD 13:MO\n");
-        // all gains (P, I, D, FF0, FF1, FF2) range from 0(0%) to 65535(100%)
-        // all the others units are '1 pulse'
         for (i = 0, t = (char *) s;; i++, t = NULL)
         {
             token = strtok(t, ",");
@@ -1231,8 +1227,8 @@ static int load_parameters(FILE *fp)
             else
             {
                 immediate_data = atoi(token);
-                // P_GAIN: the mot_param index for P_GAIN value
-                write_mot_param(n, (P_GAIN + i), immediate_data);
+                // PPG: the mot_param index for PPG value
+                write_mot_param(n, (PPG + i), immediate_data);
                 while (wosi_flush(&w_param) == -1)
                     ;
                 rtapi_print_msg(RTAPI_MSG_INFO, "pid(%d) = %s (%d)\n", i, token,

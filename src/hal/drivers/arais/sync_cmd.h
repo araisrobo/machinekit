@@ -239,21 +239,17 @@ enum motion_parameter_addr {
     MAX_ACCEL         ,
     MAX_JERK	      ,
     MAXFOLLWING_ERR   ,
+
     // PID section: begin
-    P_GAIN            ,     // (unit: 1/65536)
-    I_GAIN            ,     // (unit: 1/65536)
-    D_GAIN            ,     // (unit: 1/65536)
-    FF0               ,     // useless for position mode servo
-    FF1               ,     // (unit: 1/65536)    
-    FF2               ,     // (unit: 1/65536)
-    DEAD_BAND         ,     // unit: 1 pulse
-    BIAS              ,     // useless for position mode servo
-    MAXERROR          ,
-    MAXERROR_I        ,
-    MAXERROR_D        ,
-    MAXCMD_D          ,
-    MAXCMD_DD         ,
-    MAXOUTPUT         ,     
+    PPG               ,     // PositionPropotionGain, Q16.16
+    PIG               ,     // PositionIntegrationGain, Q16.16
+    PFFG              ,     // PositionFeedForwardGain, Q16.16
+    PDB               ,     // PositionDeadBand, Q32.0
+    PME               ,     // PositionMaxError, Q32.0
+    PMIE              ,     // PositionMaxIntegrationError, Q32.0
+    PMO               ,     // PositionMaxOutput, Q16.16
+    VPG               ,     // VelocityPropotionalGain, Q16.16
+    VFFG              ,     // VelocityFeedForwardGain, Q16.16
     // PID section: end
     SCALE             ,     // unit_pulses/servo_period : 16.16 format, 
     ENC_SCALE         ,     // encoder scale: 16.16 format
