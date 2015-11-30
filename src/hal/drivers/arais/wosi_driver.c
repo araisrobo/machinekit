@@ -41,19 +41,22 @@
 #include "tick_jcmd.h"
 #include "inifile.h"
 
-#define MAX_NUM_JOINT 8
-#define MAX_STEP_CUR 255
-#define PLASMA_ON_BIT 0x02
-#define FRACTION_BITS 16
-#define FIXED_POINT_SCALE   65536.0             // (double (1 << FRACTION_BITS))
-#define FP_SCALE_RECIP      0.0000152587890625  // (1.0/65536.0)
-#define FRACTION_MASK 0x0000FFFF
+#define MAX_NUM_JOINT           8
+#define NUM_DEBUG               8
+#define MAX_STEP_CUR            255
+#define PLASMA_ON_BIT           0x02
+#define FRACTION_BITS           16
+#define FIXED_POINT_SCALE       65536.0             // (double (1 << FRACTION_BITS))
+#define FP_SCALE_RECIP          0.0000152587890625  // (1.0/65536.0)
+#define FRACTION_MASK           0x0000FFFF
 
+//#define PRINT_BANDWIDTH  // call wosi_status() to print WOSI bandwidth utilization
 #undef PRINT_BANDWIDTH  // call wosi_status() to print WOSI bandwidth utilization
 
 // to disable DP(): #define TRACE 0
 // to dump JOINT status, #define TRACE 1
-// to dump JOINT status and time statics, #define TRACE 2
+// to dump time statics, #define TRACE 2
+// to dump debug[],      #define TRACE 3
 #define TRACE 0
 #include "tp_debug.h"
 #if (TRACE!=0)
@@ -204,7 +207,7 @@ typedef struct
     hal_s32_t *test_pattern;
     /* MPG */
     hal_s32_t *mpg_count;
-    hal_s32_t *debug[32];
+    hal_s32_t *debug[NUM_DEBUG];
 
     hal_bit_t *teleop_mode;
     hal_bit_t *coord_mode;
@@ -462,10 +465,20 @@ static void fetchmail(const uint8_t *buf_head)
     case MT_DEBUG:
         p = (uint32_t *) (buf_head + 4);
         bp_tick = *p;
-        for (i = 0; i < 8; i++)
+#if (TRACE==3)
+        if (*machine_control->machine_on) {
+            DPS("\n%11u", bp_tick); // %11u: '#' + %10s
+        }
+#endif
+        for (i = 0; i < NUM_DEBUG; i++)
         {
             p += 1;
             *machine_control->debug[i] = *p;
+#if (TRACE==3)
+            if (*machine_control->machine_on) {
+                DPS("%17d", (int32_t) *p);
+            }
+#endif
         }
         break;
 
@@ -929,9 +942,9 @@ static int load_parameters(FILE *fp)
             sprintf(section, "AXIS_%d", n);
         }
         pos_scale = atof(iniFind(fp, "INPUT_SCALE", section));
-        max_vel = atof(iniFind(fp, "MAX_VELOCITY", section));
-        max_accel = atof(iniFind(fp, "MAX_ACCELERATION", section));
-        max_jerk = atof(iniFind(fp, "MAX_JERK", section));
+        max_vel = 1.01 * atof(iniFind(fp, "MAX_VELOCITY", section)); // add 1% for fixed point arithmetic
+        max_accel = 1.01 * atof(iniFind(fp, "MAX_ACCELERATION", section));
+        max_jerk = 1.01 * atof(iniFind(fp, "MAX_JERK", section));
         assert(max_vel > 0);
         assert(max_accel > 0);
         assert(max_jerk > 0);
@@ -1369,7 +1382,9 @@ int wosi_driver_init(int hal_comp_id, char *inifile)
 #if (TRACE!=0)
     /* initialize file handle for logging wosi steps */
     dptrace = fopen("mk-wosi.log", "w");
+#endif
 
+#if (TRACE==1)
     /* prepare header for gnuplot */
     DPS("#%10s", "dt");
     for (int n = 0; n < num_joints; n++)
@@ -1378,6 +1393,16 @@ int wosi_driver_init(int hal_comp_id, char *inifile)
         DPS("     prev_pcmd[%d]", n);
         DPS("        pos_fb[%d]", n);
         DPS("  risc_pos_cmd[%d]", n);
+    }
+    DPS("\n");
+#endif
+
+#if (TRACE==3)
+    /* prepare header for gnuplot */
+    DPS("#%10s", "dt");
+    for (int n = 0; n < NUM_DEBUG; n++)
+    {
+        DPS("         debug[%d]", n);
     }
     DPS("\n");
 #endif
@@ -1435,7 +1460,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     uint32_t sync_out_data;
     uint32_t tmp;
     int32_t immediate_data = 0;
-#if (TRACE!=0)
+#if (TRACE==1)
     static uint32_t _dt = 0;
 #endif
 
@@ -1640,7 +1665,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         }
     }
 
-#if (TRACE!=0)
+#if (TRACE==1)
     _dt++;
     if (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE))
     {
@@ -1926,8 +1951,11 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
                     4 * num_joints, data);
         }
 
+#if (TRACE==1)
         DPS("%17d%17.7f%17.7f%17.7f",
                 integer_pos_cmd, (stepgen->prev_pos_cmd), *stepgen->pos_fb, *stepgen->risc_pos_cmd);
+#endif
+
     }
 
     sync_cmd = SYNC_EOF;
@@ -1954,7 +1982,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 
     }
 
-#if (TRACE!=0)
+#if (TRACE==1)
     if (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE))
     {
         DPS("\n");
@@ -2378,7 +2406,7 @@ static int export_machine_control(machine_control_t * machine_control)
     }
     *(machine_control->test_pattern) = 0;
 
-    for (i = 0; i < 32; i++)
+    for (i = 0; i < NUM_DEBUG; i++)
     {
         retval = hal_pin_s32_newf(HAL_OUT, &(machine_control->debug[i]),
                 comp_id, "wosi.debug.value-%02d", i);
