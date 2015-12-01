@@ -323,17 +323,8 @@ def setup_signals():
     
     # create signals.xxx...
     comp.newpin('bptick', hal.HAL_U32, hal.HAL_IN)
-    comp.newpin('spindle-on', hal.HAL_BIT, hal.HAL_IN)
-    comp.newpin('spindle-forward', hal.HAL_BIT, hal.HAL_IN)
-    comp.newpin('spindle-reverse', hal.HAL_BIT, hal.HAL_IN)
-    comp.newpin('spindle-at-speed', hal.HAL_BIT, hal.HAL_IN)
-    comp.newpin('spindle-brake', hal.HAL_BIT, hal.HAL_IN)
-    comp.newpin('spindle.0.vel-fb', hal.HAL_FLOAT, hal.HAL_IN)
-    comp.newpin('spindle.0.vel-cmd', hal.HAL_FLOAT, hal.HAL_IN)
-    comp.newpin('spindle.0.pos-cmd', hal.HAL_FLOAT, hal.HAL_IN)
-    comp.newpin('spindle.0.pos-fb', hal.HAL_FLOAT, hal.HAL_IN)
 
-    for i in range(0,6):
+    for i in range(0,8):
         comp.newpin('joint.%d.enc-pos' % (i), hal.HAL_S32, hal.HAL_IN)
         comp.newpin('joint.%d.cmd-pos' % (i), hal.HAL_S32, hal.HAL_IN)
         comp.newpin('joint.%d.vel-fb' % (i), hal.HAL_FLOAT, hal.HAL_IN)
@@ -360,17 +351,8 @@ def setup_signals():
     comp.ready()
 
     comp.pin('bptick').link('bp-tick')
-    comp.pin('spindle-on').link('dout_8')
-    comp.pin('spindle-forward').link('spindle_forward')
-    comp.pin('spindle-reverse').link('spindle_reverse')
-    comp.pin('spindle-at-speed').link('spindle_at_speed')
-    comp.pin('spindle-brake').link('spindle_brake')
-    comp.pin('spindle.0.vel-fb').link('spindle_speed_in')
-    comp.pin('spindle.0.vel-cmd').link('spindle_speed_out')
-    comp.pin('spindle.0.pos-cmd').link('spindle_revs')
-#     comp.pin('spindle.0.pos-fb').link('spindle_pos_fb')
 
-    for i in range(0,6):
+    for i in range(0,8):
         comp.pin('joint.%d.enc-pos' % (i)).link("enc_pos_j%d" % (i))
         comp.pin('joint.%d.cmd-pos' % (i)).link('cmd_pos_j%d' % (i))
         comp.pin('joint.%d.vel-fb' % (i)).link('J%dvel-fb' % i)

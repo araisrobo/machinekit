@@ -13,7 +13,7 @@ base.setup_motion()     # create motion-signals for motion-pins
 base.setup_io()         # connect i/o signals to wosi
 base.setup_analog()     # connect analog signals to wosi
 base.setup_debug()      # connect debug signals to wosi
-# base.setup_signals()    # for Machineface.signals
+base.setup_signals()    # for Machineface.signals
 
 # start haltalk server after everything is initialized
 # else binding the remote components on the UI might fail
