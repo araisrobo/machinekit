@@ -60,6 +60,7 @@ typedef enum {
 #define NB_MAX_BUTTONS 32
 
 #define STEPSIZE_BYTE 35
+#define FLAGS_BYTE    36
 
 // the defines below were found for an 18 button device
 // bit 'or' patterns for STEPSIZE_BYTE
@@ -85,11 +86,19 @@ typedef enum {
 #define STEPSIZE_DISPLAY_UNKNOWN_0E 0x0E
 #define STEPSIZE_DISPLAY_UNKNOWN_0F 0x0F
 
+// guard for maximum number of items in a stepsize_sequence
+#define MAX_STEPSIZE_SEQUENCE 10
+
 // alternate stepsize sequences (use STEPSIZE_DISPLAY_*), terminate with 0:
-static const int  stepsize_sequence_1[] = {1,10,100,1000,0}; // default
-static const int  stepsize_sequence_2[] = {1,5,10,20,0};
+static const int  stepsize_sequence_1[MAX_STEPSIZE_SEQUENCE +1] = {1,10,100,1000, 0}; // default
+static const int  stepsize_sequence_2[MAX_STEPSIZE_SEQUENCE +1] = {1, 5, 10, 20,         0};
+static const int  stepsize_sequence_3[MAX_STEPSIZE_SEQUENCE +1] = {1,10,100,             0};
+static const int  stepsize_sequence_4[MAX_STEPSIZE_SEQUENCE +1] = {1, 5, 10, 20,  50,100,0};
+static const int  stepsize_sequence_5[MAX_STEPSIZE_SEQUENCE +1] = {1,10, 50,100,1000,    0};
 static const int* stepsize_sequence = stepsize_sequence_1; // use the default
 static int stepsize_idx = 0; // start at initial (zeroth) sequence
+static int stepsize_last_idx  =  0; //calculated`
+
 
 typedef struct {
 	hal_float_t *x_wc, *y_wc, *z_wc, *a_wc;
@@ -117,11 +126,30 @@ typedef struct {
 	hal_bit_t *jog_minus_x, *jog_minus_y, *jog_minus_z, *jog_minus_a;
 
 	hal_bit_t *stepsize_up;
+	hal_bit_t *stepsize_down;
 	hal_s32_t *stepsize;
 	hal_bit_t *sleeping;
 	hal_bit_t *connected;
 	hal_bit_t *require_pendant;
+	hal_bit_t *inch_icon;
+	hal_bit_t *zero_x;
+	hal_bit_t *zero_y;
+	hal_bit_t *zero_z;
+	hal_bit_t *zero_a;
+	hal_bit_t *gotozero_x;
+	hal_bit_t *gotozero_y;
+	hal_bit_t *gotozero_z;
+	hal_bit_t *gotozero_a;
+	hal_bit_t *half_x;
+	hal_bit_t *half_y;
+	hal_bit_t *half_z;
+	hal_bit_t *half_a;
 } xhc_hal_t;
+
+#define STEP_UNDEFINED  -1
+#define STEP_NONE      0x0
+#define STEP_UP        0x1
+#define STEP_DOWN      0x2
 
 typedef struct {
 	xhc_hal_t *hal;
@@ -129,7 +157,7 @@ typedef struct {
 	xhc_button_t buttons[NB_MAX_BUTTONS];
 	unsigned char button_code;
 
-	unsigned char old_inc_step_status;
+	char old_inc_step_status;
 	unsigned char button_step;	// Used in simulation mode to handle the STEP increment
 
 	// Variables for velocity computation
@@ -147,7 +175,6 @@ static bool wait_for_pendant_before_HAL = false;
 
 struct libusb_transfer *transfer_in  = NULL;
 unsigned char in_buf[32];
-void cb_transfer_in(struct libusb_transfer *transfer);
 void setup_asynch_transfer(libusb_device_handle *dev_handle);
 
 extern "C" const char *
@@ -161,7 +188,7 @@ iniFind(FILE *fp, const char *tag, const char *section)
 void init_xhc(xhc_t *xhc)
 {
 	memset(xhc, 0, sizeof(*xhc));
-	xhc->old_inc_step_status = -1;
+	xhc->old_inc_step_status = STEP_UNDEFINED;
 	gettimeofday(&xhc->last_wakeup, NULL);
 }
 
@@ -226,6 +253,11 @@ void xhc_display_encode(xhc_t *xhc, unsigned char *data, int len)
 			   buf[STEPSIZE_BYTE] = STEPSIZE_DISPLAY_0; break;
 	}
 
+    buf[FLAGS_BYTE] = 0;
+    if (*(xhc->hal->inch_icon)) {
+        buf[FLAGS_BYTE] |= 0x80;
+    }
+
 	// Multiplex to 6 USB transactions
 
 	p = buf;
@@ -271,6 +303,7 @@ void linuxcnc_simu(xhc_t *xhc)
 	static int last_jog_counts;
 	xhc_hal_t *hal = xhc->hal;
 
+	// for simu, always step up
 	*(hal->stepsize_up) = (xhc->button_step && xhc->button_code == xhc->button_step);
 
 	if (*(hal->jog_counts) != last_jog_counts) {
@@ -360,16 +393,32 @@ void compute_velocity(xhc_t *xhc)
 
 void handle_step(xhc_t *xhc)
 {
-	int _inc_step_status = 0;
+	int _inc_step_status = STEP_NONE;
 	int _stepsize = *(xhc->hal->stepsize);	// Use a local variable to avoid STEP display as 0 on pendant during transitions
 
-	_inc_step_status = *(xhc->hal->stepsize_up);
+	if (*(xhc->hal->stepsize_up)) {
+	       _inc_step_status = STEP_UP;
+	   if (*(xhc->hal->stepsize_down)) {
+	       _inc_step_status = STEP_NONE; // none if both pressed
+	   }
+	} else if (*(xhc->hal->stepsize_down)) {
+	      _inc_step_status = STEP_DOWN;
+	} else {
+	      _inc_step_status = STEP_NONE;
+	}
 
-	if (_inc_step_status  &&  ! xhc->old_inc_step_status) {
-		stepsize_idx++;
-		// restart idx when 0 terminator reached:
-		if (stepsize_sequence[stepsize_idx] == 0) stepsize_idx = 0;
-		_stepsize = stepsize_sequence[stepsize_idx];
+	if (_inc_step_status  !=  xhc->old_inc_step_status) {
+	    if (_inc_step_status == STEP_UP) {
+	        stepsize_idx++;
+	        // restart idx when 0 terminator reached:
+	        if (stepsize_sequence[stepsize_idx] == 0) stepsize_idx = 0;
+	    }
+	    if (_inc_step_status == STEP_DOWN) {
+	        stepsize_idx--;
+	        // restart at stepsize_last_idx when stepsize_idx < 0
+	        if (stepsize_idx < 0) stepsize_idx = stepsize_last_idx;
+	    }
+	    _stepsize = stepsize_sequence[stepsize_idx];
 	}
 
 	xhc->old_inc_step_status = _inc_step_status;
@@ -401,6 +450,24 @@ void cb_response_in(struct libusb_transfer *transfer)
 		for (i=0; i<NB_MAX_BUTTONS; i++) {
 			if (!xhc.hal->button_pin[i]) continue;
 			*(xhc.hal->button_pin[i]) = (xhc.button_code == xhc.buttons[i].code);
+            if (strcmp("button-zero", xhc.buttons[i].pin_name) == 0) {
+               *(xhc.hal->zero_x) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_x);
+               *(xhc.hal->zero_y) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_y);
+               *(xhc.hal->zero_z) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_z);
+               *(xhc.hal->zero_a) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_a);
+            }
+            if (strcmp("button-goto-zero", xhc.buttons[i].pin_name) == 0) {
+               *(xhc.hal->gotozero_x) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_x);
+               *(xhc.hal->gotozero_y) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_y);
+               *(xhc.hal->gotozero_z) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_z);
+               *(xhc.hal->gotozero_a) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_a);
+            }
+            if (strcmp("button-half", xhc.buttons[i].pin_name) == 0) {
+               *(xhc.hal->half_x) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_x);
+               *(xhc.hal->half_y) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_y);
+               *(xhc.hal->half_z) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_z);
+               *(xhc.hal->half_a) = (xhc.button_code == xhc.buttons[i].code) && (xhc.axis == axis_a);
+            }
 			if (simu_mode && *(xhc.hal->button_pin[i])) {
 				printf("%s pressed", xhc.buttons[i].pin_name);
 			}
@@ -435,12 +502,11 @@ void cb_response_in(struct libusb_transfer *transfer)
 			}
 	}
 
-	setup_asynch_transfer(transfer->dev_handle);
+	libusb_submit_transfer(transfer);
 }
 
 void setup_asynch_transfer(libusb_device_handle *dev_handle)
 {
-	transfer_in  = libusb_alloc_transfer(0);
 	libusb_fill_bulk_transfer( transfer_in, dev_handle, (0x1 | LIBUSB_ENDPOINT_IN),
 		in_buf, sizeof(in_buf),
 		cb_response_in, NULL, 0); // no user data
@@ -545,17 +611,37 @@ static void hal_setup()
     r |= _hal_pin_float_newf(HAL_IN, &(xhc.hal->spindle_rps), hal_comp_id, "%s.spindle-rps", modname);
     r |= _hal_pin_float_newf(HAL_IN, &(xhc.hal->spindle_override), hal_comp_id, "%s.spindle-override", modname);
 
-	for (i=0; i<NB_MAX_BUTTONS; i++) {
-		if (!xhc.buttons[i].pin_name[0]) continue;
-		r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->button_pin[i]), hal_comp_id, "%s.%s", modname, xhc.buttons[i].pin_name);
-		if (strcmp("button-step", xhc.buttons[i].pin_name) == 0) xhc.button_step = xhc.buttons[i].code;
-	}
+    for (i=0; i<NB_MAX_BUTTONS; i++) {
+        if (!xhc.buttons[i].pin_name[0]) continue;
+        r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->button_pin[i]), hal_comp_id, "%s.%s", modname, xhc.buttons[i].pin_name);
+        if (strcmp("button-zero", xhc.buttons[i].pin_name) == 0) {
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->zero_x), hal_comp_id, "%s.%s-x", modname, xhc.buttons[i].pin_name);
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->zero_y), hal_comp_id, "%s.%s-y", modname, xhc.buttons[i].pin_name);
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->zero_z), hal_comp_id, "%s.%s-z", modname, xhc.buttons[i].pin_name);
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->zero_a), hal_comp_id, "%s.%s-a", modname, xhc.buttons[i].pin_name);
+        }
+        if (strcmp("button-goto-zero", xhc.buttons[i].pin_name) == 0) {
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->gotozero_x), hal_comp_id, "%s.%s-x", modname, xhc.buttons[i].pin_name);
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->gotozero_y), hal_comp_id, "%s.%s-y", modname, xhc.buttons[i].pin_name);
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->gotozero_z), hal_comp_id, "%s.%s-z", modname, xhc.buttons[i].pin_name);
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->gotozero_a), hal_comp_id, "%s.%s-a", modname, xhc.buttons[i].pin_name);
+        }
+        if (strcmp("button-half", xhc.buttons[i].pin_name) == 0) {
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->half_x), hal_comp_id, "%s.%s-x", modname, xhc.buttons[i].pin_name);
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->half_y), hal_comp_id, "%s.%s-y", modname, xhc.buttons[i].pin_name);
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->half_z), hal_comp_id, "%s.%s-z", modname, xhc.buttons[i].pin_name);
+            r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->half_a), hal_comp_id, "%s.%s-a", modname, xhc.buttons[i].pin_name);
+        }
+        if (strcmp("button-step", xhc.buttons[i].pin_name) == 0) xhc.button_step = xhc.buttons[i].code;
+    }
 
     r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->sleeping), hal_comp_id, "%s.sleeping", modname);
     r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->connected), hal_comp_id, "%s.connected", modname);
     r |= _hal_pin_bit_newf(HAL_IN,  &(xhc.hal->stepsize_up), hal_comp_id, "%s.stepsize-up", modname);
+    r |= _hal_pin_bit_newf(HAL_IN,  &(xhc.hal->stepsize_down), hal_comp_id, "%s.stepsize-down", modname);
     r |= _hal_pin_s32_newf(HAL_OUT, &(xhc.hal->stepsize), hal_comp_id, "%s.stepsize", modname);
     r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->require_pendant), hal_comp_id, "%s.require_pendant", modname);
+    r |= _hal_pin_bit_newf(HAL_IN,  &(xhc.hal->inch_icon), hal_comp_id, "%s.inch-icon", modname);
 
     r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->jog_enable_off), hal_comp_id, "%s.jog.enable-off", modname);
     r |= _hal_pin_bit_newf(HAL_OUT, &(xhc.hal->jog_enable_x), hal_comp_id, "%s.jog.enable-x", modname);
@@ -613,19 +699,24 @@ int read_ini_file(char *filename)
 static void Usage(char *name)
 {
 	fprintf(stderr, "%s version %s by Frederic RIBLE (frible@teaser.fr)\n", name, PACKAGE_VERSION);
-    fprintf(stderr, "Usage: %s [-I ini-file] [-h] [-H] [-s 1|2]\n", name);
-    fprintf(stderr, " -I ini-file: configuration file defining the MPG keyboard layout\n");
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Usage: %s [-I button-cfg-file] [-h] [-H] [-s n]\n", name);
+    fprintf(stderr, " -I button-cfg-file: configuration file defining the MPG keyboard layout\n");
     fprintf(stderr, " -h: usage (this)\n");
     fprintf(stderr, " -H: run in real-time HAL mode (run in simulation mode by default)\n");
     fprintf(stderr, " -x: wait for pendant detection before creating HAL pins\n");
-    fprintf(stderr, " -s: step sequence (*.001 unit):\n");
+    fprintf(stderr, " -s: step sequence (multiplied by 0.001 unit):\n");
     fprintf(stderr, "     1: 1,10,100,1000 (default)\n");
-    fprintf(stderr, "     2: 1,5,10,20\n\n");
+    fprintf(stderr, "     2: 1,5,10,20\n");
+    fprintf(stderr, "     3: 1,10,100\n");
+    fprintf(stderr, "     4: 1,5,10,20,50,100\n");
+    fprintf(stderr, "     5: 1,10,50,100,1000\n");
+    fprintf(stderr, "\n");
     fprintf(stderr, "Configuration file section format:\n");
     fprintf(stderr, "[XHC-HB04]\n");
-    fprintf(stderr, "BUTTON=XX:button-thename\n");
+    fprintf(stderr, "BUTTON=XN:button-thenameN\n");
     fprintf(stderr, "...\n");
-    fprintf(stderr, "    where XX=hexcode, thename=nameforbutton\n");
+    fprintf(stderr, "    where XN=hexcode, button-thenameN=nameforbutton\n");
 }
 
 int main (int argc,char **argv)
@@ -633,7 +724,7 @@ int main (int argc,char **argv)
 	libusb_device **devs;
     libusb_device_handle *dev_handle;
 	libusb_context *ctx = NULL;
-	int r;
+	int r,idx;
 	ssize_t cnt;
 #define MAX_WAIT_SECS 10
 	int wait_secs = 0;
@@ -659,6 +750,9 @@ int main (int argc,char **argv)
             switch (optarg[0]) {
               case '1': stepsize_sequence = stepsize_sequence_1;break;
               case '2': stepsize_sequence = stepsize_sequence_2;break;
+              case '3': stepsize_sequence = stepsize_sequence_3;break;
+              case '4': stepsize_sequence = stepsize_sequence_4;break;
+              case '5': stepsize_sequence = stepsize_sequence_5;break;
               default:
                 printf("Unknown sequence: %s\n\n",optarg);
                 Usage(argv[0]);
@@ -674,6 +768,12 @@ int main (int argc,char **argv)
             exit(EXIT_FAILURE);
         }
     }
+
+    // compute the last valid idx for use with stepsize-down
+    for (idx=0; idx < MAX_STEPSIZE_SEQUENCE; idx++) {
+       if (stepsize_sequence[idx] == 0) break;
+    }
+    stepsize_last_idx  =  idx - 1;
 
 	hal_setup();
 
@@ -691,14 +791,15 @@ int main (int argc,char **argv)
     		sleep(5);
     		do_reconnect = 0;
     	}
-    
+
 		r = libusb_init(&ctx);
 
 		if(r < 0) {
 			perror("libusb_init");
 			return 1;
 		}
-		libusb_set_debug(ctx, 3);
+		libusb_set_debug(ctx, 2);
+		// use environmental variable LIBUSB_DEBUG if needed
 
 		printf("%s: waiting for XHC-HB04 device\n",modname);
 		*(xhc.hal->connected) = 0;
@@ -742,6 +843,8 @@ int main (int argc,char **argv)
 				perror("libusb_claim_interface");
 				return 1;
 			}
+			//allocate the transfer struct here only once after successful connection
+			transfer_in  = libusb_alloc_transfer(0);
 		}
 
 		*(xhc.hal->connected) = 1;

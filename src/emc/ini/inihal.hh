@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 int check_ini_hal_items();
 int ini_hal_init(void);
+int ini_hal_exit(void);
 int ini_hal_init_pins(void);
 
 /* not doing these fields (yet,ever?):
@@ -53,6 +54,13 @@ int ini_hal_init_pins(void);
     FIELD(hal_float_t,traj_max_velocity) \
     FIELD(hal_float_t,traj_default_acceleration) \
     FIELD(hal_float_t,traj_max_acceleration) \
+\
+    FIELD(hal_bit_t,traj_arc_blend_enable) \
+    FIELD(hal_bit_t,traj_arc_blend_fallback_enable) \
+    FIELD(hal_s32_t,traj_arc_blend_optimization_depth) \
+    FIELD(hal_float_t,traj_arc_blend_gap_cycles) \
+    FIELD(hal_float_t,traj_arc_blend_ramp_freq) \
+    FIELD(hal_float_t,traj_arc_blend_tangent_kink_ratio) \
 \
     ARRAY(hal_float_t,backlash,EMCMOT_MAX_JOINTS) \
     ARRAY(hal_float_t,min_limit,EMCMOT_MAX_JOINTS) \

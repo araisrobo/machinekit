@@ -1,5 +1,5 @@
 #    This is a component of AXIS, a front-end for Machinekit
-#    Copyright 2004, 2005, 2006, 2007, 2008, 2009
+#    Copyright 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015
 #    Jeff Epler <jepler@unpythonic.net> and Chris Radek <chris@timeguy.com>
 #
 #    This program is free software; you can redistribute it and/or modify
@@ -410,16 +410,16 @@ setup_menu_accel .menu.view end [_ "Show relative position"]
 
 .menu.view add radiobutton \
         -value 0 \
-        -variable joint_mode \
+        -variable teleop_mode \
         -accelerator $ \
-        -command set_joint_mode
+        -command set_teleop_mode
 setup_menu_accel .menu.view end [_ "Joint mode"]
 
 .menu.view add radiobutton \
         -value 1 \
-        -variable joint_mode \
+        -variable teleop_mode \
         -accelerator $ \
-        -command set_joint_mode
+        -command set_teleop_mode
 setup_menu_accel .menu.view end [_ "World mode"]
 
 menu .menu.view.grid
@@ -582,7 +582,14 @@ Button .toolbar.program_pause \
 	-relief link \
 	-takefocus 0
 setup_widget_accel .toolbar.program_pause {}
-       
+
+proc pause_image_normal {} {
+  .toolbar.program_pause configure -image [load_image tool_pause]
+}
+proc pause_image_override {} {
+  .toolbar.program_pause configure -image [load_image resume_inhibit]
+}
+
 Button .toolbar.program_stop \
 	-command task_stop \
 	-helptext [_ "Stop program execution \[ESC\]"] \
@@ -1172,10 +1179,17 @@ button $_tabs_manual.jogf.zerohome.home \
 setup_widget_accel $_tabs_manual.jogf.zerohome.home [_ "Home Axis"]
 
 button $_tabs_manual.jogf.zerohome.zero \
-	-command touch_off \
+	-command touch_off_system \
 	-padx 2m \
 	-pady 0
 setup_widget_accel $_tabs_manual.jogf.zerohome.zero [_ "Touch Off"]
+
+button $_tabs_manual.jogf.zerohome.tooltouch \
+	-command touch_off_tool \
+	-padx 2m \
+	-pady 0
+setup_widget_accel $_tabs_manual.jogf.zerohome.tooltouch [_ "Tool Touch Off"]
+
 
 checkbutton $_tabs_manual.jogf.override \
 	-command toggle_override_limits \
@@ -1206,6 +1220,14 @@ grid $_tabs_manual.jogf.zerohome.home \
 grid $_tabs_manual.jogf.zerohome.zero \
 	-column 1 \
 	-row 0 \
+	-ipadx 2 \
+	-pady 2 \
+	-sticky w
+
+# Grid widget $_tabs_manual.jogf.zerohome.tooltouch
+grid $_tabs_manual.jogf.zerohome.tooltouch \
+	-column 1 \
+	-row 2 \
 	-ipadx 2 \
 	-pady 2 \
 	-sticky w
@@ -1756,6 +1778,44 @@ pack ${pane_top}.feedoverride.m \
 pack ${pane_top}.feedoverride.foentry \
 	-side right
 
+frame ${pane_top}.rapidoverride
+
+label ${pane_top}.rapidoverride.foentry \
+	-textvariable rapidrate \
+	-width 4 \
+        -anchor e
+setup_widget_accel ${pane_top}.rapidoverride.foentry 0
+
+scale ${pane_top}.rapidoverride.foscale \
+	-command set_rapidrate \
+	-orient horizontal \
+	-resolution 1.0 \
+	-showvalue 0 \
+	-takefocus 0 \
+	-to 120.0 \
+	-variable rapidrate
+
+label ${pane_top}.rapidoverride.l
+setup_widget_accel ${pane_top}.rapidoverride.l [_ "Rapid Override:"]
+label ${pane_top}.rapidoverride.m -width 1
+setup_widget_accel ${pane_top}.rapidoverride.m [_ "%"]
+
+# Pack widget ${pane_top}.rapidoverride.l
+pack ${pane_top}.rapidoverride.l \
+	-side left
+
+# Pack widget ${pane_top}.rapidoverride.foscale
+pack ${pane_top}.rapidoverride.foscale \
+	-side right
+
+# Pack widget ${pane_top}.rapidoverride.foentry
+pack ${pane_top}.rapidoverride.m \
+	-side right
+
+# Pack widget ${pane_top}.rapidoverride.foentry
+pack ${pane_top}.rapidoverride.foentry \
+	-side right
+
 toplevel .about
 bind .about <Key-Return> { wm wi .about }
 bind .about <Key-Escape> { wm wi .about }
@@ -1847,25 +1907,31 @@ grid ${pane_top}.feedoverride \
 	-row 2 \
 	-sticky new
 
-# Grid widget ${pane_top}.spinoverride
-grid ${pane_top}.spinoverride \
+# Grid widget ${pane_top}.rapidoverride
+grid ${pane_top}.rapidoverride \
 	-column 0 \
 	-row 3 \
 	-sticky new
 
-grid ${pane_top}.jogspeed \
+# Grid widget ${pane_top}.spinoverride
+grid ${pane_top}.spinoverride \
 	-column 0 \
 	-row 4 \
 	-sticky new
 
-grid ${pane_top}.ajogspeed \
+grid ${pane_top}.jogspeed \
 	-column 0 \
 	-row 5 \
 	-sticky new
 
-grid ${pane_top}.maxvel \
+grid ${pane_top}.ajogspeed \
 	-column 0 \
 	-row 6 \
+	-sticky new
+
+grid ${pane_top}.maxvel \
+	-column 0 \
+	-row 7 \
 	-sticky new
 
 # Grid widget .info
@@ -1930,14 +1996,15 @@ set INTERP_WAITING 4
 set TRAJ_MODE_FREE 1
 set KINEMATICS_IDENTITY 1
 
-set manual [concat [winfo children $_tabs_manual.axes] \
+set manualgroup [concat [winfo children $_tabs_manual.axes] \
     $_tabs_manual.jogf.zerohome.home \
     $_tabs_manual.jogf.jog.jogminus \
     $_tabs_manual.jogf.jog.jogplus \
     $_tabs_manual.spindlef.cw $_tabs_manual.spindlef.ccw \
     $_tabs_manual.spindlef.stop $_tabs_manual.spindlef.brake \
-    $_tabs_manual.flood $_tabs_manual.mist $_tabs_mdi.command \
-    $_tabs_mdi.go $_tabs_mdi.history]
+    $_tabs_manual.flood $_tabs_manual.mist]
+
+set mdigroup [concat $_tabs_mdi.command $_tabs_mdi.go $_tabs_mdi.history]
 
 proc disable_group {ws} { foreach w $ws { $w configure -state disabled } }
 proc enable_group {ws} { foreach w $ws { $w configure -state normal } }
@@ -1982,11 +2049,12 @@ proc update_title {args} {
 }
 
 proc update_state {args} {
-    set mytest "Hooray!"
-    switch $::task_state \
+    # (The preferred exactly-two-argument form of switch cannot be used
+    # as the patterns must undergo $-expansion)
+    switch -- $::task_state \
         $::STATE_ESTOP { set ::task_state_string [_ "ESTOP"] } \
         $::STATE_ESTOP_RESET { set ::task_state_string [_ "OFF"] } \
-        $::STATE_ON { set ::task_state_string [_ "ON"] } \
+        $::STATE_ON { set ::task_state_string [_ "ON"] }
 
     relief {$task_state == $STATE_ESTOP} .toolbar.machine_estop
     state  {$task_state != $STATE_ESTOP} \
@@ -2052,28 +2120,19 @@ proc update_state {args} {
         set ::position [concat [_ "Position:"] $coord_str $display_str]
     }
 
-    if {$::task_state == $::STATE_ON} {
-	if {$::interp_state == $::INTERP_IDLE} {
-	    if {$::last_interp_state != $::INTERP_IDLE || $::last_task_state != $::task_state} {
-		set_mode_from_tab
-	    }
-	    enable_group $::manual
-	}
-	if {$::queued_mdi_commands < $::max_queued_mdi_commands } {
-	    enable_group $::manual
-	} else {
-	    disable_group $::manual
-	}
+    if {$::task_state == $::STATE_ON && $::interp_state == $::INTERP_IDLE} {
+        if {$::last_interp_state != $::INTERP_IDLE || $::last_task_state != $::task_state} {
+            set_mode_from_tab
+        }
+        enable_group $::manualgroup
     } else {
-        disable_group $::manual
+        disable_group $::manualgroup
     }
 
-    if {$::task_state == $::STATE_ON && $::interp_state == $::INTERP_IDLE &&
-        ($::motion_mode == $::TRAJ_MODE_FREE
-            || $::kinematics_type == $::KINEMATICS_IDENTITY)} {
-        $::_tabs_manual.jogf.jog.jogincr configure -state normal
+    if {$::task_state == $::STATE_ON && $::queued_mdi_commands < $::max_queued_mdi_commands } {
+        enable_group $::mdigroup
     } else {
-        $::_tabs_manual.jogf.jog.jogincr configure -state disabled
+        disable_group $::mdigroup
     }
 
     if {$::task_state == $::STATE_ON && $::interp_state == $::INTERP_IDLE &&
@@ -2083,6 +2142,17 @@ proc update_state {args} {
     } else {
         $::_tabs_manual.jogf.zerohome.zero configure -state disabled
     }
+
+    if {    $::task_state == $::STATE_ON
+         && $::interp_state == $::INTERP_IDLE
+         && ($::motion_mode != $::TRAJ_MODE_FREE || $::kinematics_type == $::KINEMATICS_IDENTITY)
+         && ("$::tool" != "" && "$::tool" != [_ "No tool"])
+       } {
+        $::_tabs_manual.jogf.zerohome.tooltouch configure -state normal
+    } else {
+        $::_tabs_manual.jogf.zerohome.tooltouch configure -state disabled
+    }
+
 
     set ::last_interp_state $::interp_state
     set ::last_task_state $::task_state
@@ -2426,6 +2496,7 @@ DynamicHelp::add $_tabs_manual.flood -text [_ "Turn flood on or off \[F8\]"]
 DynamicHelp::add $_tabs_manual.mist -text [_ "Turn mist on or off \[F7\]"]
 DynamicHelp::add $_tabs_manual.jogf.zerohome.home -text [_ "Send active axis home \[Home\]"]
 DynamicHelp::add $_tabs_manual.jogf.zerohome.zero -text [_ "Set G54 offset for active axis \[End\]"]
+DynamicHelp::add $_tabs_manual.jogf.zerohome.tooltouch -text [_ "Set tool offset for loaded tool \[Control-End\]"]
 DynamicHelp::add $_tabs_manual.axes.axisx -text [_ "Activate axis \[X\]"]
 DynamicHelp::add $_tabs_manual.axes.axisy -text [_ "Activate axis \[Y\]"]
 DynamicHelp::add $_tabs_manual.axes.axisz -text [_ "Activate axis \[Z\]"]

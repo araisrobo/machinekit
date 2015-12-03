@@ -83,10 +83,30 @@ class _HalSensitiveBase(_HalWidgetBase):
 class _HalJogWheelBase(_HalWidgetBase):
     def _hal_init(self):
         self.hal_pin = self.hal.newpin(self.hal_name, hal.HAL_S32, hal.HAL_OUT)
+        try:
+            self.get_scaled_value()
+            self.hal_pin_scaled = self.hal.newpin(self.hal_name+'-scaled', hal.HAL_FLOAT, hal.HAL_OUT)
+        except:
+            pass
+        try:
+            self.get_delta_scaled_value()
+            self.hal_pin_delta_scaled = self.hal.newpin(self.hal_name+'-delta-scaled', hal.HAL_FLOAT, hal.HAL_OUT)
+        except:
+            pass
 
     def hal_update(self, *a):
         data = self.get_value()
         self.hal_pin.set(int(data))
+        try:
+            data = self.get_scaled_value()
+            self.hal_pin_scaled.set(float(data))
+        except:
+            pass
+        try:
+            data = self.get_delta_scaled_value()
+            self.hal_pin_delta_scaled.set(float(data))
+        except:
+            pass
 
 """ Real widgets """
 
@@ -159,6 +179,22 @@ class HAL_Button(gtk.Button, _HalWidgetBase):
         self.connect("pressed",  _f, True)
         self.connect("released", _f, False)
         self.emit("released")
+
+class HALIO_Button(gtk.ToggleButton, _HalWidgetBase):
+    __gtype_name__ = "HALIO_Button"
+
+    def _hal_init(self):
+        self.set_active(False)
+        self.hal_pin = self.hal.newpin(self.hal_name, hal.HAL_BIT, hal.HAL_IO)
+        def _f(w, data):
+            self.set_active(True)
+            self.hal_pin.set(data)
+        self.connect("pressed",  _f, True)
+        self.hal_pin.connect('value-changed', self.hal_update)
+
+    def hal_update(self, *a):
+        active = bool(self.hal_pin.get())
+        self.set_active(active)
 
 class HAL_CheckButton(gtk.CheckButton, _HalToggleBase):
     __gtype_name__ = "HAL_CheckButton"

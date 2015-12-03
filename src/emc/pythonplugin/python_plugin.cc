@@ -1,3 +1,21 @@
+/*    This is a component of LinuxCNC
+ *    Copyright 2011, 2012, 2013 Jeff Epler <jepler@dsndata.com>, Michael
+ *    Haberler <git@mah.priv.at>, Sebastian Kuzminsky <seb@highlab.com>
+ *
+ *    This program is free software; you can redistribute it and/or modify
+ *    it under the terms of the GNU General Public License as published by
+ *    the Free Software Foundation; either version 2 of the License, or
+ *    (at your option) any later version.
+ *
+ *    This program is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with this program; if not, write to the Free Software
+ *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 #include "python_plugin.hh"
 #include "inifile.hh"
 
@@ -260,9 +278,6 @@ PythonPlugin::PythonPlugin(struct _inittab *inittab) :
     status(0),
     module_mtime(0),
     reload_on_change(0),
-    ini_filename(0),
-    section(0),
-    inittab_pointer(0),
     toplevel(0),
     abs_path(0),
     log_level(0)

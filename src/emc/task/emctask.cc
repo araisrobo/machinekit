@@ -265,15 +265,15 @@ int emcTaskSetState(int state)
         emcMotionAbort();
 	// turn the machine servos off-- go into READY state
         emcSpindleAbort();
-	for (t = 0; t < emcStatus->motion.traj.axes; t++) {
-	    emcAxisDisable(t);
+	for (t = 0; t < emcStatus->motion.traj.joints; t++) {
+	    emcJointDisable(t);
 	}
 	emcTrajDisable();
 	emcIoAbort(EMC_ABORT_TASK_STATE_OFF);
 	emcLubeOff();
 	emcTaskAbort();
         emcSpindleAbort();
-        emcAxisUnhome(-2); // only those joints which are volatile_home
+        emcJointUnhome(-2); // only those joints which are volatile_home
 	emcAbortCleanup(EMC_ABORT_TASK_STATE_OFF);
 	emcTaskPlanSynch();
 	break;
@@ -281,8 +281,8 @@ int emcTaskSetState(int state)
     case EMC_TASK_STATE_ON:
 	// turn the machine servos on
 	emcTrajEnable();
-	for (t = 0; t < emcStatus->motion.traj.axes; t++) {
-	    emcAxisEnable(t);
+	for (t = 0; t < emcStatus->motion.traj.joints; t++) {
+	    emcJointEnable(t);
 	}
 	emcLubeOn();
 	break;
@@ -303,15 +303,15 @@ int emcTaskSetState(int state)
         emcSpindleAbort();
 	// go into estop-- do both IO estop and machine servos off
 	emcAuxEstopOn();
-	for (t = 0; t < emcStatus->motion.traj.axes; t++) {
-	    emcAxisDisable(t);
+	for (t = 0; t < emcStatus->motion.traj.joints; t++) {
+	    emcJointDisable(t);
 	}
 	emcTrajDisable();
 	emcLubeOff();
 	emcTaskAbort();
         emcIoAbort(EMC_ABORT_TASK_STATE_ESTOP);
         emcSpindleAbort();
-        emcAxisUnhome(-2); // only those joints which are volatile_home
+        emcJointUnhome(-2); // only those joints which are volatile_home
 	emcAbortCleanup(EMC_ABORT_TASK_STATE_ESTOP);
 	emcTaskPlanSynch();
 	break;
@@ -428,7 +428,6 @@ int emcTaskPlanInit()
         inifile.Close();
     }
     if(!pinterp) {
-	rcs_print("emcTaskInit: using builtin interpreter\n");
         pinterp = new Interp;
     }
 

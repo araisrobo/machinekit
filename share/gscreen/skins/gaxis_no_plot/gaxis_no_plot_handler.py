@@ -1,3 +1,19 @@
+# Copyright: 2014
+# Author:    Chris Morley <chrisinnanaimo@hotmail.com>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 import hal
 import gtk
 _X = 0;_Y = 1;_Z = 2;_A = 3;_B = 4;_C = 5;_U = 6;_V = 7;_W = 8
@@ -128,16 +144,15 @@ class HandlerClass:
         self.widgets.adjustment_so.set_upper(self.data.spindle_override_max*100)
         self.widgets.adjustment_so.set_value(self.data.spindle_override*100)
         self.widgets.notebook_debug.set_show_tabs(False)
-        self.gscreen.keylookup.add_conversion('F4','TEST2','on_keycall_POWER')
-        #self.gscreen.keylookup.add_binding('F4','TEST2')
-        #self.gscreen.keylookup.add_call('TEST2','on_keycall_POWER')
-    # If we need extra HAL pins here is where we do it.
-    # Note you must import hal at the top of this script to do it.
-    # For gaxis there is no extra pins but since we don't want gscreen to
-    # add it's default pins we added this function
-    def initialize_pins(self):
-        pass
+        #self.gscreen.keylookup.add_conversion('F4','TEST2','on_keycall_POWER')
 
+    # If we need extra HAL pins here is where we do it.
+    # Note you must import hal at the top of this script to build the pins here. or:
+    # For gaxis there is only jog pins so we call gscreen to
+    # add it's default jog pins
+    def initialize_pins(self):
+        self.gscreen.init_jog_pins()
+ 
     # checks the current operating mode according to the UI
     def check_mode(self):
         string = []
@@ -150,9 +165,21 @@ class HandlerClass:
     def on_keycall_ESTOP(self,state,SHIFT,CNTRL,ALT):
         if state:
             self.widgets.emc_toggle_estop.emit('activate')
+            return True
     def on_keycall_POWER(self,state,SHIFT,CNTRL,ALT):
         if state:
             self.widgets.emc_toggle_power.emit('activate')
+            return True
+    def on_keycall_INCREMENTS(self,state,SHIFT,CNTRL,ALT):
+        if state and self.data._MAN in self.check_mode(): # manual mode required
+            print 'hi'
+            if SHIFT:
+                self.gscreen.set_jog_increments(index_dir = -1)
+            else:
+                self.gscreen.set_jog_increments(index_dir = 1)
+            # update the combo box
+            self.widgets.jog_speed.set_active(self.data.current_jogincr_index)
+            return True
 
     def on_touch_off_clicked(self,widget,axis):
         self.gscreen.launch_numerical_input("on_offset_origin_entry_return",axis,None,"Touch off %s"% axis.upper())

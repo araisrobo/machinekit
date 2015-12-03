@@ -1,2 +1,2 @@
 #!/bin/sh
-comp --compile rand.comp
+halcompile --compile rand.comp

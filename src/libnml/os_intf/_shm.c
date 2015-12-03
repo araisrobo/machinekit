@@ -17,7 +17,6 @@ extern int instance_no; // exported from cms.cc
 #include "_shm.h"
 #include "rcs_print.hh"
 #include <stdio.h>		/* NULL */
-#include <linux/posix_types.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <errno.h>

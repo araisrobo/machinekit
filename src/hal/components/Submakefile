@@ -29,6 +29,8 @@ DRIVER_COMP_MANPAGES := $(patsubst hal/drivers/%.comp, ../man/man9/%.9comp, \
 
 manpages: $(COMP_MANPAGES) $(DRIVER_COMP_MANPAGES) $(MSG_COMP_MANPAGES)
 TARGETS += manpages
+GENERATED_MANPAGES += $(COMP_MANPAGES)
+GENERATED_MANPAGES += $(COMP_DRIVER_MANPAGES)
 .PHONY: manpages
 ifeq ($(TRIVIAL_BUILD)+$(BUILD_THREAD_MODULES),no+yes)
 -include $(patsubst %.comp, $(BASEPWD)/halcomp-srcs/%.mak,\
@@ -43,30 +45,30 @@ obj-m += $(patsubst hal/drivers/%.comp, %.o, \
 	$(COMPS) $(DRIVER_COMPS) $(MSG_COMPS))))
 endif
 
-$(COMP_MANPAGES): ../man/man9/%.9comp: hal/components/%.comp ../bin/comp
-	$(ECHO) Making comp manpage $(notdir $@)
+$(COMP_MANPAGES): ../man/man9/%.9comp: hal/components/%.comp ../bin/halcompile
+	$(ECHO) Making halcompile manpage $(notdir $@)
 	@mkdir -p $(dir $@)
-	$(Q)../bin/comp --document -o $@ $<
+	$(Q)../bin/halcompile --document -o $@ $<
 
-$(DRIVER_COMP_MANPAGES): ../man/man9/%.9comp: hal/drivers/%.comp ../bin/comp
-	$(ECHO) Making comp manpage $(notdir $@)
+$(DRIVER_COMP_MANPAGES): ../man/man9/%.9comp: hal/drivers/%.comp ../bin/halcompile
+	$(ECHO) Making halcompile manpage $(notdir $@)
 	@mkdir -p $(dir $@)
-	$(Q)../bin/comp --document -o $@ $<
+	$(Q)../bin/halcompile --document -o $@ $<
 
 $(MSG_COMP_MANPAGES): ../man/man9/%.9comp: \
-		machinetalk/msgcomponents/%.comp ../bin/comp
+		machinetalk/msgcomponents/%.comp ../bin/halcompile
 	$(ECHO) Making comp manpage $(notdir $@)
 	@mkdir -p $(dir $@)
-	$(Q)../bin/comp --document -o $@ $<
+	$(Q)../bin/halcompile --document -o $@ $<
 
 ifeq ($(BUILD_ALL_FLAVORS),yes)
 # .c and .mak files are identical for all flavors
 #
 # in the top-level make, build them once in a common location
-halcomp-srcs/%.c: %.comp ../bin/comp
+halcomp-srcs/%.c: %.comp ../bin/halcompile
 	$(ECHO) "Preprocessing $(notdir $<)"
 	@mkdir -p $(dir $@)
-	$(Q)../bin/comp --require-license -o $@ $<
+	$(Q)../bin/halcompile --require-license -o $@ $<
 
 halcomp-srcs/%.mak: %.comp $(HALCOMP_SUBMAKEFILE)
 	$(ECHO) "Creating $(notdir $@)"
@@ -106,8 +108,8 @@ endif # BUILD_ALL_FLAVORS == yes
 # endif
 # endif
 
-clean: clean-comp-manpages
-clean-comp-manpages:
+# keep this make target in 2.6, remove in 2.7 (just use 'clean-manpages' in 2.7+)
+clean-comp-manpages: clean-manpages
 	-rm -f $(COMP_MANPAGES) $(DRIVER_COMP_MANPAGES) $(MSG_COMP_MANPAGES)
 
 HALSTREAMERSRCS := hal/components/streamer_usr.c

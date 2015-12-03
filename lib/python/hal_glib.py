@@ -694,8 +694,16 @@ class _GStat(gobject.GObject):
         file_old = old.get('file', None)
         file_new = self.old['file']
         if file_new != file_old:
-            self.emit('file-loaded', file_new)
+            # if interpreter is reading or waiting, the new file
+            # is a remap procedure, with the following test we
+            # do avoid that a signal is emited in that case, causing 
+            # a reload of the preview and sourceview widgets
+            if self.stat.interp_state == linuxcnc.INTERP_IDLE:
+                self.emit('file-loaded', file_new)
 
+        #ToDo : Find a way to avoid signal when the line changed due to 
+        #       a remap procedure, because the signal do highlight a wrong
+        #       line in the code
         line_old = old.get('line', None)
         line_new = self.old['line']
         if line_new != line_old:
@@ -714,19 +722,19 @@ class _GStat(gobject.GObject):
         homed_old = old.get('homed', None)
         homed_new = self.old['homed']
         if homed_new != homed_old:
-            axis_count = count = 0
+            axis_count = homed_count = 0
             unhomed = homed = ""
             for i,h in enumerate(homed_new):
                 if h:
-                    count +=1
+                    if self.stat.axis_mask & (1<<i): homed_count +=1
                     homed += str(i)
                 if self.stat.axis_mask & (1<<i) == 0: continue
                 axis_count += 1
                 if not h:
                     unhomed += str(i)
-            if count:
+            if homed_count:
                 self.emit('homed',homed)
-            if count == axis_count:
+            if homed_count == axis_count:
                 self.emit('all-homed')
             else:
                 self.emit('not-all-homed',unhomed)

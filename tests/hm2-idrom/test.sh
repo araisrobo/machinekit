@@ -28,6 +28,8 @@ retval=0
 # clean up after previous runs
 ls ${LOG}.* >&/dev/null && rm -f ${LOG}.*
 
+result=0
+
 TEST_PATTERN=0
 while [ ! -z "${Error[$TEST_PATTERN]}" ]; do
 

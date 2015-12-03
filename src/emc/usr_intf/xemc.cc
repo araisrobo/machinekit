@@ -14,6 +14,7 @@
 * Last change:
 ********************************************************************/
 
+#define __STDC_FORMAT_MACROS
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -25,6 +26,7 @@
 #include <sys/stat.h>           // struct stat, stat()
 #include <unistd.h>
 #include <fcntl.h>              // O_CREAT
+#include <inttypes.h>
 
 #include "rcs.hh"               // etime()
 #include "emc.hh"               // EMC NML
@@ -238,7 +240,7 @@ static int updateError()
       break;
 
     default:
-      sprintf(error_string, "unrecognized error %ld",type);
+      sprintf(error_string, "unrecognized error %" PRId32,type);
       return -1;
       break;
     }
@@ -246,30 +248,62 @@ static int updateError()
   return 0;
 }
 
-#define EMC_COMMAND_TIMEOUT 1.0 // how long to wait until timeout
+#define EMC_COMMAND_TIMEOUT 5.0 // how long to wait until timeout
 #define EMC_COMMAND_DELAY   0.1 // how long to sleep between checks
 
-static int emcCommandWaitDone(int serial_number)
+static int emcCommandWaitDone()
 {
-  double start = etime();
+    double end;
+    for (end = 0.0; end < EMC_COMMAND_TIMEOUT; end += EMC_COMMAND_DELAY) {
+	updateStatus();
+	int serial_diff = emcStatus->echo_serial_number - emcCommandSerialNumber;
 
-  while (etime() - start < EMC_COMMAND_TIMEOUT) {
-    updateStatus();
+	if (serial_diff < 0) {
+	    continue;
+	}
 
-    if (emcStatus->echo_serial_number == serial_number) {
-      if (emcStatus->status == RCS_DONE) {
-        return 0;
-      }
-      else if (emcStatus->status == RCS_ERROR) {
-        return -1;
-      }
+	if (serial_diff > 0) {
+	    return 0;
+	}
+
+	if (emcStatus->status == RCS_DONE) {
+	    return 0;
+	}
+
+	if (emcStatus->status == RCS_ERROR) {
+	    return -1;
+	}
+
+	esleep(EMC_COMMAND_DELAY);
     }
 
-    esleep(EMC_COMMAND_DELAY);
-  }
-
-  return -1;
+    return -1;
 }
+
+static int emcCommandSend(RCS_CMD_MSG & cmd)
+{
+    // write command
+    if (emcCommandBuffer->write(&cmd)) {
+        return -1;
+    }
+    emcCommandSerialNumber = cmd.serial_number;
+
+    // wait for receive
+    double end;
+    for (end = 0.0; end < EMC_COMMAND_TIMEOUT; end += EMC_COMMAND_DELAY) {
+	updateStatus();
+	int serial_diff = emcStatus->echo_serial_number - emcCommandSerialNumber;
+
+	if (serial_diff >= 0) {
+	    return 0;
+	}
+
+	esleep(EMC_COMMAND_DELAY);
+    }
+
+    return -1;
+}
+
 
 /*
   functions for handling the windowing of a file, where you
@@ -640,6 +674,10 @@ typedef enum {
 
 static POS_DISPLAY_TYPE posDisplay = POS_DISPLAY_ACT;
 
+// traj
+static double traj_defvel;
+static double traj_maxvel;
+
 // marker for the active axis
 static int activeAxis = 0;      // default is 0, X
 static int oldActiveAxis = -1;  // force an update at startup
@@ -681,8 +719,7 @@ static int sendEstop()
   EMC_TASK_SET_STATE state_msg;
 
   state_msg.state = EMC_TASK_STATE_ESTOP;
-  state_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(state_msg);
+  emcCommandSend(state_msg);
 
   return 0;
 }
@@ -692,8 +729,7 @@ static int sendEstopReset()
   EMC_TASK_SET_STATE state_msg;
 
   state_msg.state = EMC_TASK_STATE_ESTOP_RESET;
-  state_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(state_msg);
+  emcCommandSend(state_msg);
 
   return 0;
 }
@@ -703,8 +739,7 @@ static int sendMachineOn()
   EMC_TASK_SET_STATE state_msg;
 
   state_msg.state = EMC_TASK_STATE_ON;
-  state_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(state_msg);
+  emcCommandSend(state_msg);
 
   return 0;
 }
@@ -714,8 +749,7 @@ static int sendMachineOff()
   EMC_TASK_SET_STATE state_msg;
 
   state_msg.state = EMC_TASK_STATE_OFF;
-  state_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(state_msg);
+  emcCommandSend(state_msg);
 
   return 0;
 }
@@ -725,8 +759,7 @@ static int sendManual()
   EMC_TASK_SET_MODE mode_msg;
 
   mode_msg.mode = EMC_TASK_MODE_MANUAL;
-  mode_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(mode_msg);
+  emcCommandSend(mode_msg);
 
   return 0;
 }
@@ -736,8 +769,7 @@ static int sendAuto()
   EMC_TASK_SET_MODE mode_msg;
 
   mode_msg.mode = EMC_TASK_MODE_AUTO;
-  mode_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(mode_msg);
+  emcCommandSend(mode_msg);
 
   return 0;
 }
@@ -747,8 +779,7 @@ static int sendMdi()
   EMC_TASK_SET_MODE mode_msg;
 
   mode_msg.mode = EMC_TASK_MODE_MDI;
-  mode_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(mode_msg);
+  emcCommandSend(mode_msg);
 
   return 0;
 }
@@ -762,8 +793,7 @@ static int sendToolSetOffset(int toolno, double zoffset, double diameter)
   emc_tool_set_offset_msg.diameter = diameter;
   emc_tool_set_offset_msg.orientation = 0; // mill style tool table
 
-  emc_tool_set_offset_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_tool_set_offset_msg);
+  emcCommandSend(emc_tool_set_offset_msg);
 
   return 0;
 }
@@ -772,8 +802,7 @@ static int sendMistOn()
 {
   EMC_COOLANT_MIST_ON emc_coolant_mist_on_msg;
 
-  emc_coolant_mist_on_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_coolant_mist_on_msg);
+  emcCommandSend(emc_coolant_mist_on_msg);
 
   return 0;
 }
@@ -782,8 +811,7 @@ static int sendMistOff()
 {
   EMC_COOLANT_MIST_OFF emc_coolant_mist_off_msg;
 
-  emc_coolant_mist_off_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_coolant_mist_off_msg);
+  emcCommandSend(emc_coolant_mist_off_msg);
 
   return 0;
 }
@@ -792,8 +820,7 @@ static int sendFloodOn()
 {
   EMC_COOLANT_FLOOD_ON emc_coolant_flood_on_msg;
 
-  emc_coolant_flood_on_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_coolant_flood_on_msg);
+  emcCommandSend(emc_coolant_flood_on_msg);
 
   return 0;
 }
@@ -802,8 +829,7 @@ static int sendFloodOff()
 {
   EMC_COOLANT_FLOOD_OFF emc_coolant_flood_off_msg;
 
-  emc_coolant_flood_off_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_coolant_flood_off_msg);
+  emcCommandSend(emc_coolant_flood_off_msg);
 
   return 0;
 }
@@ -813,8 +839,7 @@ static int sendSpindleForward()
   EMC_SPINDLE_ON emc_spindle_on_msg;
 
   emc_spindle_on_msg.speed = +1;
-  emc_spindle_on_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_spindle_on_msg);
+  emcCommandSend(emc_spindle_on_msg);
 
   return 0;
 }
@@ -824,8 +849,7 @@ static int sendSpindleReverse()
   EMC_SPINDLE_ON emc_spindle_on_msg;
 
   emc_spindle_on_msg.speed = -1;
-  emc_spindle_on_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_spindle_on_msg);
+  emcCommandSend(emc_spindle_on_msg);
 
   return 0;
 }
@@ -834,8 +858,7 @@ static int sendSpindleOff()
 {
   EMC_SPINDLE_OFF emc_spindle_off_msg;
 
-  emc_spindle_off_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_spindle_off_msg);
+  emcCommandSend(emc_spindle_off_msg);
 
   return 0;
 }
@@ -844,8 +867,7 @@ static int sendSpindleIncrease()
 {
   EMC_SPINDLE_INCREASE emc_spindle_increase_msg;
 
-  emc_spindle_increase_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_spindle_increase_msg);
+  emcCommandSend(emc_spindle_increase_msg);
 
   return 0;
 }
@@ -854,8 +876,7 @@ static int sendSpindleDecrease()
 {
   EMC_SPINDLE_DECREASE emc_spindle_decrease_msg;
 
-  emc_spindle_decrease_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_spindle_decrease_msg);
+  emcCommandSend(emc_spindle_decrease_msg);
 
   return 0;
 }
@@ -864,8 +885,7 @@ static int sendSpindleConstant()
 {
   EMC_SPINDLE_CONSTANT emc_spindle_constant_msg;
 
-  emc_spindle_constant_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_spindle_constant_msg);
+  emcCommandSend(emc_spindle_constant_msg);
 
   return 0;
 }
@@ -874,8 +894,7 @@ static int sendBrakeEngage()
 {
   EMC_SPINDLE_BRAKE_ENGAGE emc_spindle_brake_engage_msg;
 
-  emc_spindle_brake_engage_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_spindle_brake_engage_msg);
+  emcCommandSend(emc_spindle_brake_engage_msg);
 
   return 0;
 }
@@ -884,8 +903,7 @@ static int sendBrakeRelease()
 {
   EMC_SPINDLE_BRAKE_RELEASE emc_spindle_brake_release_msg;
 
-  emc_spindle_brake_release_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_spindle_brake_release_msg);
+  emcCommandSend(emc_spindle_brake_release_msg);
 
   return 0;
 }
@@ -894,26 +912,24 @@ static int sendAbort()
 {
   EMC_TASK_ABORT task_abort_msg;
 
-  task_abort_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(task_abort_msg);
+  emcCommandSend(task_abort_msg);
 
   return 0;
 }
 
 static int sendOverrideLimits()
 {
-  EMC_AXIS_OVERRIDE_LIMITS lim_msg;
+  EMC_JOINT_OVERRIDE_LIMITS lim_msg;
 
-  lim_msg.axis = 0;             // same number for all
-  lim_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(lim_msg);
+  lim_msg.joint = 0;             // same number for all
+  emcCommandSend(lim_msg);
 
   return 0;
 }
 
 static int sendJogStop(int axis)
 {
-  EMC_AXIS_ABORT emc_axis_abort_msg;
+  EMC_JOG_STOP emc_jog_stop_msg;
 
   if (axis < 0 || axis >= XEMC_NUM_AXES) {
     return -1;
@@ -924,9 +940,8 @@ static int sendJogStop(int axis)
     return 0;
   }
 
-  emc_axis_abort_msg.serial_number = ++emcCommandSerialNumber;
-  emc_axis_abort_msg.axis = axisJogging;
-  emcCommandBuffer->write(emc_axis_abort_msg);
+  emc_jog_stop_msg.axis = axisJogging;
+  emcCommandSend(emc_jog_stop_msg);
 
   axisJogging = -1;
 
@@ -935,7 +950,7 @@ static int sendJogStop(int axis)
 
 static int sendJogCont(int axis, double speed)
 {
-  EMC_AXIS_JOG emc_axis_jog_msg;
+  EMC_JOG_CONT emc_jog_cont_msg;
 
   if (axis < 0 || axis >= XEMC_NUM_AXES) {
     return -1;
@@ -950,10 +965,9 @@ static int sendJogCont(int axis, double speed)
     speed = -speed;
   }
 
-  emc_axis_jog_msg.serial_number = ++emcCommandSerialNumber;
-  emc_axis_jog_msg.axis = axis;
-  emc_axis_jog_msg.vel = speed / 60.0;
-  emcCommandBuffer->write(emc_axis_jog_msg);
+  emc_jog_cont_msg.axis = axis;
+  emc_jog_cont_msg.vel = speed / 60.0;
+  emcCommandSend(emc_jog_cont_msg);
 
   axisJogging = axis;
 
@@ -962,7 +976,7 @@ static int sendJogCont(int axis, double speed)
 
 static int sendJogIncr(int axis, double speed, double incr)
 {
-  EMC_AXIS_INCR_JOG emc_axis_incr_jog_msg;
+  EMC_JOG_INCR emc_jog_incr_msg;
 
   if (axis < 0 || axis >= XEMC_NUM_AXES) {
     return -1;
@@ -977,11 +991,10 @@ static int sendJogIncr(int axis, double speed, double incr)
     speed = -speed;
   }
 
-  emc_axis_incr_jog_msg.serial_number = ++emcCommandSerialNumber;
-  emc_axis_incr_jog_msg.axis = axis;
-  emc_axis_incr_jog_msg.vel = speed / 60.0;
-  emc_axis_incr_jog_msg.incr = jogIncrement;
-  emcCommandBuffer->write(emc_axis_incr_jog_msg);
+  emc_jog_incr_msg.axis = axis;
+  emc_jog_incr_msg.vel = speed / 60.0;
+  emc_jog_incr_msg.incr = jogIncrement;
+  emcCommandSend(emc_jog_incr_msg);
 
   // don't flag incremental jogs as jogging an axis-- we can
   // allow multiple incremental jogs since we don't need a key release
@@ -989,13 +1002,12 @@ static int sendJogIncr(int axis, double speed, double incr)
   return 0;
 }
 
-static int sendHome(int axis)
+static int sendHome(int joint)
 {
-  EMC_AXIS_HOME emc_axis_home_msg;
+  EMC_JOINT_HOME emc_joint_home_msg;
 
-  emc_axis_home_msg.serial_number = ++emcCommandSerialNumber;
-  emc_axis_home_msg.axis = axis;
-  emcCommandBuffer->write(emc_axis_home_msg);
+  emc_joint_home_msg.joint = joint;
+  emcCommandSend(emc_joint_home_msg);
 
   return 0;
 }
@@ -1010,9 +1022,8 @@ static int sendFeedOverride(double override)
   else if (override > (double) maxFeedOverride / 100.0) {
     override = (double) maxFeedOverride / 100.0;
   }
-  emc_traj_set_scale_msg.serial_number = ++emcCommandSerialNumber;
   emc_traj_set_scale_msg.scale = override;
-  emcCommandBuffer->write(emc_traj_set_scale_msg);
+  emcCommandSend(emc_traj_set_scale_msg);
 
   return 0;
 }
@@ -1021,8 +1032,7 @@ static int sendTaskPlanInit()
 {
   EMC_TASK_PLAN_INIT task_plan_init_msg;
 
-  task_plan_init_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(task_plan_init_msg);
+  emcCommandSend(task_plan_init_msg);
 
   return 0;
 }
@@ -1038,14 +1048,13 @@ static int sendProgramOpen(char *program)
   }
 
   // wait for any previous one to go out
-  if (0 != emcCommandWaitDone(emcCommandSerialNumber)) {
+  if (0 != emcCommandWaitDone()) {
     printError("error executing command\n");
     return -1;
   }
 
-  emc_task_plan_open_msg.serial_number = ++emcCommandSerialNumber;
   strcpy(emc_task_plan_open_msg.file, program);
-  emcCommandBuffer->write(emc_task_plan_open_msg);
+  emcCommandSend(emc_task_plan_open_msg);
 
   // now clear out our stored version of the program, in case
   // the file contents have changed but the name is the same
@@ -1070,15 +1079,14 @@ static int sendProgramRun(int line)
     sendProgramOpen(lastProgramFile);
 
     // wait for command to go out
-    if (0 != emcCommandWaitDone(emcCommandSerialNumber)) {
+    if (0 != emcCommandWaitDone()) {
       printError("error executing command\n");
       return -1;
     }
   }
 
-  emc_task_plan_run_msg.serial_number = ++emcCommandSerialNumber;
   emc_task_plan_run_msg.line = line;
-  emcCommandBuffer->write(emc_task_plan_run_msg);
+  emcCommandSend(emc_task_plan_run_msg);
 
   programStartLineLast = programStartLine;
   programStartLine = 0;
@@ -1090,8 +1098,7 @@ static int sendProgramPause()
 {
   EMC_TASK_PLAN_PAUSE emc_task_plan_pause_msg;
 
-  emc_task_plan_pause_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_task_plan_pause_msg);
+  emcCommandSend(emc_task_plan_pause_msg);
 
   return 0;
 }
@@ -1100,8 +1107,7 @@ static int sendProgramResume()
 {
   EMC_TASK_PLAN_RESUME emc_task_plan_resume_msg;
 
-  emc_task_plan_resume_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_task_plan_resume_msg);
+  emcCommandSend(emc_task_plan_resume_msg);
 
   return 0;
 }
@@ -1116,14 +1122,13 @@ static int sendProgramStep()
     sendProgramOpen(lastProgramFile);
 
     // wait for command to go out
-    if (0 != emcCommandWaitDone(emcCommandSerialNumber)) {
+    if (0 != emcCommandWaitDone()) {
       printError("error executing command\n");
       return -1;
     }
   }
 
-  emc_task_plan_step_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_task_plan_step_msg);
+  emcCommandSend(emc_task_plan_step_msg);
 
   programStartLineLast = programStartLine;
   programStartLine = 0;
@@ -1136,8 +1141,7 @@ static int sendMdiCmd(char *mdi)
   EMC_TASK_PLAN_EXECUTE emc_task_plan_execute_msg;
 
   strcpy(emc_task_plan_execute_msg.command, mdi);
-  emc_task_plan_execute_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_task_plan_execute_msg);
+  emcCommandSend(emc_task_plan_execute_msg);
 
   return 0;
 }
@@ -1147,8 +1151,7 @@ static int sendLoadToolTable(const char *file)
   EMC_TOOL_LOAD_TOOL_TABLE emc_tool_load_tool_table_msg;
 
   strcpy(emc_tool_load_tool_table_msg.file, file);
-  emc_tool_load_tool_table_msg.serial_number = ++emcCommandSerialNumber;
-  emcCommandBuffer->write(emc_tool_load_tool_table_msg);
+  emcCommandSend(emc_tool_load_tool_table_msg);
 
   return 0;
 }
@@ -3667,7 +3670,7 @@ void timeoutCB(XtPointer clientdata, XtIntervalId *id)
 
   if (diagnosticsIsPopped) {
     if (emcStatus->task.heartbeat != oldTaskHeartbeat) {
-      sprintf(string, "%ld %ld %d %d %d",
+      sprintf(string, "%" PRId32 " %" PRId32 " %d %d %d",
               emcStatus->task.heartbeat,
               emcStatus->task.command_type,
               emcStatus->task.echo_serial_number,
@@ -3680,7 +3683,7 @@ void timeoutCB(XtPointer clientdata, XtIntervalId *id)
     }
 
     if (emcStatus->io.heartbeat != oldIoHeartbeat) {
-      sprintf(string, "%ld %ld %d %d",
+      sprintf(string, "%" PRId32 " %" PRId32 " %d %d",
               emcStatus->io.heartbeat,
               emcStatus->io.command_type,
               emcStatus->io.echo_serial_number,
@@ -3692,7 +3695,7 @@ void timeoutCB(XtPointer clientdata, XtIntervalId *id)
     }
 
     if (emcStatus->motion.heartbeat != oldMotionHeartbeat) {
-      sprintf(string, "%ld %ld %d %d",
+      sprintf(string, "%" PRId32 " %" PRId32 " %d %d",
               emcStatus->motion.heartbeat,
               emcStatus->motion.command_type,
               emcStatus->motion.echo_serial_number,
@@ -3705,22 +3708,22 @@ void timeoutCB(XtPointer clientdata, XtIntervalId *id)
 
     // FIXME: We are only displaying the HighMark, it would be nice to
     // see the current ferror also.
-    if (emcStatus->motion.axis[activeAxis].ferrorHighMark !=
+    if (emcStatus->motion.joint[activeAxis].ferrorHighMark !=
         oldAxisFerror[activeAxis]) {
-      sprintf(string, "%.3f", emcStatus->motion.axis[activeAxis].ferrorHighMark);
+      sprintf(string, "%.3f", emcStatus->motion.joint[activeAxis].ferrorHighMark);
       setLabel(diagnosticsFerror, string);
       redraw = 1;
 
-      oldAxisFerror[activeAxis] = emcStatus->motion.axis[activeAxis].ferrorHighMark;
+      oldAxisFerror[activeAxis] = emcStatus->motion.joint[activeAxis].ferrorHighMark;
     }
   }
 
-  if (emcStatus->motion.axis[0].overrideLimits &&
+  if (emcStatus->motion.joint[0].overrideLimits &&
       1 != oldOverrideLimits) {
     setColor(limCommand, pixelRed, 0);
     oldOverrideLimits = 1;
   }
-  else if (! emcStatus->motion.axis[0].overrideLimits &&
+  else if (! emcStatus->motion.joint[0].overrideLimits &&
            0 != oldOverrideLimits) {
     setColor(limCommand, pixelWhite, 0);
     oldOverrideLimits = 0;
@@ -4126,21 +4129,21 @@ void timeoutCB(XtPointer clientdata, XtIntervalId *id)
 
   // set label colors: do red for limit first
   for (t = 0; t < XEMC_NUM_AXES; t++) {
-    if (emcStatus->motion.axis[t].minHardLimit ||
-        emcStatus->motion.axis[t].minSoftLimit ||
-        emcStatus->motion.axis[t].maxSoftLimit ||
-        emcStatus->motion.axis[t].maxHardLimit) {
+    if (emcStatus->motion.joint[t].minHardLimit ||
+        emcStatus->motion.joint[t].minSoftLimit ||
+        emcStatus->motion.joint[t].maxSoftLimit ||
+        emcStatus->motion.joint[t].maxHardLimit) {
       if (posColor[t] != pixelRed) {
         setColor(posLabel[t], pixelRed, 1);
         posColor[t] = pixelRed;
       }
     }
-    else if (emcStatus->motion.axis[t].homed &&
+    else if (emcStatus->motion.joint[t].homed &&
              posColor[t] != pixelGreen) {
       setColor(posLabel[t], pixelGreen, 1);
       posColor[t] = pixelGreen;
     }
-    else if (! emcStatus->motion.axis[t].homed &&
+    else if (! emcStatus->motion.joint[t].homed &&
              posColor[t] != pixelYellow) {
       setColor(posLabel[t], pixelYellow, 1);
       posColor[t] = pixelYellow;
@@ -4513,27 +4516,27 @@ static int iniLoad(const char *filename)
     strcpy(PARAMETER_FILE, "rs274ngc.var"); // FIXME-- hardcoded
   }
 
-  if (NULL != (inistring = inifile.Find("DEFAULT_VELOCITY", "TRAJ"))) {
-    if (1 != sscanf(inistring, "%lf", &traj_default_velocity)) {
-      traj_default_velocity = DEFAULT_TRAJ_DEFAULT_VELOCITY;
+  if (NULL != (inistring = inifile.Find("DEFAULT_LINEAR_VELOCITY", "TRAJ"))) {
+    if (1 != sscanf(inistring, "%lf", &traj_defvel)) {
+      traj_defvel = DEFAULT_TRAJ_DEFAULT_VELOCITY;
     }
   }
   else {
-    traj_default_velocity = DEFAULT_TRAJ_DEFAULT_VELOCITY;
+    traj_defvel = DEFAULT_TRAJ_DEFAULT_VELOCITY;
   }
   // round jogSpeed in display to integer, per-minute
-  jogSpeed = (int) (traj_default_velocity * 60.0 + 0.5);
+  jogSpeed = (int) (traj_defvel * 60.0 + 0.5);
 
   if (NULL != (inistring = inifile.Find("MAX_VELOCITY", "TRAJ"))) {
-    if (1 != sscanf(inistring, "%lf", &traj_max_velocity)) {
-      traj_max_velocity = DEFAULT_TRAJ_MAX_VELOCITY;
+    if (1 != sscanf(inistring, "%lf", &traj_maxvel)) {
+      traj_maxvel = DEFAULT_TRAJ_MAX_VELOCITY;
     }
   }
   else {
-    traj_max_velocity = DEFAULT_TRAJ_MAX_VELOCITY;
+    traj_maxvel = DEFAULT_TRAJ_MAX_VELOCITY;
   }
   // round maxJogSpeed in display to integer, per-minute
-  maxJogSpeed = (int) (traj_max_velocity * 60.0 + 0.5);
+  maxJogSpeed = (int) (traj_maxvel * 60.0 + 0.5);
 
   if (NULL != (inistring = inifile.Find("HELP_FILE", "DISPLAY"))) {
     strcpy(HELP_FILE, inistring);

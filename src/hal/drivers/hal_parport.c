@@ -105,7 +105,6 @@
 #ifdef BUILD_SYS_USER_DSO	/* userland builds */
 # include <string.h>
 #endif
-
 #include "hal_parport.h"
 
 /* module information */

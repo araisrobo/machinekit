@@ -189,8 +189,11 @@ class touchy:
                 self.mdi_control = mdi.mdi_control(gtk, linuxcnc, mdi_labels, mdi_eventboxes)
 
                 if self.ini:
-                    self.mdi_control.mdi.add_macros(
-                        self.ini.findall("TOUCHY", "MACRO"))
+                    macros = self.ini.findall("TOUCHY", "MACRO")
+                    if len(macros) > 0:
+                        self.mdi_control.mdi.add_macros(macros)
+                    else:
+                        self.wTree.get_widget("macro").set_sensitive(0)
 
                 listing_labels = []
                 listing_eventboxes = []
@@ -833,6 +836,9 @@ if __name__ == "__main__":
 	postgui_halfile,inifile = touchy.postgui(hwg)
 	print "TOUCHY postgui filename:",postgui_halfile
 	if postgui_halfile:
-		res = os.spawnvp(os.P_WAIT, "halcmd", ["halcmd", "-i",inifile,"-f", postgui_halfile])
+		if postgui_halfile.lower().endswith('.tcl'):
+			res = os.spawnvp(os.P_WAIT, "haltcl", ["haltcl", "-i",inifile, postgui_halfile])
+		else:
+			res = os.spawnvp(os.P_WAIT, "halcmd", ["halcmd", "-i",inifile,"-f", postgui_halfile])
 		if res: raise SystemExit, res
 	gtk.main()

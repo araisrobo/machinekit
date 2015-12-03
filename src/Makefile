@@ -435,6 +435,7 @@ INFILES = \
 	../share/desktop-directories/cnc.directory \
 	../share/menus/CNC.menu \
 	../share/applications/linuxcnc.desktop \
+	../share/applications/linuxcnc-latency.desktop \
 	../scripts/linuxcnc_var \
 
 $(INFILES): %: %.in config.status
@@ -450,6 +451,7 @@ HEADERS := \
     config.h \
     emc/ini/emcIniFile.hh \
     emc/ini/iniaxis.hh \
+    emc/ini/inijoint.hh \
     emc/ini/initool.hh \
     emc/ini/initraj.hh \
     emc/ini/inihal.hh \
@@ -471,6 +473,7 @@ HEADERS := \
     emc/motion/emcmotglb.h \
     emc/motion/motion.h \
     emc/motion/motion_id.h \
+    emc/motion/simple_tp.h \
     emc/motion/usrmotintf.h \
     emc/motion/state_tag.h \
     emc/nml_intf/canon.hh \
@@ -770,6 +773,7 @@ install:
 MENUS = ../share/menus/CNC.menu \
     ../share/desktop-directories/cnc.directory \
     ../share/applications/linuxcnc.desktop \
+    ../share/applications/linuxcnc-latency.desktop \
 
 install-menus install-menu: $(MENUS)
 	mkdir -p $(HOME)/.config/menus/applications-merged
@@ -844,6 +848,7 @@ install-kernel-indep: install-dirs
 	$(EXE) ../scripts/simulate_probe $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/sim_pin $(DESTDIR)$(bindir)
 	$(FILE) ../*.png ../*.gif $(DESTDIR)$(datadir)/linuxcnc
+	$(FILE) ../lib/hallib/*   $(DESTDIR)$(datadir)/linuxcnc/hallib
 
 	# install all the sample configs, including subdirs (tar is required on debian systems, and common on others)
 	((cd ../configs && tar --exclude CVS --exclude .cvsignore --exclude .gitignore -cf - .) | (cd $(DESTDIR)$(sampleconfsdir) && tar -xf -))
@@ -854,10 +859,8 @@ install-kernel-indep: install-dirs
 	$(EXE) ../scripts/linuxcnc_info $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/linuxcnc_var $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/latency-test $(DESTDIR)$(bindir)
-ifeq ($(HAVE_WORKING_BLT),yes)
 	$(EXE) ../scripts/latency-plot $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/latency-histogram $(DESTDIR)$(bindir)
-endif
 	$(EXE) ../scripts/pyvcp_demo $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/gladevcp_demo $(DESTDIR)$(bindir)
 	$(EXE) ../scripts/linuxcncmkdesktop $(DESTDIR)$(bindir)
@@ -1275,7 +1278,7 @@ endif
 obj-m += hal_arm335xQEP.o
 hal_arm335xQEP-objs := hal/drivers/hal_arm335xQEP.o $(MATHSTUB)
 
-endif
+endif # TARGET_PLATFORM_BEAGLEBONE
 
 ifeq ($(BUILD_SYS),user-dso)
 obj-m += gpiomap.o
@@ -1296,7 +1299,7 @@ hal_pru_generic-objs :=                           \
     hal/support/pru/prussdrv.o                    \
     $(LIBPTHREAD)
 endif
-endif
+endif # TARGET_PLATFORM_BEAGLEBONE
 
 # these won't compile as-is with userland threading
 
@@ -1373,7 +1376,7 @@ hm2_test-objs :=			  \
 setsserial-objs :=			  \
     hal/drivers/mesa-hostmot2/setsserial.o  \
     $(MATHSTUB)
-endif
+endif # ($(BUILD_HOSTMOT2),yes)
 
 ifeq ($(BUILD_HOSTMOT2),yes)
 obj-$(CONFIG_HOSTMOT2) += hm2_pci.o
@@ -1385,7 +1388,7 @@ endif
 
 obj-$(CONFIG_PROBE_PARPORT) += probe_parport.o
 probe_parport-objs := hal/drivers/probe_parport.o $(MATHSTUB)
-endif
+endif # ($(BUILD_DRIVERS),yes)
 
 obj-$(CONFIG_CLASSICLADDER_RT) += classicladder_rt.o
 classicladder_rt-objs := hal/classicladder/module_hal.o $(MATHSTUB)
@@ -1416,6 +1419,9 @@ maxkins-objs := emc/kinematics/maxkins.o
 
 obj-m += gantrykins.o
 gantrykins-objs := emc/kinematics/gantrykins.o
+
+obj-m += gentrivkins.o
+gentrivkins-objs := emc/kinematics/gentrivkins.o
 
 obj-m += rotatekins.o
 rotatekins-objs := emc/kinematics/rotatekins.o
@@ -1452,10 +1458,12 @@ motmod-objs += emc/motion/motion.o
 motmod-objs += emc/motion/command.o
 motmod-objs += emc/motion/control.o
 motmod-objs += emc/motion/homing.o
+motmod-objs += emc/motion/simple_tp.o
 motmod-objs += emc/motion/emcmotglb.o
 motmod-objs += emc/motion/emcmotutil.o
 motmod-objs += emc/motion/stashf.o
 motmod-objs += emc/motion/dbuf.o
+motmod-objs += emc/nml_intf/emcpose.o
 motmod-objs += libnml/posemath/_posemath.o
 motmod-objs += libnml/posemath/sincos.o $(MATHSTUB)
 
@@ -1611,7 +1619,6 @@ $(RTLIBDIR)/hal_arm335xQEP$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_arm335xQEP
 endif
 endif
 
-
 ifdef TARGET_PLATFORM_RASPBERRY
 $(RTLIBDIR)/hal_gpio$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gpio-objs))
 $(RTLIBDIR)/hal_spi$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_spi-objs))
@@ -1652,6 +1659,8 @@ $(RTLIBDIR)/tp$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(tp-objs))
 $(RTLIBDIR)/ufdemo$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(ufdemo-objs))
 $(RTLIBDIR)/icomp$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(icomp-objs))
 $(RTLIBDIR)/lutn$(MODULE_EXT):	$(addprefix $(OBJDIR)/,$(lutn-objs))
+$(RTLIBDIR)/gentrivkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(gentrivkins-objs))
+$(RTLIBDIR)/lineardeltakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(lineardeltakins-objs))
 
 ifeq ($(TRIVIAL_BUILD),no)
 READ_RTDEPS = $(wildcard $(RTDEPS))
