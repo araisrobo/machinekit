@@ -34,14 +34,21 @@ s = linuxcnc.stat(); s.poll()
 
 def show_mcodes(l):
     return " ".join(["M%g" % i for i in l[1:] if i != -1])
+    
 def show_gcodes(l):
     return " ".join(["G%g" % (i/10.) for i in l[1:] if i != -1])
-position = " ".join(["%-8.4f"] * s.axes)
+    
 def show_position(p):
-    return position % p[:s.axes]
-peraxis = " ".join(["%s"] * s.axes)
-def show_peraxis(p):
-    return peraxis % p[:s.axes]
+    return " ".join(["%-8.4f" % n for i, n in enumerate(p) if s.axis_mask & (1<<i)])
+
+joint_position = " ".join(["%-8.4f"] * s.joints)
+def show_joint_position(p):
+    return joint_position % p[:s.joints]
+
+perjoint = " ".join(["%s"] * s.joints)
+def show_perjoint(p):
+    return perjoint % p[:s.joints]
+    
 def show_float(p): return "%-8.4f" % p
 
 maps = {
@@ -68,20 +75,16 @@ maps = {
 'kinematics_type': {linuxcnc.KINEMATICS_IDENTITY: 'identity', linuxcnc.KINEMATICS_FORWARD_ONLY: 'forward_only', 
                     linuxcnc.KINEMATICS_INVERSE_ONLY: 'inverse_only', linuxcnc.KINEMATICS_BOTH: 'both'},
 'mcodes': show_mcodes, 'gcodes': show_gcodes, 'poll': None, 'tool_table': None,
-'axis': None, 'gettaskfile': None,
+'axis': None, 'joint': None, 'gettaskfile': None,
 'actual_position': show_position, 
 'position': show_position, 
 'dtg': show_position, 
-'joint_position': show_position,
-'joint_actual_position': show_position,
 'origin': show_position,
 'rotation_xy': show_float,
 'probed_position': show_position,
 'tool_offset': show_position,
 'g5x_offset': show_position,
 'g92_offset': show_position,
-'limit': show_peraxis,
-'homed': show_peraxis,
 'linear_units': show_float,
 'max_acceleration': show_float,
 'max_velocity': show_float,
@@ -93,6 +96,10 @@ maps = {
 'tp_reverse_input': {0: 'forward', 1: 'reverse'},
 'cur_tp_reversed': {0: 'forward', 1: 'reverse'},
 'next_tp_reversed': {0: 'forward', 1: 'reverse'},
+'limit': show_perjoint,
+'homed': show_perjoint,
+'joint_position': show_joint_position,
+'joint_actual_position': show_joint_position,
 }
 
 if s.kinematics_type == 1:
@@ -109,13 +116,13 @@ def gui():
     t = Tkinter.Text()
     sb = Tkinter.Scrollbar(command=t.yview)
     t.configure(yscrollcommand=sb.set)
-    t.configure(tabs="150")
+    t.configure(tabs=150)
 
     base_font = t.tk.call("set", "BASE_FONT")
     fixed_font = t.tk.call("set", "FIXED_FONT")
     t.tag_configure("key", foreground="blue", font=base_font)
-    t.tag_configure("value", foreground="black", font=fixed_font)
-    t.tag_configure("changedvalue", foreground="black", background="red", font=fixed_font)
+    t.tag_configure("value", foreground="black", font=fixed_font, lmargin1=150, lmargin2=150)
+    t.tag_configure("changedvalue", foreground="black", background="red", font=fixed_font, lmargin1=150, lmargin2=150)
     t.tag_configure("sel", foreground="white")
     t.tag_raise("sel")
     t.bind("<KeyPress>", "break")
@@ -134,7 +141,6 @@ def gui():
             s.poll()
         except linuxcnc.error:
             root.destroy()
-        pos = t.yview()[0]
         selection = t.tag_ranges("sel")
         insert_point = t.index("insert")
         insert_gravity = t.mark_gravity("insert")
@@ -143,7 +149,6 @@ def gui():
             anchor_gravity = t.mark_gravity("anchor")
         except TclError:
             anchor_point = None
-        t.delete("0.0", "end")
         first = True
         for k in dir(s):
             if k.startswith("_"): continue
@@ -155,19 +160,25 @@ def gui():
                     v = m(v)
                 else:
                     v = m.get(v, v)
+            if isinstance(v, basestring):
+                v = v.strip()
+                v = v or "-"
             if oldvalues.has_key(k):
                 changed = oldvalues[k] != v
                 if changed: changetime[k] = time.time() + 2
             oldvalues[k] = v
+            vranges = t.tag_ranges(k)
             if changetime.has_key(k) and changetime[k] >= time.time():
                 vtag = "changedvalue"
             else:
                 vtag = "value"
-            if first: first = False
-            else: t.insert("end", "\n")
-            t.insert("end", k, "key", "\t")
-            t.insert("end", v, vtag)
-        t.yview_moveto(pos)
+            if vranges:
+                t.tk.call(t, "replace", "%s.first" % k, "%s.last" % k, v, (k, vtag))
+            else:
+                if first: first = False
+                else: t.insert("end", "\n")
+                t.insert("end", k, "key", "\t")
+                t.insert("end", v, (k, vtag))
         if selection:
             t.tag_add("sel", *selection)
         t.mark_set("insert", insert_point)

@@ -18,12 +18,11 @@
 static int first_time = 1;
 
 static Tcl_Interp *get_interpreter(PyObject *tkapp) {
-    long interpaddr;
     PyObject *interpaddrobj = PyObject_CallMethod(tkapp, "interpaddr", NULL);
     if(interpaddrobj == NULL) { return NULL; }
-    interpaddr = PyInt_AsLong(interpaddrobj);
+    void *interpaddr = PyLong_AsVoidPtr(interpaddrobj);
     Py_DECREF(interpaddrobj);
-    if(interpaddr == -1) { return NULL; }
+    if(interpaddr == (void*)-1) { return NULL; }
     return (Tcl_Interp*)interpaddr;
 }
 

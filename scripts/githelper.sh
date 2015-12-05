@@ -27,12 +27,13 @@ function githelper() {
 
     case $GIT_BRANCH in
         master)
-            GIT_TAG_GLOB="v2.7*"
+            GIT_TAG_GLOB="v2.8.*"
             DEB_COMPONENT="master"
             ;;
-        2.6)
-            GIT_TAG_GLOB="v2.6*"
-            DEB_COMPONENT="2.6"
+        # release branches have names matching "number.number", which is awkward to express as a glob
+        [0-9].[0-9] | [0-9].[0-9][0-9] | [0-9].[0-9][0-9][0-9] | [0-9][0-9].[0-9] | [0-9][0-9].[0-9][0-9] | [0-9][0-9].[0-9][0-9][0-9])
+            GIT_TAG_GLOB="v${GIT_BRANCH}.*"
+            DEB_COMPONENT=$GIT_BRANCH
             ;;
         v2.5_branch)
             GIT_TAG_GLOB="v2.5*"
@@ -48,6 +49,9 @@ function githelper() {
             ;;
     esac
 
+
+    # use the gnupg keyring from our git repo to verify signatures on the release tags
+    export GNUPGHOME=$(git rev-parse --show-toplevel)/gnupg
 
     NEWEST_SIGNED_TAG_UTIME=-1
     NEWEST_UNSIGNED_TAG_UTIME=-1

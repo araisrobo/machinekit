@@ -13,7 +13,6 @@
 * Last change:
 ********************************************************************/
 
-#include <string.h>		/* strcpy() */
 #include "emcglb.h"		/* these decls */
 #include "emccfg.h"		/* their initial values */
 #include "emcpos.h"		/* EmcPose */
@@ -35,27 +34,7 @@ int emc_task_interp_max_len = DEFAULT_EMC_TASK_INTERP_MAX_LEN;
 
 char tool_table_file[LINELEN] = DEFAULT_TOOL_TABLE_FILE;
 
-double traj_default_velocity = DEFAULT_TRAJ_DEFAULT_VELOCITY;
-double traj_max_velocity = DEFAULT_TRAJ_MAX_VELOCITY;
-
-double axis_max_velocity[EMC_AXIS_MAX];
-double axis_max_acceleration[EMC_AXIS_MAX];
-double axis_max_jerk[EMC_AXIS_MAX];
-int axis_sync_en[EMC_AXIS_MAX];
-int axis_sync_id[EMC_AXIS_MAX];
-
 EmcPose tool_change_position;	/* no defaults */
 unsigned char have_tool_change_position = 0;	/* default is 'not there' */
-EmcPose tool_holder_clear;	/* no defaults */
-unsigned char have_tool_holder_clear;	/* default is 'not there' */
 
 int taskplanopen = 0;
-
-void emcInitGlobals()
-{
-    int t;
-
-    for (t = 0; t < EMC_AXIS_MAX; t++) {
-	axis_max_velocity[t] = DEFAULT_AXIS_MAX_VELOCITY;
-    }
-}

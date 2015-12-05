@@ -14,10 +14,13 @@
 #define CANON_HH
 
 #include <stdio.h>		// FILE
+#include <stdint.h>
 #include <vector>
+#include "nurbs.h"
 
 #include "emcpos.h"
 #include "emctool.h"
+#include "canon_position.hh"
 #include "modal_state.hh"
 
 /*
@@ -42,18 +45,6 @@
 
 #define OFF 0
 #define ON 1
-
-typedef struct {          /* type for NURBS control points */
-      double X,                     
-             Y,
-             W;
-      } CONTROL_POINT;
-
-typedef struct {
-      double X,
-	     Y;
-      } PLANE_POINT;		
-
 
 typedef int CANON_PLANE;
 #define CANON_PLANE_XY 1
@@ -125,6 +116,67 @@ struct CANON_VECTOR {
     }
     double x, y, z;
 };
+
+typedef struct CanonConfig_t {
+    double xy_rotation;
+    int rotary_unlock_for_traverse;
+
+    // these are both always positive
+    double css_maximum;
+    double css_numerator;
+    double feed_per_spindle_revolution;
+    int feed_mode;
+    int synched;
+    int leapfrog_enable;
+    double leapfrog_height;
+    CANON_POSITION g5xOffset;
+    CANON_POSITION g92Offset;
+/*
+  canonEndPoint is the last programmed end point, stored in case it's
+  needed for subsequent calculations. It's in absolute frame, mm units.
+
+  note that when segments are queued for the naive cam detector that the
+  canonEndPoint may not be the last programmed endpoint.  get_last_pos()
+  retrieves the xyz position after the last of the queued segments.  these
+  are also in absolute frame, mm units.
+  */
+    CANON_POSITION endPoint;
+    CANON_UNITS lengthUnits;
+    CANON_PLANE activePlane;
+/* Tool length offset is saved here */
+    EmcPose toolOffset;
+/* motion control mode is used to signify blended v. stop-at-end moves.
+   Set to 0 (invalid) at start, so first call will send command out */
+    CANON_MOTION_MODE motionMode;
+/* motion path-following tolerance is used to set the max path-following
+   deviation during CANON_CONTINUOUS.
+   If this param is 0, then it will behave as emc always did, allowing
+   almost any deviation trying to keep speed up. */
+   double motionTolerance;
+   double naivecamTolerance;
+/* Spindle speed is saved here */
+   double spindleSpeed;
+   int spindle_dir;
+/* Prepped tool is saved here */
+//   int preppedTool;
+/*
+  Feed rate is saved here; values are in mm/sec or deg/sec.
+  It will be initially set in INIT_CANON() below.
+*/
+    double linearFeedRate;
+    double angularFeedRate;
+/* optional program stop */
+    bool optional_program_stop;
+/* optional block delete */
+    bool block_delete;
+/* Used to indicate whether the current move is linear, angular, or 
+   a combination of both. */
+   //AJ says: linear means axes XYZ move (lines or even circles)
+   //         angular means axes ABC move
+    int cartesian_move;
+    int angular_move;
+} CanonConfig_t;
+
 /* Initialization */
 
 /* reads world model data into the canonical interface */
@@ -413,6 +465,15 @@ extern void NURBS_FEED(int lineno, std::vector<CONTROL_POINT> nurbs_control_poin
 /* Move at the feed rate along an approximation of a NURBS with a variable number
  * of control points
  */
+extern void NURBS_FEED_3D (
+              int lineno, 
+              const std::vector<CONTROL_POINT>  & nurbs_control_points, 
+              const std::vector<double> & nurbs_knot_vector,
+              unsigned int order,double length,uint32_t axis_mask
+            );
+/* Move at the feed rate along an approximation of a NURBS with a variable number
+ * of control points
+ */
 
 /* Move at existing feed rate so that at any time during the move,
 all axes have covered the same proportion of their required motion.
@@ -660,6 +721,8 @@ extern void CLEAR_AUX_OUTPUT_BIT(int index, int line);
 
 extern void SET_MOTION_OUTPUT_VALUE(int index, double value);
 extern void SET_AUX_OUTPUT_VALUE(int index, double value);
+extern void SET_PSO_VALUE(int enable, double pitch, int mode, int tick);
+extern void SET_LEAPFROG_VALUE(int enable, double height);
 
 /* */
 extern void SET_INTERP_PARAMS(int call_level, int remap_level);

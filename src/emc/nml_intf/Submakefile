@@ -10,6 +10,7 @@ LIBEMCSRCS := \
     emc/nml_intf/canon_position.cc \
     emc/ini/emcIniFile.cc \
     emc/ini/iniaxis.cc \
+    emc/ini/inijoint.cc \
     emc/ini/initool.cc \
     emc/ini/initraj.cc \
     emc/ini/inihal.cc \
@@ -26,7 +27,7 @@ TARGETS += ../lib/liblinuxcnc.a
 	@rm -f $@
 	@$(AR) $(ARFLAGS) $@ $^
 
-../include/%.h: ./emc/nml_intf/%.h
+$(patsubst ./emc/nml_intf/%,../include/%,$(wildcard ./emc/nml_intf/*.h)): ../include/%.h: ./emc/nml_intf/%.h
 	cp $^ $@
-../include/%.hh: ./emc/nml_intf/%.hh
+$(patsubst ./emc/nml_intf/%,../include/%,$(wildcard ./emc/nml_intf/*.hh)): ../include/%.hh: ./emc/nml_intf/%.hh
 	cp $^ $@

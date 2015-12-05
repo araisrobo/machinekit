@@ -141,6 +141,20 @@ STATIC int tpRotaryMotionCheck(TP_STRUCT const * const tp, TC_STRUCT const * con
  */
 
 
+//TODO: for look-ahead
+//STATIC int tpGetMachineJerkBounds(TP_STRUCT const * const tp, PmCartesian  * const jerk_bound)
+//{
+//    if (!jerk_bound) {
+//        return TP_ERR_FAIL;
+//    }
+//
+//    jerk_bound->x = get_jerk_limit(tp->shared, 0);
+//    jerk_bound->y = get_jerk_limit(tp->shared, 1);
+//    jerk_bound->z = get_jerk_limit(tp->shared, 2);
+//    return TP_ERR_OK;
+//}
+
+
 STATIC int tpGetMachineAccelBounds(TP_STRUCT const * const tp, PmCartesian  * const acc_bound)
 {
     if (!acc_bound) {

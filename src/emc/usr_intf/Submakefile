@@ -23,7 +23,6 @@ ifeq "$(HAVE_XAW)" "yes"
 XEMCSRCS := emc/usr_intf/xemc.cc
 endif
 
-TCLSRCS := emc/usr_intf/emcsh.cc emc/usr_intf/iosh.cc
 USERSRCS += $(EMCSHSRCS) $(EMCRSHSRCS) $(EMCSCHEDSRCS) $(EMCLCDSRCS) $(HALUISRCS) $(KEYSTICKSRCS)
 
 ifeq "$(HAVE_NCURSES)" "yes"
@@ -38,7 +37,6 @@ ifeq "$(BUILD_EMCWEB)" "yes"
 USERSRCS += $(EMCWEBSRCS)
 endif
 
-$(call TOOBJSDEPS, $(TCLSRCS)) : EXTRAFLAGS = $(ULFLAGS) $(TCL_CFLAGS)
 $(call TOOBJSDEPS, $(EMCSHSRCS)) : EXTRAFLAGS = $(ULFLAGS) $(TCL_CFLAGS) -fPIC
 ifeq "$(RUN_IN_PLACE)" "yes"
 $(call TOOBJSDEPS, $(EMCWEBSRCS)) : EXTRAFLAGS = -D__DIR__=\"$(EMC2_HOME)\"  -fPIC

@@ -22,7 +22,7 @@ extern int instance_no; // exported from cms.cc
 #include <stdarg.h>		/* va_list, va_arg(), va_start(), va_end() */
 #include <sys/types.h>
 #include <sys/ipc.h>		/* IPC_CREATE, IPC_NOWAIT */
-#include <linux/version.h>
+#include <inttypes.h>
 
 /* There are two types of posix semaphores named and unnamed.
    unamed semaphores can either have the pshared flag set or not
@@ -115,7 +115,7 @@ rcs_sem_t *rcs_sem_open(key_t name, int oflag, /* int mode */ ...)
     key = name;
 
     if (key < 1) {
-	rcs_print_error("rcs_sem_open: invalid key %d\n", key);
+	rcs_print_error("rcs_sem_open: invalid key %jd\n", (intmax_t)key);
 	return NULL;
     }
     if ((semid = (rcs_sem_t) semget((key_t) key + instance_no *100 , 1, semflg)) == -1) {
@@ -178,7 +178,7 @@ int rcs_sem_trywait(rcs_sem_t * sem)
        function. 
 #endif
 
-#if !defined (HAVE_SEMTIMEDOP) || LINUX_VERSION_CODE < KERNEL_VERSION(2,4,22)
+#if !defined (HAVE_SEMTIMEDOP)
 #undef HAVE_SEMTIMEDOP
 void itimer_handler(int signum)
 {

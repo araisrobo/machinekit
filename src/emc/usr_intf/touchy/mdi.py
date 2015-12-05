@@ -73,9 +73,10 @@ class mdi:
             'G41.1' : [_('Radius compensation left, immediate'), 'D', 'L'],
             'G42.1' : [_('Radius compensation right, immediate'), 'D', 'L'],
             'G43' : [_('Tool length offset'), 'H'],
-            'G43.1' : [_('Tool length offset immediate'), 'I', 'K'],
+            'G43.1' : [_('Tool length offset immediate'), 'A'],
+            'G43.2' : [_('Tool length offset additional'), 'H'],
             'G53' : [_('Motion in unoffset coordinates'), 'G', 'A', 'F'],
-            'G64' : [_('Continuous mode'), 'P'],
+            'G64' : [_('Continuous mode'), 'P', 'Q'],
             'G76' : [_('Thread'), 'Z', 'P', 'I', 'J', 'K', 'R', 'Q', 'H', 'E', 'L'],
             'G81' : [_('Drill'), 'A', 'R', 'L', 'F'],
             'G82' : [_('Drill with dwell'), 'A', 'R', 'L', 'P', 'F'],
@@ -285,9 +286,13 @@ class mdi_control:
             self.set_text("L10", 1)
         self.next(0)
         self.set_text("P%d" % tool, 2)
-        self.next(0)
-        self.next(0)
-        self.next(0)
+        self.next(0) # go to first axis
+        if ('X' in self.mdi.axes and
+            'Y' in self.mdi.axes and
+            'Z' in self.mdi.axes):
+            # this is fairly mill-like, so go to Z
+            self.next(0)
+            self.next(0)
 
     def set_origin(self, system):
         self.g(0)
@@ -297,3 +302,8 @@ class mdi_control:
         self.next(0)
         self.set_text("P%d" % system, 2)
         self.next(0)
+        if ('X' in self.mdi.axes and
+            'Z' in self.mdi.axes and
+            not 'Y' in self.mdi.axes):
+            # this is fairly lathe-like, so go to Z
+            self.next(0)

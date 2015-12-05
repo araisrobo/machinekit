@@ -63,77 +63,83 @@ int emcFormat(NMLTYPE type, void *buffer, CMS * cms)
     case EMC_AUX_STAT_TYPE:
 	((EMC_AUX_STAT *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_ABORT_TYPE:
-	((EMC_AXIS_ABORT *) buffer)->update(cms);
+    case EMC_JOINT_ABORT_TYPE:
+	((EMC_JOINT_ABORT *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_ABS_JOG_TYPE:
-	((EMC_AXIS_ABS_JOG *) buffer)->update(cms);
+    case EMC_JOINT_ACTIVATE_TYPE:
+	((EMC_JOINT_ACTIVATE *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_ACTIVATE_TYPE:
-	((EMC_AXIS_ACTIVATE *) buffer)->update(cms);
+    case EMC_JOINT_DEACTIVATE_TYPE:
+	((EMC_JOINT_DEACTIVATE *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_DEACTIVATE_TYPE:
-	((EMC_AXIS_DEACTIVATE *) buffer)->update(cms);
+    case EMC_JOINT_DISABLE_TYPE:
+	((EMC_JOINT_DISABLE *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_DISABLE_TYPE:
-	((EMC_AXIS_DISABLE *) buffer)->update(cms);
+    case EMC_JOINT_ENABLE_TYPE:
+	((EMC_JOINT_ENABLE *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_ENABLE_TYPE:
-	((EMC_AXIS_ENABLE *) buffer)->update(cms);
+    case EMC_JOINT_HALT_TYPE:
+	((EMC_JOINT_HALT *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_HALT_TYPE:
-	((EMC_AXIS_HALT *) buffer)->update(cms);
+    case EMC_JOINT_HOME_TYPE:
+	((EMC_JOINT_HOME *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_HOME_TYPE:
-	((EMC_AXIS_HOME *) buffer)->update(cms);
+    case EMC_JOINT_UNHOME_TYPE:
+	((EMC_JOINT_UNHOME *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_UNHOME_TYPE:
-	((EMC_AXIS_UNHOME *) buffer)->update(cms);
+    case EMC_JOINT_INIT_TYPE:
+	((EMC_JOINT_INIT *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_INCR_JOG_TYPE:
-	((EMC_AXIS_INCR_JOG *) buffer)->update(cms);
+    case EMC_JOG_CONT_TYPE:
+	((EMC_JOG_CONT *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_INIT_TYPE:
-	((EMC_AXIS_INIT *) buffer)->update(cms);
+    case EMC_JOG_INCR_TYPE:
+	((EMC_JOG_INCR *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_JOG_TYPE:
-	((EMC_AXIS_JOG *) buffer)->update(cms);
+    case EMC_JOG_ABS_TYPE:
+	((EMC_JOG_ABS *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_LOAD_COMP_TYPE:
-	((EMC_AXIS_LOAD_COMP *) buffer)->update(cms);
+    case EMC_JOG_STOP_TYPE:
+	((EMC_JOG_STOP *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_OVERRIDE_LIMITS_TYPE:
-	((EMC_AXIS_OVERRIDE_LIMITS *) buffer)->update(cms);
+    case EMC_JOINT_LOAD_COMP_TYPE:
+	((EMC_JOINT_LOAD_COMP *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_SET_AXIS_TYPE:
-	((EMC_AXIS_SET_AXIS *) buffer)->update(cms);
+    case EMC_JOINT_OVERRIDE_LIMITS_TYPE:
+	((EMC_JOINT_OVERRIDE_LIMITS *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_SET_FERROR_TYPE:
-	((EMC_AXIS_SET_FERROR *) buffer)->update(cms);
+    case EMC_JOINT_SET_JOINT_TYPE:
+	((EMC_JOINT_SET_JOINT *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_SET_BACKLASH_TYPE:
-	((EMC_AXIS_SET_BACKLASH *) buffer)->update(cms);
+    case EMC_JOINT_SET_FERROR_TYPE:
+	((EMC_JOINT_SET_FERROR *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_SET_HOMING_PARAMS_TYPE:
-	((EMC_AXIS_SET_HOMING_PARAMS *) buffer)->update(cms);
+    case EMC_JOINT_SET_BACKLASH_TYPE:
+	((EMC_JOINT_SET_BACKLASH *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_SET_MAX_POSITION_LIMIT_TYPE:
-	((EMC_AXIS_SET_MAX_POSITION_LIMIT *) buffer)->update(cms);
+    case EMC_JOINT_SET_INPUT_SCALE_TYPE:
+        ((EMC_JOINT_SET_INPUT_SCALE *) buffer)->update(cms);
+        break;
+    case EMC_JOINT_SET_HOMING_PARAMS_TYPE:
+	((EMC_JOINT_SET_HOMING_PARAMS *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_SET_MAX_VELOCITY_TYPE:
-	((EMC_AXIS_SET_MAX_VELOCITY *) buffer)->update(cms);
+    case EMC_JOINT_SET_MAX_POSITION_LIMIT_TYPE:
+	((EMC_JOINT_SET_MAX_POSITION_LIMIT *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_SET_MIN_FERROR_TYPE:
-	((EMC_AXIS_SET_MIN_FERROR *) buffer)->update(cms);
+    case EMC_JOINT_SET_MAX_VELOCITY_TYPE:
+	((EMC_JOINT_SET_MAX_VELOCITY *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_SET_MIN_POSITION_LIMIT_TYPE:
-	((EMC_AXIS_SET_MIN_POSITION_LIMIT *) buffer)->update(cms);
+    case EMC_JOINT_SET_MIN_FERROR_TYPE:
+	((EMC_JOINT_SET_MIN_FERROR *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_SET_UNITS_TYPE:
-	((EMC_AXIS_SET_UNITS *) buffer)->update(cms);
+    case EMC_JOINT_SET_MIN_POSITION_LIMIT_TYPE:
+	((EMC_JOINT_SET_MIN_POSITION_LIMIT *) buffer)->update(cms);
 	break;
-    case EMC_AXIS_STAT_TYPE:
-	((EMC_AXIS_STAT *) buffer)->update(cms);
+    case EMC_JOINT_SET_UNITS_TYPE:
+	((EMC_JOINT_SET_UNITS *) buffer)->update(cms);
+	break;
+    case EMC_JOINT_STAT_TYPE:
+	((EMC_JOINT_STAT *) buffer)->update(cms);
 	break;
     case EMC_COOLANT_FLOOD_OFF_TYPE:
 	((EMC_COOLANT_FLOOD_OFF *) buffer)->update(cms);
@@ -432,6 +438,9 @@ int emcFormat(NMLTYPE type, void *buffer, CMS * cms)
     case EMC_TRAJ_SET_SCALE_TYPE:
 	((EMC_TRAJ_SET_SCALE *) buffer)->update(cms);
 	break;
+    case EMC_TRAJ_SET_RAPID_SCALE_TYPE:
+	((EMC_TRAJ_SET_RAPID_SCALE *) buffer)->update(cms);
+	break;
     case EMC_TRAJ_SET_SPINDLE_SCALE_TYPE:
 	((EMC_TRAJ_SET_SPINDLE_SCALE *) buffer)->update(cms);
 	break;
@@ -446,9 +455,6 @@ int emcFormat(NMLTYPE type, void *buffer, CMS * cms)
 	break;
     case EMC_TRAJ_SET_TELEOP_ENABLE_TYPE:
 	((EMC_TRAJ_SET_TELEOP_ENABLE *) buffer)->update(cms);
-	break;
-    case EMC_TRAJ_SET_TELEOP_VECTOR_TYPE:
-	((EMC_TRAJ_SET_TELEOP_VECTOR *) buffer)->update(cms);
 	break;
     case EMC_TRAJ_SET_TERM_COND_TYPE:
 	((EMC_TRAJ_SET_TERM_COND *) buffer)->update(cms);
@@ -476,7 +482,7 @@ int emcFormat(NMLTYPE type, void *buffer, CMS * cms)
 }
 
 // NML Symbol Lookup Function
-const char *emc_symbol_lookup(long type)
+const char *emc_symbol_lookup(uint32_t type)
 {
     switch (type) {
     case EMC_ABORT_TYPE:
@@ -491,54 +497,58 @@ const char *emc_symbol_lookup(long type)
 	return "EMC_AUX_ESTOP_ON";
     case EMC_AUX_STAT_TYPE:
 	return "EMC_AUX_STAT";
-    case EMC_AXIS_ABORT_TYPE:
-	return "EMC_AXIS_ABORT";
-    case EMC_AXIS_ABS_JOG_TYPE:
-	return "EMC_AXIS_ABS_JOG";
-    case EMC_AXIS_ACTIVATE_TYPE:
-	return "EMC_AXIS_ACTIVATE";
-    case EMC_AXIS_DEACTIVATE_TYPE:
-	return "EMC_AXIS_DEACTIVATE";
-    case EMC_AXIS_DISABLE_TYPE:
-	return "EMC_AXIS_DISABLE";
-    case EMC_AXIS_ENABLE_TYPE:
-	return "EMC_AXIS_ENABLE";
-    case EMC_AXIS_HALT_TYPE:
-	return "EMC_AXIS_HALT";
-    case EMC_AXIS_HOME_TYPE:
-	return "EMC_AXIS_HOME";
-    case EMC_AXIS_UNHOME_TYPE:
-	return "EMC_AXIS_UNHOME";
-    case EMC_AXIS_INCR_JOG_TYPE:
-	return "EMC_AXIS_INCR_JOG";
-    case EMC_AXIS_INIT_TYPE:
-	return "EMC_AXIS_INIT";
-    case EMC_AXIS_JOG_TYPE:
-	return "EMC_AXIS_JOG";
-    case EMC_AXIS_LOAD_COMP_TYPE:
-	return "EMC_AXIS_LOAD_COMP";
-    case EMC_AXIS_OVERRIDE_LIMITS_TYPE:
-	return "EMC_AXIS_OVERRIDE_LIMITS";
-    case EMC_AXIS_SET_AXIS_TYPE:
-	return "EMC_AXIS_SET_AXIS";
-    case EMC_AXIS_SET_FERROR_TYPE:
-	return "EMC_AXIS_SET_FERROR";
-    case EMC_AXIS_SET_BACKLASH_TYPE:
-	return "EMC_AXIS_SET_BACKLASH";
-    case EMC_AXIS_SET_HOMING_PARAMS_TYPE:
-	return "EMC_AXIS_SET_HOMING_PARAMS";
-    case EMC_AXIS_SET_MAX_POSITION_LIMIT_TYPE:
-	return "EMC_AXIS_SET_MAX_POSITION_LIMIT";
-    case EMC_AXIS_SET_MAX_VELOCITY_TYPE:
-	return "EMC_AXIS_SET_MAX_VELOCITY";
-    case EMC_AXIS_SET_MIN_FERROR_TYPE:
-	return "EMC_AXIS_SET_MIN_FERROR";
-    case EMC_AXIS_SET_MIN_POSITION_LIMIT_TYPE:
-	return "EMC_AXIS_SET_MIN_POSITION_LIMIT";
-    case EMC_AXIS_SET_UNITS_TYPE:
-	return "EMC_AXIS_SET_UNITS";
-    case EMC_AXIS_STAT_TYPE:
-	return "EMC_AXIS_STAT";
+    case EMC_JOINT_ABORT_TYPE:
+	return "EMC_JOINT_ABORT";
+    case EMC_JOINT_ACTIVATE_TYPE:
+	return "EMC_JOINT_ACTIVATE";
+    case EMC_JOINT_DEACTIVATE_TYPE:
+	return "EMC_JOINT_DEACTIVATE";
+    case EMC_JOINT_DISABLE_TYPE:
+	return "EMC_JOINT_DISABLE";
+    case EMC_JOINT_ENABLE_TYPE:
+	return "EMC_JOINT_ENABLE";
+    case EMC_JOINT_HALT_TYPE:
+	return "EMC_JOINT_HALT";
+    case EMC_JOINT_HOME_TYPE:
+	return "EMC_JOINT_HOME";
+    case EMC_JOINT_UNHOME_TYPE:
+	return "EMC_JOINT_UNHOME";
+    case EMC_JOG_CONT_TYPE:
+	return "EMC_JOG_CONT";
+    case EMC_JOG_INCR_TYPE:
+	return "EMC_JOG_INCR";
+    case EMC_JOG_ABS_TYPE:
+	return "EMC_JOG_ABS";
+    case EMC_JOG_STOP_TYPE:
+	return "EMC_JOG_STOP";
+    case EMC_JOINT_INIT_TYPE:
+	return "EMC_JOINT_INIT";
+    case EMC_JOINT_LOAD_COMP_TYPE:
+	return "EMC_JOINT_LOAD_COMP";
+    case EMC_JOINT_OVERRIDE_LIMITS_TYPE:
+	return "EMC_JOINT_OVERRIDE_LIMITS";
+    case EMC_JOINT_SET_JOINT_TYPE:
+	return "EMC_JOINT_SET_AXIS";
+    case EMC_JOINT_SET_FERROR_TYPE:
+	return "EMC_JOINT_SET_FERROR";
+    case EMC_JOINT_SET_BACKLASH_TYPE:
+	return "EMC_JOINT_SET_BACKLASH";
+    case EMC_JOINT_SET_INPUT_SCALE_TYPE:
+        return "EMC_JOINT_SET_INPUT_SCALE";
+    case EMC_JOINT_SET_HOMING_PARAMS_TYPE:
+	return "EMC_JOINT_SET_HOMING_PARAMS";
+    case EMC_JOINT_SET_MAX_POSITION_LIMIT_TYPE:
+	return "EMC_JOINT_SET_MAX_POSITION_LIMIT";
+    case EMC_JOINT_SET_MAX_VELOCITY_TYPE:
+	return "EMC_JOINT_SET_MAX_VELOCITY";
+    case EMC_JOINT_SET_MIN_FERROR_TYPE:
+	return "EMC_JOINT_SET_MIN_FERROR";
+    case EMC_JOINT_SET_MIN_POSITION_LIMIT_TYPE:
+	return "EMC_JOINT_SET_MIN_POSITION_LIMIT";
+    case EMC_JOINT_SET_UNITS_TYPE:
+	return "EMC_JOINT_SET_UNITS";
+    case EMC_JOINT_STAT_TYPE:
+	return "EMC_JOINT_STAT";
     case EMC_COOLANT_FLOOD_OFF_TYPE:
 	return "EMC_COOLANT_FLOOD_OFF";
     case EMC_COOLANT_FLOOD_ON_TYPE:
@@ -737,6 +747,8 @@ const char *emc_symbol_lookup(long type)
 	return "EMC_TRAJ_SET_ROTATION";
     case EMC_TRAJ_SET_SCALE_TYPE:
 	return "EMC_TRAJ_SET_SCALE";
+    case EMC_TRAJ_SET_RAPID_SCALE_TYPE:
+	return "EMC_TRAJ_SET_RAPID_SCALE";
     case EMC_TRAJ_SET_SPINDLE_SCALE_TYPE:
 	return "EMC_TRAJ_SET_SPINDLE_SCALE";
     case EMC_TRAJ_SET_FO_ENABLE_TYPE:
@@ -747,8 +759,6 @@ const char *emc_symbol_lookup(long type)
 	return "EMC_TRAJ_SET_FH_ENABLE";
     case EMC_TRAJ_SET_TELEOP_ENABLE_TYPE:
 	return "EMC_TRAJ_SET_TELEOP_ENABLE";
-    case EMC_TRAJ_SET_TELEOP_VECTOR_TYPE:
-	return "EMC_TRAJ_SET_TELEOP_VECTOR";
     case EMC_TRAJ_SET_TERM_COND_TYPE:
 	return "EMC_TRAJ_SET_TERM_COND";
     case EMC_TRAJ_SET_SPINDLESYNC_TYPE:
@@ -931,14 +941,14 @@ void EMC_MOTION_INIT::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_SET_UNITS
+*	NML/CMS Update function for EMC_JOINT_SET_UNITS
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_SET_UNITS::update(CMS * cms)
+void EMC_JOINT_SET_UNITS::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(units);
 
 }
@@ -980,16 +990,24 @@ void EMC_TRAJ_DELAY::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_ABS_JOG
-*	Automatically generated by NML CodeGen Java Applet.
-*	on Sat Oct 11 13:45:16 UTC 2003
+*	NML/CMS Update function for EMC_JOG_ABS
 */
-void EMC_AXIS_ABS_JOG::update(CMS * cms)
+void EMC_JOG_ABS::update(CMS * cms)
 {
 
     EMC_AXIS_CMD_MSG::update(cms);
     cms->update(pos);
     cms->update(vel);
+
+}
+
+/*
+*	NML/CMS Update function for EMC_JOG_STOP
+*/
+void EMC_JOG_STOP::update(CMS * cms)
+{
+
+    EMC_AXIS_CMD_MSG::update(cms);
 
 }
 
@@ -1075,14 +1093,14 @@ void EMC_TOOL_LOAD::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_OVERRIDE_LIMITS
+*	NML/CMS Update function for EMC_JOINT_OVERRIDE_LIMITS
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_OVERRIDE_LIMITS::update(CMS * cms)
+void EMC_JOINT_OVERRIDE_LIMITS::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
 
 }
 
@@ -1100,40 +1118,40 @@ void PmCartesian_update(CMS * cms, PmCartesian * x)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_SET_FERROR
+*	NML/CMS Update function for EMC_JOINT_SET_FERROR
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_SET_FERROR::update(CMS * cms)
+void EMC_JOINT_SET_FERROR::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(ferror);
 
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_SET_MIN_POSITION_LIMIT
+*	NML/CMS Update function for EMC_JOINT_SET_MIN_POSITION_LIMIT
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_SET_MIN_POSITION_LIMIT::update(CMS * cms)
+void EMC_JOINT_SET_MIN_POSITION_LIMIT::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(limit);
 
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_DEACTIVATE
+*	NML/CMS Update function for EMC_JOINT_DEACTIVATE
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_DEACTIVATE::update(CMS * cms)
+void EMC_JOINT_DEACTIVATE::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
 
 }
 
@@ -1261,10 +1279,17 @@ void EMC_IO_CMD_MSG::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_CMD_MSG
+*	NML/CMS Update function for EMC_JOINT_CMD_MSG
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
+void EMC_JOINT_CMD_MSG::update(CMS * cms)
+{
+    cms->update(joint);
+
+}
+
+
 void EMC_AXIS_CMD_MSG::update(CMS * cms)
 {
     cms->update(axis);
@@ -1300,11 +1325,9 @@ void EMC_STAT::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_JOG
-*	Automatically generated by NML CodeGen Java Applet.
-*	on Sat Oct 11 13:45:16 UTC 2003
+*	NML/CMS Update function for EMC_JOG_CONT
 */
-void EMC_AXIS_JOG::update(CMS * cms)
+void EMC_JOG_CONT::update(CMS * cms)
 {
 
     EMC_AXIS_CMD_MSG::update(cms);
@@ -1400,15 +1423,15 @@ void EMC_TRAJ_RESUME::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_SET_AXIS
+*	NML/CMS Update function for EMC_JOINT_SET_JOINT
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_SET_AXIS::update(CMS * cms)
+void EMC_JOINT_SET_JOINT::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
-    cms->update(axisType);
+    EMC_JOINT_CMD_MSG::update(cms);
+    cms->update(jointType);
 
 }
 
@@ -1485,14 +1508,14 @@ void EMC_SPINDLE_STAT::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_SET_MAX_POSITION_LIMIT
+*	NML/CMS Update function for EMC_JOINT_SET_MAX_POSITION_LIMIT
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_SET_MAX_POSITION_LIMIT::update(CMS * cms)
+void EMC_JOINT_SET_MAX_POSITION_LIMIT::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(limit);
 
 }
@@ -1792,15 +1815,15 @@ void EMC_TOOL_STAT_MSG::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_STAT
+*	NML/CMS Update function for EMC_JOINT_STAT
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_STAT::update(CMS * cms)
+void EMC_JOINT_STAT::update(CMS * cms)
 {
 
-    EMC_AXIS_STAT_MSG::update(cms);
-    cms->update(axisType);
+    EMC_JOINT_STAT_MSG::update(cms);
+    cms->update(jointType);
     cms->update(units);
     cms->update(backlash);
     cms->update(minPositionLimit);
@@ -1826,6 +1849,30 @@ void EMC_AXIS_STAT::update(CMS * cms)
 }
 
 /*
+*	NML/CMS Update function for EMC_AXIS_STAT
+*	Automatically generated by micges
+*	on 13.08.2009 23:43:26
+*/
+void EMC_AXIS_STAT::update(CMS * cms)
+{
+
+    EMC_AXIS_STAT_MSG::update(cms);
+    cms->update(minPositionLimit);
+    cms->update(maxPositionLimit);
+
+}
+
+/*
+*	NML/CMS Update function for EMC_JOINT_STAT_MSG
+*	Automatically generated by NML CodeGen Java Applet.
+*	on Sat Oct 11 13:45:16 UTC 2003
+*/
+void EMC_AXIS_STAT_MSG::update(CMS * cms)
+{
+    cms->update(axis);
+}
+
+/*
 *	NML/CMS Update function for EMC_INIT
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
@@ -1843,6 +1890,14 @@ void EMC_INIT::update(CMS * cms)
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
 void EMC_TRAJ_SET_SCALE::update(CMS * cms)
+{
+
+    EMC_TRAJ_CMD_MSG::update(cms);
+    cms->update(scale);
+
+}
+
+void EMC_TRAJ_SET_RAPID_SCALE::update(CMS * cms)
 {
 
     EMC_TRAJ_CMD_MSG::update(cms);
@@ -2011,25 +2066,25 @@ void EMC_SPINDLE_BRAKE_RELEASE::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_STAT_MSG
+*	NML/CMS Update function for EMC_JOINT_STAT_MSG
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_STAT_MSG::update(CMS * cms)
+void EMC_JOINT_STAT_MSG::update(CMS * cms)
 {
-    cms->update(axis);
+    cms->update(joint);
 
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_LOAD_COMP
+*	NML/CMS Update function for EMC_JOINT_LOAD_COMP
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_LOAD_COMP::update(CMS * cms)
+void EMC_JOINT_LOAD_COMP::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(file, 256);
     cms->update(type);
 
@@ -2073,11 +2128,9 @@ void EMC_TASK_SET_MODE::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_INCR_JOG
-*	Automatically generated by NML CodeGen Java Applet.
-*	on Sat Oct 11 13:45:16 UTC 2003
+*	NML/CMS Update function for EMC_JOG_INCR
 */
-void EMC_AXIS_INCR_JOG::update(CMS * cms)
+void EMC_JOG_INCR::update(CMS * cms)
 {
 
     EMC_AXIS_CMD_MSG::update(cms);
@@ -2087,14 +2140,14 @@ void EMC_AXIS_INCR_JOG::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_ACTIVATE
+*	NML/CMS Update function for EMC_JOINT_ACTIVATE
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_ACTIVATE::update(CMS * cms)
+void EMC_JOINT_ACTIVATE::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
 
 }
 
@@ -2179,14 +2232,14 @@ void EMC_TRAJ_SET_OFFSET::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_ABORT
+*	NML/CMS Update function for EMC_JOINT_ABORT
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:16 UTC 2003
 */
-void EMC_AXIS_ABORT::update(CMS * cms)
+void EMC_JOINT_ABORT::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
 
 }
 
@@ -2213,14 +2266,14 @@ void EMC_OPERATOR_ERROR::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_SET_MAX_VELOCITY
+*	NML/CMS Update function for EMC_JOINT_SET_MAX_VELOCITY
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:17 UTC 2003
 */
-void EMC_AXIS_SET_MAX_VELOCITY::update(CMS * cms)
+void EMC_JOINT_SET_MAX_VELOCITY::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(vel);
 
 }
@@ -2261,26 +2314,32 @@ void EMC_TASK_PLAN_STEP::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_DISABLE
+*	NML/CMS Update function for EMC_JOINT_DISABLE
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:17 UTC 2003
 */
-void EMC_AXIS_DISABLE::update(CMS * cms)
+void EMC_JOINT_DISABLE::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
 
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_SET_BACKLASH
+*	NML/CMS Update function for EMC_JOINT_SET_BACKLASH
 *	Manually generated  - don't use NML CodeGen Java Applet.
 */
-void EMC_AXIS_SET_BACKLASH::update(CMS * cms)
+void EMC_JOINT_SET_BACKLASH::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(backlash);
+}
+
+void EMC_JOINT_SET_INPUT_SCALE::update(CMS * cms)
+{
+
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(input_scale);
 }
 
@@ -2338,7 +2397,7 @@ void EMC_TRAJ_STAT::update(CMS * cms)
     cms->update(linearUnits);
     cms->update(angularUnits);
     cms->update(cycleTime);
-    cms->update(axes);
+    cms->update(deprecated_axes);
     cms->update(axis_mask);
     cms->update((int *) &mode, 1);
     cms->update(enabled);
@@ -2376,45 +2435,45 @@ void EMC_TRAJ_STAT::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_HOME
+*	NML/CMS Update function for EMC_JOINT_HOME
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:17 UTC 2003
 */
-void EMC_AXIS_HOME::update(CMS * cms)
+void EMC_JOINT_HOME::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
 
 }
 
-void EMC_AXIS_UNHOME::update(CMS * cms)
+void EMC_JOINT_UNHOME::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
-
-}
-
-/*
-*	NML/CMS Update function for EMC_AXIS_INIT
-*	Automatically generated by NML CodeGen Java Applet.
-*	on Sat Oct 11 13:45:17 UTC 2003
-*/
-void EMC_AXIS_INIT::update(CMS * cms)
-{
-
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
 
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_ENABLE
+*	NML/CMS Update function for EMC_JOINT_INIT
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:17 UTC 2003
 */
-void EMC_AXIS_ENABLE::update(CMS * cms)
+void EMC_JOINT_INIT::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
+
+}
+
+/*
+*	NML/CMS Update function for EMC_JOINT_ENABLE
+*	Automatically generated by NML CodeGen Java Applet.
+*	on Sat Oct 11 13:45:17 UTC 2003
+*/
+void EMC_JOINT_ENABLE::update(CMS * cms)
+{
+
+    EMC_JOINT_CMD_MSG::update(cms);
 
 }
 
@@ -2491,27 +2550,14 @@ void EMC_AUX_CMD_MSG::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_TRAJ_SET_TELEOP_VECTOR
+*	NML/CMS Update function for EMC_JOINT_SET_MIN_FERROR
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:17 UTC 2003
 */
-void EMC_TRAJ_SET_TELEOP_VECTOR::update(CMS * cms)
+void EMC_JOINT_SET_MIN_FERROR::update(CMS * cms)
 {
 
-    EMC_TRAJ_CMD_MSG::update(cms);
-    EmcPose_update(cms, &vector);
-
-}
-
-/*
-*	NML/CMS Update function for EMC_AXIS_SET_MIN_FERROR
-*	Automatically generated by NML CodeGen Java Applet.
-*	on Sat Oct 11 13:45:17 UTC 2003
-*/
-void EMC_AXIS_SET_MIN_FERROR::update(CMS * cms)
-{
-
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(ferror);
 
 }
@@ -2576,8 +2622,8 @@ void EMC_MOTION_STAT::update(CMS * cms)
 
     EMC_MOTION_STAT_MSG::update(cms);
     traj.update(cms);
-    for (int i_axis = 0; i_axis < 8; i_axis++)
-	axis[i_axis].update(cms);
+    for (int i_joint = 0; i_joint < EMCMOT_MAX_JOINTS; i_joint++)
+	joint[i_joint].update(cms);
     cms->update(debug);
 
     spindle.update(cms); //FIXME - is this needed ?
@@ -2633,17 +2679,16 @@ void EMC_TASK_PLAN_OPEN::update(CMS * cms)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_SET_HOMING_PARAMS
+*	NML/CMS Update function for EMC_JOINT_SET_HOMING_PARAMS
 *	Manually generated - do not use NML CodeGen Java Applet.
 */
-void EMC_AXIS_SET_HOMING_PARAMS::update(CMS * cms)
+void EMC_JOINT_SET_HOMING_PARAMS::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
     cms->update(home);
     cms->update(offset);
     cms->update(home_final_vel);
-    cms->update(home_enc_pos);
     cms->update(search_vel);
     cms->update(latch_vel);
     cms->update(use_index);
@@ -2735,14 +2780,14 @@ void CANON_POSITION_update(CMS * cms, CANON_POSITION * x)
 }
 
 /*
-*	NML/CMS Update function for EMC_AXIS_HALT
+*	NML/CMS Update function for EMC_JOINT_HALT
 *	Automatically generated by NML CodeGen Java Applet.
 *	on Sat Oct 11 13:45:17 UTC 2003
 */
-void EMC_AXIS_HALT::update(CMS * cms)
+void EMC_JOINT_HALT::update(CMS * cms)
 {
 
-    EMC_AXIS_CMD_MSG::update(cms);
+    EMC_JOINT_CMD_MSG::update(cms);
 
 }
 

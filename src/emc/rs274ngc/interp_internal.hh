@@ -26,6 +26,7 @@
 #include "emcpos.h"
 #include "libintl.h"
 #include "python_plugin.hh"
+#include "rtapi_math.h"
 
 
 #define _(s) gettext(s)

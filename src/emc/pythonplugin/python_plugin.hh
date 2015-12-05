@@ -1,3 +1,21 @@
+/*    This is a component of LinuxCNC
+ *    Copyright 2011, 2012, 2013 Michael Haberler <git@mah.priv.at>,
+ *    Sebastian Kuzminsky <seb@highlab.com>
+ *
+ *    This program is free software; you can redistribute it and/or modify
+ *    it under the terms of the GNU General Public License as published by
+ *    the Free Software Foundation; either version 2 of the License, or
+ *    (at your option) any later version.
+ *
+ *    This program is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with this program; if not, write to the Free Software
+ *    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
 #ifndef PYTHON_PLUGIN_HH
 #define PYTHON_PLUGIN_HH
 
@@ -65,9 +83,6 @@ private:
     int status;
     time_t module_mtime;                  // toplevel module - last modification time
     bool reload_on_change;                // auto-reload if toplevel module was changed
-    const char *ini_filename;
-    const char *section;
-    struct _inittab *inittab_pointer;
     const char *toplevel;          // toplevel script
     //    const char *plugin_dir;               // directory prefix
     const char *abs_path;                 // normalized path to toplevel module

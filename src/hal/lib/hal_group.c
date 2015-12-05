@@ -557,8 +557,8 @@ int halpr_group_compile(const char *name, hal_compiled_group_t **cgroup)
     // this fills sets the n_members and n_monitored fields
     result = halpr_foreach_member(name, cgroup_size_cb,
 				  tc, RESOLVE_NESTED_GROUPS);
-    HALDBG("hal_group_compile(%s): %d signals %d monitored",
-	   name, tc->n_members, tc->n_monitored );
+    HALDBG("hal_group_compile(%s): %d signals %d monitored, result(%d)",
+	   name, tc->n_members, tc->n_monitored, result);
     if ((tc->member =
 	 malloc(sizeof(hal_member_t  *) * tc->n_members )) == NULL)
 	NOMEM("%d hal_members",  tc->n_members);

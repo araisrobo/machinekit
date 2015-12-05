@@ -9,8 +9,6 @@
 * System: Linux
 *    
 * Copyright (c) 2004 All rights reserved.
-*
-* Last change:
 ********************************************************************/
 #ifndef TC_TYPES_H
 #define TC_TYPES_H
@@ -140,6 +138,7 @@ typedef struct {
 
     //Acceleration
     double maxaccel;        // accel calc'd by task
+    double acc_ratio_tan;// ratio between normal and tangential accel
 
     //Jerk
     double jerk;            // the accelrate of accel

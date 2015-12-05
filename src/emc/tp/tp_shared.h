@@ -33,6 +33,7 @@ typedef struct tp_shared_t {
     hal_float_t *maxFeedScale;
     hal_float_t *net_feed_scale;
 
+    hal_float_t *jerk_limit[3];
     hal_float_t *acc_limit[3];
     hal_float_t *vel_limit[3];
 
@@ -83,6 +84,11 @@ static inline void set_num_dio(tp_shared_t *ts, int n)  { *(ts->num_dio) = n; }
 
 static inline int get_num_aio(tp_shared_t *ts)  { return *(ts->num_aio); }
 static inline void set_num_aio(tp_shared_t *ts, int n)  { *(ts->num_aio) = n; }
+
+static inline hal_float_t get_jerk_limit(tp_shared_t *ts, int n)
+{ return *(ts->jerk_limit[n]); }
+static inline void set_jerk_limit(tp_shared_t *ts, int n, hal_float_t val)
+{ *(ts->jerk_limit[n]) = val; }
 
 static inline hal_float_t get_acc_limit(tp_shared_t *ts, int n)
 { return *(ts->acc_limit[n]); }

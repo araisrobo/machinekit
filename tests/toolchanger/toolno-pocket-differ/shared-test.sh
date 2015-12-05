@@ -151,6 +151,8 @@ fi
     echo set mdi g43
     introspect 30
 
+    # wait for linuxcnc to finish
+    echo set wait done
     echo shutdown
 ) | nc localhost 5007
 
