@@ -70,10 +70,10 @@ $(MSG_COMP_MANPAGES): ../man/man9/%.9comp: \
 	$(Q)../bin/halcompile --document -o $@ $<
 
 $(ARAIS_COMP_MANPAGES): ../man/man9/%.9: \
-		hal/drivers/arais/%.comp ../bin/comp
+		hal/drivers/arais/%.comp ../bin/halcompile
 	$(ECHO) Making comp manpage $(notdir $@)
 	@mkdir -p $(dir $@)
-	$(Q)../bin/comp --document -o $@ $<
+	$(Q)../bin/halcompile --document -o $@ $<
 
 ifeq ($(BUILD_ALL_FLAVORS),yes)
 # .c and .mak files are identical for all flavors

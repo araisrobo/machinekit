@@ -127,7 +127,7 @@ void do_usb_homing_sequence(void)
 
     case HOME_SEQUENCE_START:
         /* a request to home all joints */
-        for(i=0; i < num_joints; i++) {
+	for(i=0; i < emcmotConfig->numJoints; i++) {
             joint = &joints[i];
             if(joint->home_state != HOME_IDLE) {
                 /* a home is already in progress, abort the home-all */
@@ -151,11 +151,11 @@ void do_usb_homing_sequence(void)
 
     case HOME_SEQUENCE_START_JOINTS:
         /* start all joints whose sequence number matches home_sequence */
-        for(i=0; i < num_joints; i++) {
+        for(i=0; i < emcmotConfig->numJoints; i++) {
             joint = &joints[i];
             if(joint->home_sequence == home_sequence) {
                 /* start this joint */
-                joint->free_tp_enable = 0;
+                joint->free_tp.enable = 0;
                 joint->home_state = HOME_START;
                 seen++;
             } else if (joint->home_sequence > home_sequence) {
@@ -180,7 +180,7 @@ void do_usb_homing_sequence(void)
         break;
 
     case HOME_SEQUENCE_WAIT_JOINTS:
-        for(i=0; i < num_joints; i++) {
+        for(i=0; i < emcmotConfig->numJoints; i++) {
             joint = &joints[i];
             if(joint->home_sequence != home_sequence) {
                 /* this joint is not at the current sequence number, ignore it */
@@ -238,7 +238,7 @@ void do_usb_homing(void)
     }
 
     /* loop thru joints, treat each one individually */
-    for (joint_num = 0; joint_num < num_joints; joint_num++)
+    for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++)
     {
         /* point to joint struct */
         joint = &joints[joint_num];
@@ -282,7 +282,7 @@ void do_usb_homing(void)
                 SET_JOINT_HOMED_FLAG(joint, 0);
                 SET_JOINT_AT_HOME_FLAG(joint, 0);
                 /* stop any existing motion */
-                joint->free_tp_enable = 0;
+                joint->free_tp.enable = 0;
                 
                 if (joint->home_flags & HOME_UNLOCK_FIRST) {
                     joint->home_state = HOME_UNLOCK;
@@ -431,7 +431,7 @@ void do_usb_homing(void)
 		   motor position */
                 joint->pos_cmd += offset;
                 joint->pos_fb += offset;
-                joint->free_pos_cmd += offset;
+                joint->free_tp.curr_pos += offset;
                 joint->motor_offset -= offset;
                 emcmotStatus->update_pos_ack = 1; // to synchronize pos_cmd and prev_pos_cmd
 
@@ -450,13 +450,13 @@ void do_usb_homing(void)
                     joint->home_state = HOME_FALL_SEARCH_START;
                 }
                 rtapi_print_msg(RTAPI_MSG_DBG,
-                        _("HOME_SET_COARSE_POSITION: j[%d] offset(%f) risc_pos_cmd(%f) pos_cmd(%f) pos_fb(%f) free_pos_cmd(%f) motor_offset(%f)\n"),
+                        _("HOME_SET_COARSE_POSITION: j[%d] offset(%f) risc_pos_cmd(%f) pos_cmd(%f) pos_fb(%f) free_tp.curr_pos(%f) motor_offset(%f)\n"),
                         joint_num,
                         offset,
                         joint->risc_pos_cmd,
                         joint->pos_cmd,
                         joint->pos_fb,
-                        joint->free_pos_cmd,
+                        joint->free_tp.curr_pos,
                         joint->motor_offset);
                 break;
 
@@ -588,18 +588,18 @@ void do_usb_homing(void)
                 /* this moves the internal position but does not affect the
                    motor position */
                 joint->pos_cmd = joint->risc_pos_cmd - joint->motor_offset;
-                joint->free_pos_cmd = joint->pos_cmd;
+                joint->free_tp.curr_pos = joint->pos_cmd;
                 emcmotStatus->update_pos_ack = 1; // to synchronize prev_pos_cmd with new pos_cmd
 
                 rtapi_print_msg(RTAPI_MSG_DBG,
-                         _("HOME_SET_SWITCH_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
+                         _("HOME_SET_SWITCH_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_tp.curr_pos(%f) motor_offset(%f)\n"),
                          joint_num,
                          *(joint->home_offset),
                          joint->risc_pos_cmd,
                          joint->probed_pos,
                          joint->pos_cmd,
                          joint->pos_fb,
-                         joint->free_pos_cmd,
+                         joint->free_tp.curr_pos,
                          joint->motor_offset);
 
                 /* next state */
@@ -627,13 +627,13 @@ void do_usb_homing(void)
                    motor position */
                 joint->pos_cmd += offset;
                 joint->pos_fb += offset;
-                joint->free_pos_cmd += offset;
+                joint->free_tp.curr_pos += offset;
                 joint->motor_offset -= offset;
 
                 emcmotStatus->update_pos_ack = 1; // to synchronize prev_pos_cmd with new pos_cmd
 
                 rtapi_print_msg(RTAPI_MSG_DBG,
-                        _("HOME_INDEX_ONLY_START: \nj[%d] home_offset(%f) offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_pos_cmd(%f) motor_offset(%f)\n"),
+                        _("HOME_INDEX_ONLY_START: \nj[%d] home_offset(%f) offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_tp.curr_pos(%f) motor_offset(%f)\n"),
                         joint_num,
                         *(joint->home_offset),
                         offset,
@@ -641,7 +641,7 @@ void do_usb_homing(void)
                         joint->probed_pos,
                         joint->pos_cmd,
                         joint->pos_fb,
-                        joint->free_pos_cmd,
+                        joint->free_tp.curr_pos,
                         joint->motor_offset);
 
                 /* next state */
@@ -697,19 +697,19 @@ void do_usb_homing(void)
                 /* this moves the internal position but does not affect the
                    motor position */
                 joint->pos_cmd = joint->risc_pos_cmd - joint->motor_offset;
-                joint->free_pos_cmd = joint->pos_cmd;
+                joint->free_tp.curr_pos = joint->pos_cmd;
 
                 emcmotStatus->update_pos_ack = 1; // to synchronize prev_pos_cmd with new pos_cmd
 
                 rtapi_print_msg(RTAPI_MSG_DBG,
-                        _("HOME_SET_INDEX_POSITION: j[%d] home_offset(%f) risc_pos_cmd(%f) probed_pos(%f) pos_cmd(%f) pos_fb(%f) free_pos_cmd(%f) motor_offset(%f)\n"),
+                        _("HOME_SET_INDEX_POSITION: j[%d] home_offset(%f) risc_pos_cmd(%f) probed_pos(%f) pos_cmd(%f) pos_fb(%f) free_tp.curr_pos(%f) motor_offset(%f)\n"),
                         joint_num,
                         *(joint->home_offset),
                         joint->risc_pos_cmd,
                         joint->probed_pos,
                         joint->pos_cmd,
                         joint->pos_fb,
-                        joint->free_pos_cmd,
+                        joint->free_tp.curr_pos,
                         joint->motor_offset);
                 
                 /* next state */
@@ -731,21 +731,21 @@ void do_usb_homing(void)
                 // TODO: implement ABS-HOMING without modifying usb_homing.c
 //                if (*(joint->home_abs) == 0)
 //                {   // HAL signal home-abs is FALSE for INCREMENTAL-HOMING
-//                    joint->free_pos_cmd = *(joint->home);
+//                    joint->free_tp.curr_pos = *(joint->home);
 //                }
 
                 /* plan a move to home position */
-                joint->free_pos_cmd = *(joint->home);
+                joint->free_tp.pos_cmd = *(joint->home);
 
                 /* if home_vel is set (>0) then we use that, otherwise we rapid there */
                 if (joint->home_final_vel != 0) {
-                    joint->free_vel_lim = rtapi_fabs(joint->home_final_vel);
+                    joint->free_tp.max_vel = rtapi_fabs(joint->home_final_vel);
                 } else {
-                    joint->free_vel_lim = joint->vel_limit;
+                    joint->free_tp.max_vel = joint->vel_limit;
                 }
 
                 /* start the move */
-                joint->free_tp_enable = 1;
+                joint->free_tp.enable = 1;
                 joint->home_state = HOME_FINAL_MOVE_WAIT;
                 break;
 
@@ -755,12 +755,12 @@ void do_usb_homing(void)
 		   arrives at the final location. If the move hits a limit
 		   before it arrives, the home is aborted. */
                 /* have we arrived (and stopped) at home? */
-//                rtapi_print("HOME_FINAL_MOVE_WAIT: j[%d] active(%d) pos_cmd(%f) free_pos_cmd(%f) vel_cmd(%f)\n",
-//                             joint_num, joint->free_tp_active, joint->pos_cmd, joint->free_pos_cmd, joint->vel_cmd);
+//                rtapi_print("HOME_FINAL_MOVE_WAIT: j[%d] active(%d) pos_cmd(%f) free_tp.curr_pos(%f) vel_cmd(%f)\n",
+//                             joint_num, joint->free_tp_active, joint->pos_cmd, joint->free_tp.curr_pos, joint->vel_cmd);
 
-                if (!joint->free_tp_active) {
+                if (!joint->free_tp.active) {
                     /* yes, stop motion */
-                    joint->free_tp_enable = 0;
+                    joint->free_tp.enable = 0;
                     /* we're finally done */
                     joint->home_state = HOME_LOCK;
                     break;
@@ -809,7 +809,7 @@ void do_usb_homing(void)
                 SET_JOINT_HOMING_FLAG(joint, 0);
                 SET_JOINT_HOMED_FLAG(joint, 0);
                 SET_JOINT_AT_HOME_FLAG(joint, 0);
-                joint->free_tp_enable = 0;
+                joint->free_tp.enable = 0;
                 joint->home_state = HOME_IDLE;
                 joint->index_enable = 0;
                 immediate_state = 1;
