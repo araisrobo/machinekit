@@ -23,7 +23,6 @@ loadrt tp
 ##############################################################################
 # motion controller, get name and thread periods from ini file
 loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=[EMCMOT]NUM_DIO num_aio=[EMCMOT]NUM_AIO num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
-newinst rgantry rgantry.0 pincount=2
 
 # tick message flow: servo_tick => ring_jcmd => wosi_trans
 # this creates the named ring ring_jcmd as record ring
@@ -37,10 +36,8 @@ loadusr -W wosi_trans -r ring_jcmd
 
 
 addf son_delay                  servo-thread
-addf rgantry.0.read             servo-thread
 addf motion-command-handler     servo-thread
 addf motion-controller          servo-thread
-addf rgantry.0.write            servo-thread
 addf mult2.0                    servo-thread    # mult2 for spindle velocity to analog.out
 # attach servo_tick after all joint commands are calculated
 addf servo_tick                 servo-thread
@@ -71,33 +68,26 @@ net rev-input       => motion.tp-reverse-input
 net current-vel   wosi.motion.current-vel <= motion.current-vel
 
 
-# y-axis gantry
-net ypos-cmd  rgantry.0.position-cmd     <= axis.1.motor-pos-cmd
-net ypos-fb   rgantry.0.position-fb      => axis.1.motor-pos-fb
-setp rgantry.0.search-vel [AXIS_1]HOME_SEARCH_VEL
-
-
 # create HAL signals for position commands from motion module
 # connect position commands from motion module for "servo_tick => wosi_driver"
-net j0-pos-cmd      axis.0.motor-pos-cmd        => servo_tick.j0-pos-cmd
-net j1-pos-cmd      rgantry.0.joint.00.pos-cmd  => servo_tick.j1-pos-cmd
-net j2-pos-cmd      rgantry.0.joint.01.pos-cmd  => servo_tick.j2-pos-cmd
-net j3-pos-cmd      axis.2.motor-pos-cmd        => servo_tick.j3-pos-cmd
-net j4-pos-cmd      axis.3.motor-pos-cmd        => servo_tick.j4-pos-cmd 
-net j5-pos-cmd      axis.4.motor-pos-cmd        => servo_tick.j5-pos-cmd
-net j6-pos-cmd      axis.5.motor-pos-cmd        => servo_tick.j6-pos-cmd
+net j0-pos-cmd      joint.0.motor-pos-cmd       => servo_tick.j0-pos-cmd
+net j1-pos-cmd      joint.1.motor-pos-cmd       => servo_tick.j1-pos-cmd
+net j2-pos-cmd      joint.2.motor-pos-cmd       => servo_tick.j2-pos-cmd
+net j3-pos-cmd      joint.3.motor-pos-cmd       => servo_tick.j3-pos-cmd
+net j4-pos-cmd      joint.4.motor-pos-cmd       => servo_tick.j4-pos-cmd 
+net j5-pos-cmd      joint.5.motor-pos-cmd       => servo_tick.j5-pos-cmd
+net j6-pos-cmd      joint.6.motor-pos-cmd       => servo_tick.j6-pos-cmd
 net j7-pos-cmd                                  => servo_tick.j7-pos-cmd
 net update-pos-ack  motion.update-pos-ack       => servo_tick.update-pos-ack
-net update-pos-ack                              => rgantry.0.update-pos-ack-i
 
 # loop position commands back to motion module feedback
-net j0-pos-fb   wosi.stepgen.0.position-fb => axis.0.motor-pos-fb
-net j1-pos-fb   wosi.stepgen.1.position-fb => rgantry.0.joint.00.pos-fb
-net j2-pos-fb   wosi.stepgen.2.position-fb => rgantry.0.joint.01.pos-fb
-net j3-pos-fb   wosi.stepgen.3.position-fb => axis.2.motor-pos-fb
-net j4-pos-fb   wosi.stepgen.4.position-fb => axis.3.motor-pos-fb
-net j5-pos-fb   wosi.stepgen.5.position-fb => axis.4.motor-pos-fb
-net j6-pos-fb   wosi.stepgen.6.position-fb => axis.5.motor-pos-fb
+net j0-pos-fb   wosi.stepgen.0.position-fb => joint.0.motor-pos-fb
+net j1-pos-fb   wosi.stepgen.1.position-fb => joint.1.motor-pos-fb
+net j2-pos-fb   wosi.stepgen.2.position-fb => joint.2.motor-pos-fb
+net j3-pos-fb   wosi.stepgen.3.position-fb => joint.3.motor-pos-fb
+net j4-pos-fb   wosi.stepgen.4.position-fb => joint.4.motor-pos-fb
+net j5-pos-fb   wosi.stepgen.5.position-fb => joint.5.motor-pos-fb
+net j6-pos-fb   wosi.stepgen.6.position-fb => joint.6.motor-pos-fb
 net j7-pos-fb   wosi.stepgen.7.position-fb
 
 net J0vel-fb  wosi.stepgen.0.vel-fb
@@ -130,11 +120,13 @@ net din_0  => iocontrol.0.emc-enable-in
 net ahc-state   => wosi.ahc.state
 
 # TODO: probed pos for gantry joint
-net x-probed-pos   wosi.stepgen.0.probed-pos => axis.0.probed-pos
-net y-probed-pos   wosi.stepgen.1.probed-pos => axis.1.probed-pos
-net z-probed-pos   wosi.stepgen.3.probed-pos => axis.2.probed-pos
-net j4-probed-pos  wosi.stepgen.4.probed-pos => axis.3.probed-pos
-net j5-probed-pos  wosi.stepgen.5.probed-pos => axis.4.probed-pos
+net j0-probed-pos  wosi.stepgen.0.probed-pos => joint.0.probed-pos
+net j1-probed-pos  wosi.stepgen.1.probed-pos => joint.1.probed-pos
+net j2-probed-pos  wosi.stepgen.2.probed-pos => joint.2.probed-pos
+net j3-probed-pos  wosi.stepgen.3.probed-pos => joint.3.probed-pos
+net j4-probed-pos  wosi.stepgen.4.probed-pos => joint.4.probed-pos
+net j5-probed-pos  wosi.stepgen.5.probed-pos => joint.5.probed-pos
+net j6-probed-pos  wosi.stepgen.6.probed-pos => joint.6.probed-pos
 
 net vx-cmd      => wosi.stepgen.0.vel-cmd
 net vy-cmd      => wosi.stepgen.1.vel-cmd
@@ -143,79 +135,70 @@ net vz-cmd      => wosi.stepgen.3.vel-cmd
 # SIM: setp joint.3.probed-pos -40
 
 # # loop position commands back to motion module feedback
-net J0-risc-pos-cmd wosi.stepgen.0.risc-pos-cmd => axis.0.risc-pos-cmd
-net J1-risc-pos-cmd wosi.stepgen.1.risc-pos-cmd => axis.1.risc-pos-cmd
-net J3-risc-pos-cmd wosi.stepgen.3.risc-pos-cmd => axis.2.risc-pos-cmd
-net J4-risc-pos-cmd wosi.stepgen.4.risc-pos-cmd => axis.3.risc-pos-cmd
-net J5-risc-pos-cmd wosi.stepgen.5.risc-pos-cmd => axis.4.risc-pos-cmd
-net J6-risc-pos-cmd wosi.stepgen.6.risc-pos-cmd => axis.5.risc-pos-cmd
+net J0-risc-pos-cmd wosi.stepgen.0.risc-pos-cmd => joint.0.risc-pos-cmd
+net J1-risc-pos-cmd wosi.stepgen.1.risc-pos-cmd => joint.1.risc-pos-cmd
+net J2-risc-pos-cmd wosi.stepgen.2.risc-pos-cmd => joint.2.risc-pos-cmd
+net J3-risc-pos-cmd wosi.stepgen.3.risc-pos-cmd => joint.3.risc-pos-cmd
+net J4-risc-pos-cmd wosi.stepgen.4.risc-pos-cmd => joint.4.risc-pos-cmd
+net J5-risc-pos-cmd wosi.stepgen.5.risc-pos-cmd => joint.5.risc-pos-cmd
+net J6-risc-pos-cmd wosi.stepgen.6.risc-pos-cmd => joint.6.risc-pos-cmd
 net J7-risc-pos-cmd wosi.stepgen.7.risc-pos-cmd
 
 # for usb-homing:
-setp axis.0.home-sw-id      [JOINT_0]HOME_SW_ID
-net [JOINT_0]HOME_SW_NET    axis.0.home-sw-in
-net j0-homing               axis.0.homing => wosi.stepgen.0.homing
-net a0-risc-probe-vel       axis.0.risc-probe-vel => servo_tick.j0-risc-probe-vel-i
-net j0-risc-probe-pin       axis.0.risc-probe-pin => wosi.stepgen.0.risc-probe-pin
-net j0-risc-probe-type      axis.0.risc-probe-type => wosi.stepgen.0.risc-probe-type
-
-# for usb-homing: y-axis gantry
-setp axis.1.home-sw-id                  [JOINT_1]HOME_SW_ID
-setp rgantry.0.joint.00.home-sw-id      [JOINT_1]HOME_SW_ID
-setp rgantry.0.joint.01.home-sw-id      [JOINT_2]HOME_SW_ID
-net  [JOINT_1]HOME_SW_NET               => rgantry.0.joint.00.home-sw-i
-net  [JOINT_2]HOME_SW_NET               => rgantry.0.joint.01.home-sw-i
-net  a1-home-sw axis.1.home-sw-in       <= rgantry.0.home                     
-net  a1-homing                          <= axis.1.homing
-net  a1-homing                          => wosi.stepgen.1.homing
-net  a1-homing                          => wosi.stepgen.2.homing
-net  a1-homing                          => rgantry.0.homing
-net  a1-risc-probe-vel                  <= axis.1.risc-probe-vel 
-net  a1-risc-probe-vel                  => rgantry.0.risc-probe-vel-i
-net  a1-risc-probe-vel                  => servo_tick.j1-risc-probe-vel-i
-net  a1-risc-probe-vel                  => servo_tick.j2-risc-probe-vel-i
-net  j1-risc-probe-pin                  <= rgantry.0.joint.00.risc-probe-pin-o 
-net  j1-risc-probe-pin                  => wosi.stepgen.1.risc-probe-pin
-net  j2-risc-probe-pin                  <= rgantry.0.joint.01.risc-probe-pin-o 
-net  j2-risc-probe-pin                  => wosi.stepgen.2.risc-probe-pin
-net  a1-risc-probe-type                 <= axis.1.risc-probe-type 
-net  a1-risc-probe-type                 => rgantry.0.risc-probe-type-i
-net  j1-risc-probe-type                 <= rgantry.0.joint.00.risc-probe-type-o 
-net  j1-risc-probe-type                 => wosi.stepgen.1.risc-probe-type
-net  j2-risc-probe-type                 <= rgantry.0.joint.01.risc-probe-type-o 
-net  j2-risc-probe-type                 => wosi.stepgen.2.risc-probe-type
+setp joint.0.home-sw-id                 [JOINT_0]HOME_SW_ID
+net  [JOINT_0]HOME_SW_NET               joint.0.home-sw-in
+net  j0-homing                          joint.0.homing => wosi.stepgen.0.homing
+net  j0-risc-probe-vel                  joint.0.risc-probe-vel => servo_tick.j0-risc-probe-vel-i
+net  j0-risc-probe-pin                  joint.0.risc-probe-pin => wosi.stepgen.0.risc-probe-pin
+net  j0-risc-probe-type                 joint.0.risc-probe-type => wosi.stepgen.0.risc-probe-type
 
 # for usb-homing:
-setp axis.2.home-sw-id      [JOINT_3]HOME_SW_ID
-net [JOINT_3]HOME_SW_NET    axis.2.home-sw-in
-net j3-homing               axis.2.homing => wosi.stepgen.3.homing
-net a2-risc-probe-vel       axis.2.risc-probe-vel => servo_tick.j3-risc-probe-vel-i
-net j3-risc-probe-pin       axis.2.risc-probe-pin => wosi.stepgen.3.risc-probe-pin
-net j3-risc-probe-type      axis.2.risc-probe-type => wosi.stepgen.3.risc-probe-type
+setp joint.1.home-sw-id                 [JOINT_1]HOME_SW_ID
+net  [JOINT_1]HOME_SW_NET               joint.1.home-sw-in
+net  j1-homing                          joint.1.homing => wosi.stepgen.1.homing
+net  j1-risc-probe-vel                  joint.1.risc-probe-vel => servo_tick.j1-risc-probe-vel-i
+net  j1-risc-probe-pin                  joint.1.risc-probe-pin => wosi.stepgen.1.risc-probe-pin
+net  j1-risc-probe-type                 joint.1.risc-probe-type => wosi.stepgen.1.risc-probe-type
 
 # for usb-homing:
-setp axis.3.home-sw-id      [JOINT_4]HOME_SW_ID
-net [JOINT_4]HOME_SW_NET    axis.3.home-sw-in
-net j4-homing               axis.3.homing => wosi.stepgen.4.homing
-net a3-risc-probe-vel       axis.3.risc-probe-vel => servo_tick.j4-risc-probe-vel-i
-net j4-risc-probe-pin       axis.3.risc-probe-pin => wosi.stepgen.4.risc-probe-pin
-net j4-risc-probe-type      axis.3.risc-probe-type => wosi.stepgen.4.risc-probe-type
+setp joint.2.home-sw-id                 [JOINT_2]HOME_SW_ID
+net  [JOINT_2]HOME_SW_NET               joint.2.home-sw-in
+net  j2-homing                          joint.2.homing => wosi.stepgen.2.homing
+net  j2-risc-probe-vel                  joint.2.risc-probe-vel => servo_tick.j2-risc-probe-vel-i
+net  j2-risc-probe-pin                  joint.2.risc-probe-pin => wosi.stepgen.2.risc-probe-pin
+net  j2-risc-probe-type                 joint.2.risc-probe-type => wosi.stepgen.2.risc-probe-type
 
-# for usb-homing with AXIS_4/JOINT_5:
-setp axis.4.home-sw-id      [JOINT_5]HOME_SW_ID
-net [JOINT_5]HOME_SW_NET    axis.4.home-sw-in
-net j5-homing               axis.4.homing => wosi.stepgen.5.homing
-net a4-risc-probe-vel       axis.4.risc-probe-vel => servo_tick.j5-risc-probe-vel-i
-net j5-risc-probe-pin       axis.4.risc-probe-pin => wosi.stepgen.5.risc-probe-pin
-net j5-risc-probe-type      axis.4.risc-probe-type => wosi.stepgen.5.risc-probe-type
+# for usb-homing:
+setp joint.3.home-sw-id                 [JOINT_3]HOME_SW_ID
+net  [JOINT_3]HOME_SW_NET               joint.3.home-sw-in
+net  j3-homing                          joint.3.homing => wosi.stepgen.3.homing
+net  j3-risc-probe-vel                  joint.3.risc-probe-vel => servo_tick.j3-risc-probe-vel-i
+net  j3-risc-probe-pin                  joint.3.risc-probe-pin => wosi.stepgen.3.risc-probe-pin
+net  j3-risc-probe-type                 joint.3.risc-probe-type => wosi.stepgen.3.risc-probe-type
 
-# for usb-homing with AXIS_5/JOINT_6:
-setp axis.5.home-sw-id      [JOINT_6]HOME_SW_ID
-net [JOINT_6]HOME_SW_NET    axis.5.home-sw-in
-net j6-homing               axis.5.homing => wosi.stepgen.6.homing
-net a5-risc-probe-vel       axis.5.risc-probe-vel => servo_tick.j6-risc-probe-vel-i
-net j6-risc-probe-pin       axis.5.risc-probe-pin => wosi.stepgen.6.risc-probe-pin
-net j6-risc-probe-type      axis.5.risc-probe-type => wosi.stepgen.6.risc-probe-type
+# for usb-homing:
+setp joint.4.home-sw-id                 [JOINT_4]HOME_SW_ID
+net  [JOINT_4]HOME_SW_NET               joint.4.home-sw-in
+net  j4-homing                          joint.4.homing => wosi.stepgen.4.homing
+net  j4-risc-probe-vel                  joint.4.risc-probe-vel => servo_tick.j4-risc-probe-vel-i
+net  j4-risc-probe-pin                  joint.4.risc-probe-pin => wosi.stepgen.4.risc-probe-pin
+net  j4-risc-probe-type                 joint.4.risc-probe-type => wosi.stepgen.4.risc-probe-type
+
+# for usb-homing:
+setp joint.5.home-sw-id                 [JOINT_5]HOME_SW_ID
+net  [JOINT_5]HOME_SW_NET               joint.5.home-sw-in
+net  j5-homing                          joint.5.homing => wosi.stepgen.5.homing
+net  j5-risc-probe-vel                  joint.5.risc-probe-vel => servo_tick.j5-risc-probe-vel-i
+net  j5-risc-probe-pin                  joint.5.risc-probe-pin => wosi.stepgen.5.risc-probe-pin
+net  j5-risc-probe-type                 joint.5.risc-probe-type => wosi.stepgen.5.risc-probe-type
+
+# for usb-homing:
+setp joint.6.home-sw-id                 [JOINT_6]HOME_SW_ID
+net  [JOINT_6]HOME_SW_NET               joint.6.home-sw-in
+net  j6-homing                          joint.6.homing => wosi.stepgen.6.homing
+net  j6-risc-probe-vel                  joint.6.risc-probe-vel => servo_tick.j6-risc-probe-vel-i
+net  j6-risc-probe-pin                  joint.6.risc-probe-pin => wosi.stepgen.6.risc-probe-pin
+net  j6-risc-probe-type                 joint.6.risc-probe-type => wosi.stepgen.6.risc-probe-type
 
 # RISC_CMD REQ and ACK
 net update-pos-req      wosi.motion.update-pos-req   =>  motion.update-pos-req

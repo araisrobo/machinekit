@@ -633,6 +633,7 @@ static int export_joint(int num, joint_hal_t * addr)
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->motor_pos_cmd), mot_comp_id, "joint.%d.motor-pos-cmd", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_IN, &(addr->motor_pos_fb), mot_comp_id, "joint.%d.motor-pos-fb", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->motor_offset), mot_comp_id, "joint.%d.motor-offset", num)) != 0) return retval;
+    if ((retval = hal_pin_float_newf(HAL_IN, &(addr->blender_offset), mot_comp_id, "joint.%d.blender-offset", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->pos_lim_sw), mot_comp_id, "joint.%d.pos-lim-sw-in", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->neg_lim_sw), mot_comp_id, "joint.%d.neg-lim-sw-in", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->home_sw), mot_comp_id, "joint.%d.home-sw-in", num)) != 0) return retval;
@@ -648,7 +649,6 @@ static int export_joint(int num, joint_hal_t * addr)
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->backlash_filt), mot_comp_id, "joint.%d.backlash-filt", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->backlash_vel), mot_comp_id, "joint.%d.backlash-vel", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->f_error), mot_comp_id, "joint.%d.f-error", num)) != 0) return retval;
-    if ((retval = hal_pin_float_newf(HAL_IN, &(addr->blender_offset), mot_comp_id, "axis.%d.blender-offset", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->f_error_lim), mot_comp_id, "joint.%d.f-error-lim", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->free_pos_cmd), mot_comp_id, "joint.%d.free-pos-cmd", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->free_vel_lim), mot_comp_id, "joint.%d.free-vel-lim", num)) != 0) return retval;
@@ -658,61 +658,26 @@ static int export_joint(int num, joint_hal_t * addr)
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->in_position), mot_comp_id, "joint.%d.in-position", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->phl), mot_comp_id, "joint.%d.pos-hard-limit", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->nhl), mot_comp_id, "joint.%d.neg-hard-limit", num)) != 0) return retval;
-    if ((retval = hal_pin_float_newf(HAL_IN, &(addr->last_enc_pos), mot_comp_id, "axis.%d.last-enc-pos", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->active), mot_comp_id, "joint.%d.active", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->error), mot_comp_id, "joint.%d.error", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->f_errored), mot_comp_id, "joint.%d.f-errored", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->faulted), mot_comp_id, "joint.%d.faulted", num)) != 0) return retval;
+    /* for usb_homing.c, TODO: rename usb_homing.c as fpga_homing.c */
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->homed), mot_comp_id, "joint.%d.homed", num)) != 0) return retval;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->homing), mot_comp_id, "joint.%d.homing", num)) != 0) return retval;
     if ((retval = hal_pin_s32_newf(HAL_OUT, &(addr->home_state), mot_comp_id, "joint.%d.home-state", num)) != 0) return retval;
-    if(num >= 3 && num <= 5) {
-        // for rotaries only...
-        if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->unlock), mot_comp_id, "joint.%d.unlock", num)) != 0) return retval;
-        if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->is_unlocked), mot_comp_id, "joint.%d.is-unlocked", num)) != 0) return retval;
-    }
-
-    retval = hal_pin_float_newf(HAL_IN, &(addr->probed_pos), mot_comp_id, "axis.%d.probed-pos", num);
-    if (retval != 0) {
-        return retval;
-    }
-    
-    /* for usb_homing.c */
-    retval = hal_pin_float_newf(HAL_OUT, &(addr->risc_probe_vel), mot_comp_id, "axis.%d.risc-probe-vel", num);
-    if (retval != 0) {
-        return retval;
-    }
-    retval = hal_pin_float_newf(HAL_OUT, &(addr->risc_probe_dist), mot_comp_id, "axis.%d.risc-probe-dist", num);
-    if (retval != 0) {
-        return retval;
-    }
-    retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_probe_pin), mot_comp_id, "axis.%d.risc-probe-pin", num);
-    if (retval != 0) {
-        return retval;
-    }
-    retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_probe_type), mot_comp_id, "axis.%d.risc-probe-type", num);
-    if (retval != 0) {
-        return retval;
-    }
-    retval = hal_pin_s32_newf(HAL_IN, &(addr->home_sw_id), mot_comp_id, "axis.%d.home-sw-id", num);
-    if (retval != 0) {
-        return retval;
-    }
-    retval = hal_pin_float_newf(HAL_IN, &(addr->index_pos_pin), mot_comp_id, "axis.%d.index-pos", num);
-    if (retval != 0) {
-        return retval;
-    }
-
-    /* for usb_motion */
-    retval = hal_pin_bit_newf(HAL_IN, &(addr->usb_ferror_flag), mot_comp_id, "axis.%d.usb-ferror-flag", num);
-    if (retval != 0) {
-        return retval;
-    }
-    retval = hal_pin_float_newf(HAL_IN, &(addr->risc_pos_cmd), mot_comp_id, "axis.%d.risc-pos-cmd", num);
-    if (retval != 0) {
-        return retval;
-    }
-
+    if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->unlock), mot_comp_id, "joint.%d.unlock", num)) != 0) return retval;
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->is_unlocked), mot_comp_id, "joint.%d.is-unlocked", num)) != 0) return retval;
+    if ((retval = hal_pin_float_newf(HAL_IN, &(addr->probed_pos), mot_comp_id, "joint.%d.probed-pos", num)) != 0) return retval;
+    if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->risc_probe_vel), mot_comp_id, "joint.%d.risc-probe-vel", num)) != 0) return retval;
+    if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->risc_probe_dist), mot_comp_id, "joint.%d.risc-probe-dist", num)) != 0) return retval;
+    if ((retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_probe_pin), mot_comp_id, "joint.%d.risc-probe-pin", num)) != 0) return retval;
+    if ((retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_probe_type), mot_comp_id, "joint.%d.risc-probe-type", num)) != 0) return retval;
+    if ((retval = hal_pin_s32_newf(HAL_IN, &(addr->home_sw_id), mot_comp_id, "joint.%d.home-sw-id", num)) != 0) return retval;
+    if ((retval = hal_pin_float_newf(HAL_IN, &(addr->index_pos_pin), mot_comp_id, "joint.%d.index-pos", num)) != 0) return retval;
+    /* for fpga_motion */
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->usb_ferror_flag), mot_comp_id, "joint.%d.usb-ferror-flag", num)) != 0) return retval;
+    if ((retval = hal_pin_float_newf(HAL_IN, &(addr->risc_pos_cmd), mot_comp_id, "joint.%d.risc-pos-cmd", num)) != 0) return retval;
     /* restore saved message level */
     rtapi_set_msg_level(msg);
     return 0;
@@ -858,17 +823,8 @@ static int init_comm_buffers(void)
 	joint = &joints[joint_num];
 
 	/* Export some HAL parameters */
-	retval = hal_pin_float_newf(HAL_IN, &(joint->home),
-				    mot_comp_id, "axis.%d.home", joint_num);
-	if (retval != 0) {
-	    return retval;
-	}
-
-	retval = hal_pin_float_newf(HAL_IN, &(joint->home_offset),
-				    mot_comp_id, "axis.%d.home-offset", joint_num);
-	if (retval != 0) {
-	    return retval;
-	}
+	if ((retval = hal_pin_float_newf(HAL_IN, &(joint->home), mot_comp_id, "joint.%d.home", joint_num)) != 0) return retval;
+	if ((retval = hal_pin_float_newf(HAL_IN, &(joint->home_offset), mot_comp_id, "joint.%d.home-offset", joint_num)) != 0) return retval;
 
 	/* init the config fields with some "reasonable" defaults" */
         joint->id = joint_num;          //!< to be used for INDEX homing, usb_homing.c
@@ -923,7 +879,6 @@ static int init_comm_buffers(void)
         joint->blender_offset = 0.0;
         joint->motor_pos_cmd = 0.0;
         joint->motor_pos_fb = 0.0;
-        joint->last_enc_pos = 0.0;
 	joint->pos_fb = 0.0;
 	joint->ferror = 0.0;
 	joint->ferror_limit = joint->min_ferror;

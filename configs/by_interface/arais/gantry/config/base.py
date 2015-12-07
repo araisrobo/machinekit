@@ -56,7 +56,7 @@ def usrcomp_watchdog(comps, enableSignal, thread,
         notComp.pin('out').link(errorSignal)
 
 
-def setup_stepper(stepgenIndex, section, axisIndex=None,
+def setup_motors(stepgenIndex, section, axisIndex=None,
                   stepgenType='hpg.stepgen', gantry=False,
                   gantryJoint=0, velocitySignal=None, thread=None):
     hasStepgen = False
@@ -125,72 +125,6 @@ def setup_stepper(stepgenIndex, section, axisIndex=None,
         limitMin.link('%s.neg-lim-sw-in' % axis)
         limitMax.link('%s.pos-lim-sw-in' % axis)
 
-#     if gantry:
-#         if gantryJoint == 0:
-#             axisHoming = hal.newsig('emcmot-%i-homing' % axisIndex, hal.HAL_BIT)
-#             axisHoming.link('%s.homing' % axis)
-# 
-#             hal.Pin('gantry.%i.search-vel' % axisIndex).set(c.find(section, 'HOME_SEARCH_VEL'))
-#             hal.Pin('gantry.%i.homing' % axisIndex).link(axisHoming)
-#             hal.Pin('gantry.%i.home' % axisIndex).link(limitHome)
-# 
-#             or2 = rt.newinst('or2', 'or2.limit-%i-min' % axisIndex)
-#             hal.addf(or2.name, thread)
-#             or2.pin('out').link(limitMin)
-# 
-#             or2 = rt.newinst('or2', 'or2.limit-%i-max' % axisIndex)
-#             hal.addf(or2.name, thread)
-#             or2.pin('out').link(limitMax)
-# 
-#         limitHome = hal.newsig('limit-%i-%i-home' % (axisIndex, gantryJoint),
-#                                hal.HAL_BIT)
-#         limitMin = hal.newsig('limit-%i-%i-min' % (axisIndex, gantryJoint),
-#                               hal.HAL_BIT)
-#         limitMax = hal.newsig('limit-%i-%i-max' % (axisIndex, gantryJoint),
-#                               hal.HAL_BIT)
-#         homeOffset = hal.Signal('home-offset-%i-%i' % (axisIndex, gantryJoint),
-#                                 hal.HAL_FLOAT)
-#         limitHome.link('gantry.%i.joint.%02i.home' % (axisIndex, gantryJoint))
-#         limitMin.link('or2.limit-%i-min.in%i' % (axisIndex, gantryJoint))
-#         limitMax.link('or2.limit-%i-max.in%i' % (axisIndex, gantryJoint))
-#         homeOffset.link('gantry.%i.joint.%02i.home-offset' % (axisIndex, gantryJoint))
-
-#         storage.setup_gantry_storage(axisIndex, gantryJoint)
-
-    # stepper pins configured in hardware setup
-
-
-def setup_stepper_multiplexer(stepgenIndex, sections, selSignal, thread):
-    num = len(sections)
-    sigBase = 'stepgen-%i' % stepgenIndex
-
-    unsignedSignals = [['dirsetup', 'DIRSETUP'],
-                       ['dirhold', 'DIRHOLD'],
-                       ['steplen', 'STEPLEN'],
-                       ['stepspace', 'STEPSPACE']]
-
-    floatSignals = [['scale', 'SCALE'],
-                    ['max-vel', 'STEPGEN_MAX_VEL'],
-                    ['max-acc', 'STEPGEN_MAX_ACC']]
-
-    for item in unsignedSignals:
-        signal = hal.Signal('%s-%s' % (sigBase, item[0]), hal.HAL_U32)
-        mux = rt.newinst('muxn_u32', 'mux%i.%s' % (num, signal.name), pincount=num)
-        hal.addf(mux.name, thread)
-        for n, section in enumerate(sections):
-            mux.pin('in%i' % n).set(c.find(section, item[1]))
-        mux.pin('sel').link(selSignal)
-        mux.pin('out').link(signal)
-
-    for item in floatSignals:
-        signal = hal.Signal('%s-%s' % (sigBase, item[0]), hal.HAL_FLOAT)
-        mux = rt.newinst('muxn', 'mux%i.%s' % (num, signal.name), pincount=num)
-        hal.addf(mux.name, thread)
-        for n, section in enumerate(sections):
-            mux.pin('in%i' % n).set(c.find(section, item[1]))
-        mux.pin('sel').link(selSignal)
-        mux.pin('out').link(signal)
-
 
 def setup_estop(errorSignals, thread):
     # Create estop signal chain
@@ -238,7 +172,7 @@ def setup_io():
         dout_pin = hal.newsig("dout_%d" % i, hal.HAL_BIT)
         hal.Pin("wosi.gpio.out.%d" % i).link(dout_pin)
         if (i == 0):    # dout_0 is for servo-on
-            hal.Pin("axis.0.amp-enable-out").link(dout_pin)
+            hal.Pin("joint.0.amp-enable-out").link(dout_pin)
             hal.Pin("servo_tick.amp-enable").link(dout_pin)
             hal.Pin("son_delay.in").link(dout_pin)
         elif (i == 1):  # dout_1 is for machine-on and brake-release

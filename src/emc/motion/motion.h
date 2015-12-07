@@ -551,7 +551,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double backlash_vel;	/* backlash velocity variable */
 	double motor_pos_cmd;	/* commanded position, with comp */
         double motor_pos_fb;    /* position feedback, with comp */
-        double last_enc_pos;    /* last encoder position, with comp */
 	double pos_fb;		/* position feedback, comp removed */
         double risc_pos_cmd;    /* position command issued by RISC */
         double scale_recip;     //!< the reciprocal of scale, which is unit/pulse
