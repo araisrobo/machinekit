@@ -1182,18 +1182,24 @@ class LinuxCNCWrapper():
                 self.status.motion.axis[index].velocity = 0.0
 
             axis = self.status.motion.axis[index]
-            for name in ['enabled', 'fault', 'homed', 'homing',
-                         'inpos', 'max_hard_limit', 'max_soft_limit',
-                         'min_hard_limit', 'min_soft_limit',
-                         'override_limits']:
+#             for name in ['enabled', 'fault', 'homed', 'homing',
+#                          'inpos', 'max_hard_limit', 'max_soft_limit',
+#                          'min_hard_limit', 'min_soft_limit',
+#                          'override_limits']:
+#                 axisModified |= self.update_proto_value(axis, txAxis,
+#                                                         name, statAxis[name])
+# 
+#             for name in ['ferror_current', 'ferror_highmark', 'input',
+#                          'output', 'velocity']:
+#                 axisModified |= self.update_proto_float(axis, txAxis,
+#                                                         name, statAxis[name])
+            for name in ['max_position_limit', 'min_position_limit']:
                 axisModified |= self.update_proto_value(axis, txAxis,
                                                         name, statAxis[name])
 
-            for name in ['ferror_current', 'ferror_highmark', 'input',
-                         'output', 'velocity']:
+            for name in ['velocity']:
                 axisModified |= self.update_proto_float(axis, txAxis,
                                                         name, statAxis[name])
-
             if axisModified:
                 txAxis.index = index
                 self.statusTx.motion.axis.add().CopyFrom(txAxis)
