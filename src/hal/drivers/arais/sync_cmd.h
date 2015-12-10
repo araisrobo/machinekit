@@ -170,6 +170,7 @@ typedef enum {
     RCMD_HOST_PROBE,            // Do host probe
     RCMD_PSO,                   // PSO -- progress synced output
     RCMD_REMOTE_JOG,            // remote control 
+    RCMD_SET_ENC_POS,           // set encoder position
 } rsic_cmd_t;
 
 typedef enum {
