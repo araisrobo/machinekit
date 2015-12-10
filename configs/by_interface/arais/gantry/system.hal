@@ -98,7 +98,7 @@ net j3-pos-fb   wosi.stepgen.3.position-fb => axis.2.motor-pos-fb
 net j4-pos-fb   wosi.stepgen.4.position-fb => axis.3.motor-pos-fb
 net j5-pos-fb   wosi.stepgen.5.position-fb => axis.4.motor-pos-fb
 net j6-pos-fb   wosi.stepgen.6.position-fb => axis.5.motor-pos-fb
-net j7-pos-fb   wosi.stepgen.7.position-fb
+# net j7-pos-fb   wosi.stepgen.7.position-fb
 
 net J0vel-fb  wosi.stepgen.0.vel-fb
 net J1vel-fb  wosi.stepgen.1.vel-fb
@@ -107,7 +107,7 @@ net J3vel-fb  wosi.stepgen.3.vel-fb
 net J4vel-fb  wosi.stepgen.4.vel-fb
 net J5vel-fb  wosi.stepgen.5.vel-fb
 net J6vel-fb  wosi.stepgen.6.vel-fb
-net J7vel-fb  wosi.stepgen.7.vel-fb
+# net J7vel-fb  wosi.stepgen.7.vel-fb
 
 # create signals for tool loading loopback
 net tool-prep-loop iocontrol.0.tool-prepare iocontrol.0.tool-prepared
@@ -149,7 +149,7 @@ net J3-risc-pos-cmd wosi.stepgen.3.risc-pos-cmd => axis.2.risc-pos-cmd
 net J4-risc-pos-cmd wosi.stepgen.4.risc-pos-cmd => axis.3.risc-pos-cmd
 net J5-risc-pos-cmd wosi.stepgen.5.risc-pos-cmd => axis.4.risc-pos-cmd
 net J6-risc-pos-cmd wosi.stepgen.6.risc-pos-cmd => axis.5.risc-pos-cmd
-net J7-risc-pos-cmd wosi.stepgen.7.risc-pos-cmd
+# net J7-risc-pos-cmd wosi.stepgen.7.risc-pos-cmd
 
 # for usb-homing:
 setp axis.0.home-sw-id      [JOINT_0]HOME_SW_ID
