@@ -941,6 +941,43 @@ static int load_parameters(FILE *fp)
                     n, n);
             sprintf(section, "AXIS_%d", n);
         }
+        
+        s = iniFind(fp, "INPUT_SCALE", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no INPUT_SCALE defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "MAX_VELOCITY", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no MAX_VELOCITY defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "MAX_ACCELERATION", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no MAX_ACCELERATION defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "MAX_JERK", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no MAX_JERK defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "ENC_SCALE", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no ENC_SCALE defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "FERROR", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no FERROR defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "OUT_CH", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_CH defined for %s\n", section);
+            return -1;
+        }
+
         pos_scale = atof(iniFind(fp, "INPUT_SCALE", section));
         max_vel = 1.01 * atof(iniFind(fp, "MAX_VELOCITY", section)); // add 1% for fixed point arithmetic
         max_accel = 1.01 * atof(iniFind(fp, "MAX_ACCELERATION", section));
@@ -950,10 +987,6 @@ static int load_parameters(FILE *fp)
         assert(max_jerk > 0);
         assert(pos_scale != 0);
 
-        rtapi_print_msg(RTAPI_MSG_INFO,
-                "j[%d] max_vel(%f) max_accel(%f) max_jerk(%f) pos_scale(%f)\n",
-                n, max_vel, max_accel, max_jerk, pos_scale);
-
         /* config encoder scale parameter */
         enc_scale = atof(iniFind(fp, "ENC_SCALE", section));
         assert(enc_scale != 0);
@@ -962,6 +995,10 @@ static int load_parameters(FILE *fp)
         while (wosi_flush(&w_param) == -1)
             ;
         stepgen_array[n].enc_scale = enc_scale;
+        
+        rtapi_print_msg(RTAPI_MSG_INFO,
+                "j[%d] max_vel(%f) max_accel(%f) max_jerk(%f) pos_scale(%f) enc_scale(%f)\n",
+                n, max_vel, max_accel, max_jerk, pos_scale, enc_scale);
 
         /* unit_pulse_scale per servo_period */
         immediate_data = (int32_t) (FIXED_POINT_SCALE * pos_scale * dt);
@@ -1016,7 +1053,7 @@ static int load_parameters(FILE *fp)
         // following error send with unit pulse
         max_ferror = atof(iniFind(fp, "FERROR", section));
         immediate_data = (uint32_t) (max_ferror * abs_scale);
-        rtapi_print_msg(RTAPI_MSG_INFO, "max ferror(%d)\n", immediate_data);
+        rtapi_print_msg(RTAPI_MSG_INFO, "j[%d] max ferror(%d)\n", n, immediate_data);
         write_mot_param(n, (MAXFOLLWING_ERR), immediate_data);
         while (wosi_flush(&w_param) == -1)
             ;
@@ -1029,6 +1066,8 @@ static int load_parameters(FILE *fp)
             rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_DEV defined for %s\n", section);
             return -1;
         }
+        
+        rtapi_print_msg(RTAPI_MSG_INFO, "j[%d] OUT_CH(%d) OUT_DEV(%s)\n", n, ch, s);
 
         if (toupper(s[0]) == 'A') {
             immediate_data = (OUT_TYPE_AB_PHASE << 28) | (ch << 24);
@@ -1053,6 +1092,38 @@ static int load_parameters(FILE *fp)
         if ((toupper(s[0]) == 'P') || (toupper(s[0]) == 'D'))
         {
             int omin, omax;
+        
+            s = iniFind(fp, "OUT_MIN", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_MIN defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_MAX", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_MAX defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_MAX_IPULSE", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_MAX_IPULSE defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_SCALE", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_SCALE defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_SCALE_RECIP", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_SCALE_RECIP defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_OFFSET", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_OFFSET defined for %s\n", section);
+                return -1;
+            }
+
             omin = atoi(iniFind(fp, "OUT_MIN", section));
             omax = atoi(iniFind(fp, "OUT_MAX", section));
             if (omin < -32768) { omin = -32768; } //!< omin: int16_t
@@ -1091,6 +1162,7 @@ static int load_parameters(FILE *fp)
             rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no ENC_TYPE defined for %s\n", section);
             return -1;
         }
+        rtapi_print_msg(RTAPI_MSG_INFO, "j[%d] ENC_TYPE(%s)\n", n, s);
         if (toupper(s[0]) == 'L') {
             // ENC_TYPE(00): fake ENCODER counts (loop PULSE_CMD to ENCODER)
             stepgen_array[n].enc_type = ENC_TYPE_LOOPBACK;
@@ -1161,6 +1233,7 @@ static int load_parameters(FILE *fp)
             rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no ALR_ID defined for JOINT_%d\n", n);
             return -1;
         }
+        rtapi_print_msg(RTAPI_MSG_INFO, "j[%d] ALR_ID(%s)\n", n, s);
         stepgen_array[n].alr_id = atoi(s);
         // end of ALR_ID (ALR_EN_BITS)
 
