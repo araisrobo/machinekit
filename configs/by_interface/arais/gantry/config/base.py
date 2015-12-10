@@ -249,8 +249,7 @@ def setup_io():
             hal.Pin("wosi.machine-on").link(dout_pin) 
         elif (i == 32):  # dout_32 is for spindle-on
             hal.Pin("motion.spindle-on").link(dout_pin)
-        elif (i <= 33):           # default to M64Pxx operations
-            # dout-33 is for GANGI
+        else:            # default to M64Pxx operations
             hal.Pin("motion.digital-out-%02d" % i).link(dout_pin)
 
     for i in range(0,96):
