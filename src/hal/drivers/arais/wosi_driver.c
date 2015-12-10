@@ -108,6 +108,9 @@ typedef struct
     char enc_type; /* A(AB-PHASE), S(STEP-DIR), L(LOOPBACK) */
     double enc_scale; /* encoder scale */
     char alr_id; /* alarm id */
+    hal_s32_t *abs_enc_i; /* pin: absolute encoder position input */
+    hal_bit_t *set_enc_req; /* pin: request signal to set enc_pos with abs_enc */
+    hal_bit_t *set_enc_ack; /* pin: acknowledge signal of set enc_pos with abs_enc */
     hal_s32_t *enc_pos; /* pin: encoder position from servo drive, captured from FPGA */
     hal_float_t pos_scale; /* param: steps per position unit */
     double scale_recip; /* reciprocal value used for scaling */
@@ -1887,8 +1890,18 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 
             /* to prevent position drift while toggeling "PWR-ON" switch */
             (stepgen->prev_pos_cmd) = tick_jcmd->pos_cmd[n];
-            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
-                    * stepgen->pos_scale;
+            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE * stepgen->pos_scale;
+
+            if (*(stepgen->set_enc_req)) {
+                int32_t dbuf[3];
+                dbuf[0] = RCMD_SET_ENC_POS;
+                dbuf[1] = n;  // joint_num
+                dbuf[2] = *(stepgen->abs_enc_i);
+                send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 3);
+                *(stepgen->set_enc_ack) = 1;
+            } else if (*(stepgen->set_enc_ack)) {
+                *(stepgen->set_enc_ack) = 0;
+            }
         }
 
         if (tick_jcmd->risc_probe_vel[n] == 0)
@@ -2126,6 +2139,10 @@ static int export_stepgen(int num, stepgen_t * addr)
         return retval;
     }
 
+    if ((retval = hal_pin_s32_newf(HAL_IN, &(addr->abs_enc_i), comp_id, "wosi.stepgen.%d.abs_enc_i", num)) != 0) return retval;
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->set_enc_req), comp_id, "wosi.stepgen.%d.set_enc_req", num)) != 0) return retval;
+    if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->set_enc_ack), comp_id, "wosi.stepgen.%d.set_enc_ack", num)) != 0) return retval;
+
     retval = hal_pin_s32_newf(HAL_OUT, &(addr->enc_pos), comp_id,
             "wosi.stepgen.%d.enc_pos", num);
     if (retval != 0)
@@ -2279,6 +2296,10 @@ static int export_stepgen(int num, stepgen_t * addr)
     addr->pulse_vel = 0;
     addr->pulse_accel = 0;
     addr->pulse_jerk = 0;
+
+    *(addr->abs_enc_i) = 0; /* pin: absolute encoder position input */
+    *(addr->set_enc_req) = 0; /* pin: request signal to set enc_pos with abs_enc */
+    *(addr->set_enc_ack) = 0; /* pin: acknowledge signal of set enc_pos with abs_enc */
 
     return 0;
 }
