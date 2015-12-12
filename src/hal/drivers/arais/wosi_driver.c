@@ -2139,12 +2139,12 @@ static int export_stepgen(int num, stepgen_t * addr)
         return retval;
     }
 
-    if ((retval = hal_pin_s32_newf(HAL_IN, &(addr->abs_enc_i), comp_id, "wosi.stepgen.%d.abs_enc_i", num)) != 0) return retval;
-    if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->set_enc_req), comp_id, "wosi.stepgen.%d.set_enc_req", num)) != 0) return retval;
-    if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->set_enc_ack), comp_id, "wosi.stepgen.%d.set_enc_ack", num)) != 0) return retval;
+    if ((retval = hal_pin_s32_newf(HAL_IN, &(addr->abs_enc_i), comp_id, "wosi.stepgen.%d.abs-enc-i", num)) != 0) return retval;
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->set_enc_req), comp_id, "wosi.stepgen.%d.set-enc-req", num)) != 0) return retval;
+    if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->set_enc_ack), comp_id, "wosi.stepgen.%d.set-enc-ack", num)) != 0) return retval;
 
     retval = hal_pin_s32_newf(HAL_OUT, &(addr->enc_pos), comp_id,
-            "wosi.stepgen.%d.enc_pos", num);
+            "wosi.stepgen.%d.enc-pos", num);
     if (retval != 0)
     {
         return retval;
