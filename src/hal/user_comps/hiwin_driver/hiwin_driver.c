@@ -118,13 +118,11 @@ typedef struct {
     hal_s32_t 	*status;
     hal_bit_t	*modbus_ok;	// the last MODBUS_OK transactions returned successfully
     hal_s32_t	*errorcount;    // number of failed Modbus transactions - hints at logical errors
-    hal_float_t	looptime;
     hal_bit_t	*enabled;		// if set: control VFD via Modbus commands, panel control disabled
     hal_bit_t   *update_enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
     hal_bit_t   *battery_warning[NUM_JOINTS];  /* RPI: last encoder position, with comp */
-    hal_float_t *init_enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
-    hal_float_t *input_scale[NUM_JOINTS];  /* RPI: input scale, with comp */
-    hal_float_t *enc_pol[NUM_JOINTS];  /* RPI: input scale, with comp */
+    hal_s32_t   *enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
+    hal_s32_t   *enc_pol[NUM_JOINTS];  /* RPI: input scale, with comp */
 } haldata_t;
 
 // configuration and execution state
@@ -191,6 +189,8 @@ static params_type param = {
 
 
 static int connection_state;
+static int num_joints;
+
 enum connstate {NOT_CONNECTED, OPENING, CONNECTING, CONNECTED, RECOVER, DONE};
 
 static char *option_string = "dhrmn:S:I:";
@@ -323,6 +323,7 @@ int read_ini(param_pointer p)
                 p->slave[index] = atoi(parts[index]);
             }
         }
+        num_joints = index;
 
         if ((s = iniFind(p->fp, "DEVICE", p->section))) {
             p->device = strdup(s);
@@ -390,24 +391,28 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
     uint16_t tmp_value[MODBUS_MAX_READ_REGISTERS];
     int32_t pos32_fb, status3;
     int n;
-
     static int pollcount = 0;
-    for (n = 0; n < (sizeof(p->slave)/sizeof(int)); n++)
-    {
-        if ((p->slave[n] != 0) && (*(haldata->update_enc_pos[n]))) {
-            if (modbus_set_slave(p->ctx, p->slave[n]) < 0) {
-                fprintf(stderr, "%s: ERROR: invalid slave number: %d\n", p->modname, p->slave[n]);
+
+    if (pollcount == 0) {
+        for (n = 0; n < num_joints; n++)
+        {
+            if ((p->slave[n] != 0) && (*(haldata->update_enc_pos[n]))) {
+                if (modbus_set_slave(p->ctx, p->slave[n]) < 0) {
+                    fprintf(stderr, "%s: ERROR: invalid slave number: %d\n", p->modname, p->slave[n]);
+                }
+                GETIREGS(REG_FEEFBACK_POS, tmp_value);
+                pos32_fb = ((tmp_value[1] << 16) | tmp_value[0]);
+                *(haldata->enc_pos[n]) = *(haldata->enc_pol[n]) * pos32_fb;
+                GETIREGS(REG_STATUS3, tmp_value);
+                status3 = ((tmp_value[1] << 16) | tmp_value[0]);
+                *(haldata->battery_warning[n]) = (status3 && 0x0040);
+                // *(haldata->update_enc_pos[n]) = 0;
+                // printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%8.8x\n", p->slave[n], n, *(haldata->enc_pos[n]), pos32_fb, pos32_fb);
+                // printf("slave: %d n(%d) -- battery:(%d) (%d)\n", p->slave[n], n, status3, *(haldata->battery_warning[n]));
             }
-            GETIREGS(REG_FEEFBACK_POS, tmp_value);
-            pos32_fb = ((tmp_value[1] << 16) | tmp_value[0]);
-            *(haldata->init_enc_pos[n]) = *(haldata->enc_pol[n]) * (pos32_fb/(*(haldata->input_scale[n])));
-            GETIREGS(REG_STATUS3, tmp_value);
-            status3 = ((tmp_value[1] << 16) | tmp_value[0]);
-            *(haldata->battery_warning[n]) = (status3 && 0x0040);
-            // *(haldata->update_enc_pos[n]) = 0;
-            // printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%8.8x\n", p->slave[n], n, *(haldata->init_enc_pos[n]), pos32_fb, pos32_fb);
-            // printf("slave: %d n(%d) -- battery:(%d) (%d)\n", p->slave[n], n, status3, *(haldata->battery_warning[n]));
         }
+    } else {
+        pollcount ++;
     }
 
     if (pollcount >= p->pollcycles)
@@ -444,18 +449,15 @@ int hal_setup(int id, haldata_t *h, const char *name)
     PIN(hal_pin_s32_newf(HAL_OUT, &(h->error_code), id, "%s.error-code", name));
     PIN(hal_pin_s32_newf(HAL_OUT, &(h->status), id, "%s.status", name));
     PIN(hal_pin_s32_newf(HAL_OUT, &(h->errorcount), id, "%s.error-count", name));
-    PIN(hal_param_float_newf(HAL_RW, &(h->looptime), id, "%s.loop-time", name));
     for (n = 0; n < NUM_JOINTS; n++)
     {
-        PIN(hal_pin_float_newf(HAL_OUT, &(h->init_enc_pos[n]), id, "%s.%d.init-enc-pos", name, n));
-        *(h->init_enc_pos[n]) = 0;
+        PIN(hal_pin_s32_newf(HAL_OUT, &(h->enc_pos[n]), id, "%s.%d.enc-pos", name, n));
+        *(h->enc_pos[n]) = 0;
         PIN(hal_pin_bit_newf(HAL_IO, &(h->update_enc_pos[n]), id, "%s.%d.update-enc-pos", name, n));
         *(h->update_enc_pos[n]) = 1;
         PIN(hal_pin_bit_newf(HAL_IO, &(h->battery_warning[n]), id, "%s.%d.battery-warning", name, n));
         *(h->battery_warning[n]) = 0;
-        PIN(hal_pin_float_newf(HAL_IN, &(h->input_scale[n]), id, "%s.%d.input-scale", name, n));
-        *(h->input_scale[n]) = 0;
-        PIN(hal_pin_float_newf(HAL_IN, &(h->enc_pol[n]), id, "%s.%d.enc-pol", name, n));
+        PIN(hal_pin_s32_newf(HAL_IN, &(h->enc_pol[n]), id, "%s.%d.enc-pol", name, n));
         *(h->enc_pol[n]) = 1.0;
     }
 
@@ -471,14 +473,12 @@ int set_defaults(param_pointer p)
     *(h->modbus_ok) = 0;
     *(h->enabled) = 0;
     *(h->errorcount) = 0;
-    h->looptime = 0.1;
     p->failed_reg = 0;
     return 0;
 }
 
 int main(int argc, char **argv)
 {
-    struct timespec loop_timespec;
     int opt;
     param_pointer p = &param;
     int retval = -1;
@@ -596,11 +596,6 @@ int main(int argc, char **argv)
             } else {
                 *(p->haldata->modbus_ok) = 0;
             }
-            /* don't want to scan too fast, and shouldn't delay more than a few seconds */
-            if (p->haldata->looptime < 0.001) p->haldata->looptime = 0.001;
-            if (p->haldata->looptime > 2.0) p->haldata->looptime = 2.0;
-            loop_timespec.tv_sec = (time_t)(p->haldata->looptime);
-            loop_timespec.tv_nsec = (long)((p->haldata->looptime - loop_timespec.tv_sec) * 1000000000l);
         }
 
         switch (connection_state) {
