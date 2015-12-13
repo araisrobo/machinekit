@@ -49,8 +49,7 @@ pin in  float position-cmd "Commanded position from motion";
 pin out float position-fb "Position feedback to motion";
 pin in  bit   homing "Axis homing state from motion";
 pin out bit   home "Combined home signal, true if all joint home inputs are true";
-pin out bit   limit "Combined limit signal, true if any joint home input is true";
-pin in  float search-vel "HOME_SEARCH_VEL from ini file";
+pin in  bit   homing-abs-enc "Homing with absolute encoders";
 
 pin in  bit   update-pos-ack-i "the ACK signal of updating joint position";
 pin in  s32   risc-probe-type-i "risc-probe-type from usb_homing.c";
@@ -63,19 +62,13 @@ pin out float joint.##.risc-probe-vel-o [pincount] "Per-joint RISC-PROBE-VEL";
 function read  fp "Update position-fb and home/limit outputs based on joint values";
 function write fp "Update joint pos-cmd outputs based on position-cmd in";
 
-variable hal_bit_t   tmp_home = 0;
 variable hal_float_t offset[pincount] = 0.0;
-variable hal_float_t prev_cmd = 0.0;
-variable hal_s32_t   fb_joint = 0;
-variable hal_s32_t   prev_home[pincount] = 0;
-variable hal_s32_t   curr_home[pincount] = 0;
-variable hal_float_t pos_fb_target[pincount] = 0.0;
 
 description """
 Drives multiple physical motors (joints) from a single axis input
 .LP
 The `pincount' value is the number of joints to control.  Two is typical, but
-up to seven is supported (a three joint setup has been tested with hardware).
+up to seven is supported (a two joint setup has been tested with hardware).
 .LP
 All controlled joints track the commanded position (with a per-joint offset)
 unless in the process of latching.  Latching is when the commanded position is
@@ -150,10 +143,15 @@ FUNCTION(write)
     hal_s32_t i;
 
     if (update_pos_ack_i)
-    {
-        // update joint offset value against master joint
+    {   // update joint offset value against master joint
         for (i = 0; i < localpincount; i++) {
-            offset[i] = joint_pos_fb(0) - joint_pos_fb(i);
+            if (homing_abs_enc == 1) {
+                /* joint with absolute encoder */
+                offset[i] = joint_home_offset(i) - joint_home_offset(0);
+            } else {
+                /* joint with incremental encoder */
+                offset[i] = joint_pos_fb(0) - joint_pos_fb(i);
+            }
         }
     }
 

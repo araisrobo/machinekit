@@ -1896,7 +1896,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
                 int32_t dbuf[3];
                 dbuf[0] = RCMD_SET_ENC_POS;
                 dbuf[1] = n;  // joint_num
-                dbuf[2] = *(stepgen->abs_enc_i);
+                dbuf[2] = *(stepgen->abs_enc_i) * (stepgen->enc_scale);
                 send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 3);
                 *(stepgen->set_enc_ack) = 1;
             } else if (*(stepgen->set_enc_ack)) {
