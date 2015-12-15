@@ -215,7 +215,9 @@ static void output_to_hal(void);
 */
 static void update_status(void);
 
+#ifdef USB_MOTION_ENABLE
 static void handle_usbmot_sync(void);
+#endif
 
 /***********************************************************************
 *                        PUBLIC FUNCTION CODE                          *
@@ -835,7 +837,6 @@ static void process_inputs(void)
 	/* copy data from HAL to joint structure */
 	joint->index_enable = *(joint_data->index_enable);
         joint->motor_pos_fb = *(joint_data->motor_pos_fb);
-        joint->last_enc_pos = *(joint_data->last_enc_pos);
         joint->index_pos = *(joint_data->index_pos_pin);  // absolute switch position
         joint->pos_fb = joint->motor_pos_fb -
                 (joint->backlash_filt + joint->motor_offset);
@@ -1290,6 +1291,7 @@ static void set_operating_mode(void)
     }
 }
 
+#ifdef USB_MOTION_ENABLE
 #define USB_TIMEOUT 100
 static int update_pos_req_timeout = 0;
 static void handle_usbmot_sync(void)
@@ -1408,6 +1410,7 @@ static void handle_usbmot_sync(void)
 //        emcmotDebug->coord_tp.currentPos.s = joint->pos_cmd;
 //    }
 }
+#endif /* USB_MOTION_ENABLE */
 
 static void handle_jogwheels(void)
 {
@@ -2246,10 +2249,14 @@ static void output_to_hal(void)
     *(emcmot_hal_data->teleop_mode) = GET_MOTION_TELEOP_FLAG();
     *(emcmot_hal_data->coord_error) = GET_MOTION_ERROR_FLAG();
     *(emcmot_hal_data->on_soft_limit) = emcmotStatus->on_soft_limit;
+    *(emcmot_hal_data->css_factor) = emcmotStatus->spindle.css_factor;
     if(emcmotStatus->spindle.css_factor) {
-	double denom = rtapi_fabs(emcmotStatus->spindle.xoffset - emcmotStatus->carte_pos_cmd.tran.x);
+        double xoffset = emcmotStatus->spindle.xoffset - emcmotStatus->carte_pos_cmd.tran.x;
+	double denom = rtapi_fabs(xoffset);
+        double polarity = (xoffset > 0) ? 1.0 : -1.0;
 	double speed;
         double maxpositive;
+
         if(denom > 0) speed = emcmotStatus->spindle.css_factor / denom;
 	else speed = emcmotStatus->spindle.speed;
 
@@ -2264,12 +2271,18 @@ static void output_to_hal(void)
 
 	*(emcmot_hal_data->spindle_speed_out) = speed;
 	*(emcmot_hal_data->spindle_speed_out_rps) = speed/60.;
+	*(emcmot_hal_data->css_error) =
+	            (emcmotStatus->spindle.css_factor / 60.0
+                      - denom * polarity * rtapi_fabs(*(emcmot_hal_data->spindle_speed_out_rps))
+	            ) * emcmotStatus->spindle.direction; // (unit/(2*PI*sec)
     } else {
 	*(emcmot_hal_data->spindle_speed_out) = emcmotStatus->spindle.speed * emcmotStatus->net_spindle_scale;
 	*(emcmot_hal_data->spindle_speed_out_rps) = emcmotStatus->spindle.speed * emcmotStatus->net_spindle_scale / 60.;
+        *(emcmot_hal_data->css_error) = 0;
     }
-	*(emcmot_hal_data->spindle_speed_out_abs) = rtapi_fabs(*(emcmot_hal_data->spindle_speed_out));
-	*(emcmot_hal_data->spindle_speed_out_rps_abs) = rtapi_fabs(*(emcmot_hal_data->spindle_speed_out_rps));
+
+    *(emcmot_hal_data->spindle_speed_out_abs) = rtapi_fabs(*(emcmot_hal_data->spindle_speed_out));
+    *(emcmot_hal_data->spindle_speed_out_rps_abs) = rtapi_fabs(*(emcmot_hal_data->spindle_speed_out_rps));
     *(emcmot_hal_data->spindle_speed_cmd_rps) = emcmotStatus->spindle.speed / 60.;
     *(emcmot_hal_data->spindle_on) = ((emcmotStatus->spindle.speed * emcmotStatus->net_spindle_scale) != 0) ? 1 : 0;
     *(emcmot_hal_data->spindle_forward) = (*emcmot_hal_data->spindle_speed_out > 0) ? 1 : 0;

@@ -44,7 +44,6 @@ typedef struct {
     hal_float_t *motor_offset;	/* RPI: motor offset, for checking homing stability */
     hal_float_t *motor_pos_cmd;	/* WPI: commanded position, with comp */
     hal_float_t *motor_pos_fb;  /* RPI: position feedback, with comp */
-    hal_float_t *last_enc_pos;  /* RPI: last encoder position, with comp */
     hal_float_t *risc_pos_cmd;  /* RPI: position command issued by RISC */
     hal_float_t *joint_pos_cmd;	/* WPI: commanded position w/o comp, mot ofs */
     hal_float_t *joint_pos_fb;	/* RPI: position feedback, w/o comp */
@@ -187,6 +186,8 @@ typedef struct {
     hal_float_t *spindle_speed_out_rps_abs;	/* spindle speed output absolute*/
     hal_float_t *spindle_speed_cmd_rps;	/* spindle speed command without SO applied */
     hal_float_t *spindle_speed_in;	/* spindle speed measured */
+    hal_float_t *css_factor;
+    hal_float_t *css_error;
     
     // spindle orient
     hal_float_t *spindle_orient_angle;	/* out: desired spindle angle, degrees */

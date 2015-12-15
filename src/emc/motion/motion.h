@@ -552,7 +552,6 @@ Suggestion: Split this in to an Error and a Status flag register..
 	double backlash_vel;	/* backlash velocity variable */
 	double motor_pos_cmd;	/* commanded position, with comp */
         double motor_pos_fb;    /* position feedback, with comp */
-        double last_enc_pos;    /* last encoder position, with comp */
 	double pos_fb;		/* position feedback, comp removed */
         double risc_pos_cmd;    /* position command issued by RISC */
         double scale_recip;     //!< the reciprocal of scale, which is unit/pulse
@@ -638,7 +637,7 @@ Suggestion: Split this in to an Error and a Status flag register..
 
 
     typedef struct {
-	hal_float_t speed;		// spindle speed in RPMs
+	hal_float_t speed;	// spindle speed in RPMs
 	double css_factor;
 	double xoffset;
 	hal_s32_t direction;	// 0 stopped, 1 forward, -1 reverse

@@ -386,10 +386,14 @@ static int init_hal_io(void)
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_speed_out), mot_comp_id, "motion.spindle-speed-out")) < 0) goto error;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_speed_out_abs), mot_comp_id, "motion.spindle-speed-out-abs")) < 0) goto error;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_speed_out_rps), mot_comp_id, "motion.spindle-speed-out-rps")) < 0) goto error;
+    if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->css_factor), mot_comp_id, "motion.spindle-css-factor")) < 0) goto error;
+    if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->css_error), mot_comp_id, "motion.spindle-css-error")) < 0) goto error;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_speed_out_rps_abs), mot_comp_id, "motion.spindle-speed-out-rps-abs")) < 0) goto error;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_speed_cmd_rps), mot_comp_id, "motion.spindle-speed-cmd-rps")) < 0) goto error;
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->spindle_inhibit), mot_comp_id, "motion.spindle-inhibit")) < 0) goto error;
     *(emcmot_hal_data->spindle_inhibit) = 0;
+    *(emcmot_hal_data->css_factor) = 0;
+    *(emcmot_hal_data->css_error) = 0;
 
     // spindle orient pins
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_orient_angle), mot_comp_id, "motion.spindle-orient-angle")) < 0) goto error;
@@ -805,10 +809,6 @@ static int export_joint(int num, joint_hal_t * addr)
     if (retval != 0) {
 	return retval;
     }
-    retval = hal_pin_float_newf(HAL_IN, &(addr->last_enc_pos), mot_comp_id, "axis.%d.last-enc-pos", num);
-    if (retval != 0) {
-        return retval;
-    }
     retval = hal_pin_bit_newf(HAL_IN, &(addr->pos_lim_sw), mot_comp_id, "axis.%d.pos-lim-sw-in", num);
     if (retval != 0) {
 	return retval;
@@ -1215,7 +1215,6 @@ static int init_comm_buffers(void)
         joint->blender_offset = 0.0;
         joint->motor_pos_cmd = 0.0;
         joint->motor_pos_fb = 0.0;
-        joint->last_enc_pos = 0.0;
 	joint->pos_fb = 0.0;
 	joint->ferror = 0.0;
 	joint->ferror_limit = joint->min_ferror;
