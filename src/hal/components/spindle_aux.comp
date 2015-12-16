@@ -9,20 +9,18 @@ pin in float velocity-cmd = 0 "spindle speed command (rps)";
 pin in float css-error-velocity-cmd = 0 "Const Surface Speed Commanded(rps*radius)";
 pin in float aux-radius = 0 "aux-radius";
 
-pin in float position-cmd = 0 "Commanded position";
 pin in float feedback-vel = 0 "Feedback velocity based on spindle encoder (rps)";
-pin in bit velocity-mode = 0 "Velocity(1) or position(0) mode";
 pin in float css-factor = 0 "CSS(non-0) or CONST-RPM(0)";
 pin in bit on = 0 "Spindle on";
 
 pin out bit at-speed "Set when spindle is at speed for velocity-mode";
-pin out float curr-pos "Feedback position, in revolutions";
-pin out float curr-vel "Current velocity (rps)";
-pin out float curr-acc "Current acceleration (rev/s^2)";
-pin out float speed-rpm "Current speed in RPM";
-param rw float max-vel "Max velocity";
-param rw float max-acc "Max acceleration";
-param rw float max-jerk "Max jerk";
+pin out float curr-pos = 0 "Feedback position, in revolutions";
+pin out float curr-vel = 0 "Current velocity (rps)";
+pin out float curr-acc = 0 "Current acceleration (rev/s^2)";
+pin out float speed-rpm = 0 "Current speed in RPM";
+param rw float max-vel = 0 "Max velocity";
+param rw float max-acc = 0 "Max acceleration";
+param rw float max-jerk = 0 "Max jerk";
 param rw float at-speed-range = 0 "At speed range (0.0(0%) ~ 1.0(100%)); the less the more accurate";
 
 /*
@@ -49,7 +47,6 @@ typedef enum {
     S_IDLE,
     S_VEL_MODE,
     S_VEL_DECEL,
-    S_POS_MODE,
 } spindle_state_t;
 
 
@@ -110,81 +107,56 @@ FUNCTION(_)
 {
     double tmp;
     double vel_req;
-    int immediate_state;
     static spindle_state_t cur_state = S_IDLE;
 
     if ((!on) && (curr_vel == 0)) {
 	cur_state = S_IDLE;
     }
 
-    do {
-	immediate_state = 0;
-	//printf("cur_state(%d)\n", cur_state);
-	switch (cur_state) {
-	case S_IDLE:
-	    curr_vel = 0;
-            curr_pos = position_cmd;
-	    if (on) {
-	        immediate_state = 1;
-		if (velocity_mode) {
-		    cur_state = S_VEL_MODE;
-		} else {
-		    cur_state = S_POS_MODE;
-		}
-	    }
-	    break;
+    //printf("cur_state(%d)\n", cur_state);
+    switch (cur_state) {
+    case S_IDLE:
+        curr_vel = 0;
+        if (on) {
+            cur_state = S_VEL_MODE;
+        }
+        break;
 
-	case S_VEL_MODE:
-	    if (css_factor != 0) {
-                vel_req = css_error_velocity_cmd / aux_radius;
-            } else {
-                vel_req = velocity_cmd;
-            }
-            /* limit velocity request */
-            if (vel_req > max_vel) {
-                vel_req = max_vel;
-            } else if (vel_req < -max_vel) {
-                vel_req = -max_vel;
-            }
-            vel_ctrl (vel_req, fperiod);
-	    curr_pos += curr_vel * fperiod;
-	    if ((!on) || (!velocity_mode)) {
-		cur_state = S_VEL_DECEL;
-	    }
-	    break;
+    case S_VEL_MODE:
+        if (css_factor != 0) {
+            vel_req = css_error_velocity_cmd / aux_radius;
+        } else {
+            vel_req = velocity_cmd;
+        }
+        /* limit velocity request */
+        if (vel_req > max_vel) {
+            vel_req = max_vel;
+        } else if (vel_req < -max_vel) {
+            vel_req = -max_vel;
+        }
+        vel_ctrl (vel_req, fperiod);
+        curr_pos += curr_vel * fperiod;
+        if (!on) {
+            cur_state = S_VEL_DECEL;
+        }
+        break;
 
-	case S_VEL_DECEL:
-	    // decel to vel == 0
-            vel_req = 0;
-	    vel_ctrl(0, fperiod);
-	    curr_pos += curr_vel * fperiod;
-	    if (curr_vel == 0) {
-		cur_state = S_IDLE;
-	    } else if (on && velocity_mode) {
-		cur_state = S_VEL_MODE;
-	    }
-	    break;
+    case S_VEL_DECEL:
+        // decel to vel == 0
+        vel_req = 0;
+        vel_ctrl(0, fperiod);
+        curr_pos += curr_vel * fperiod;
+        if (curr_vel == 0) {
+            cur_state = S_IDLE;
+        } else if (on && velocity_mode) {
+            cur_state = S_VEL_MODE;
+        }
+        break;
 
-	case S_POS_MODE:
-	    // TODO
-            assert(0);  // spindle_aux does not support S_POS_MODE yet
-	    tmp = curr_vel;
-            // position_cmd is controlled by tp
-	    curr_vel = (position_cmd - curr_pos) / fperiod;
-	    curr_acc = curr_vel - tmp;
-	    curr_pos = position_cmd;
-	    vel_req = curr_vel;
-            assert (rtapi_fabs(vel_req) <= max_vel);
-	    if ((!on) || (velocity_mode)) {
-		cur_state = S_VEL_DECEL;
-	    }
-	    break;
-
-	default:
-	    assert(0);
-	    break;
-	}
-    } while (immediate_state != 0);
+    default:
+        assert(0);
+        break;
+    }
 
     if (vel_req == 0)
     {
