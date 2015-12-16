@@ -105,7 +105,6 @@ void vel_ctrl(double vel_cmd, double period)
 
 FUNCTION(_)
 {
-    double tmp;
     double vel_req;
     static spindle_state_t cur_state = S_IDLE;
 
@@ -148,7 +147,7 @@ FUNCTION(_)
         curr_pos += curr_vel * fperiod;
         if (curr_vel == 0) {
             cur_state = S_IDLE;
-        } else if (on && velocity_mode) {
+        } else if (on) {
             cur_state = S_VEL_MODE;
         }
         break;
