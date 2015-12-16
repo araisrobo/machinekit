@@ -83,7 +83,7 @@
 #define REG_REFERENCE_POS       0x0002                   //
 #define REG_ERROE_POS           0x0006
 #define REG_STATUS3             0x0FAA          // battery warning
-#define ST_EMERGENCY_STOPPED    0x0021          // EF1/ESTOP
+#define REG_TORQUE              0x003A          // torque current
 
 #define SR_MOTOR_SPEED          0x210C          // RPM
 #define SR_TORQUE_RATIO         0x210B          // %
@@ -123,6 +123,7 @@ typedef struct {
     hal_bit_t   *battery_warning[NUM_JOINTS];  /* RPI: last encoder position, with comp */
     hal_s32_t   *enc_pos[NUM_JOINTS];  /* RPI: last encoder position, with comp */
     hal_s32_t   *enc_pol[NUM_JOINTS];  /* RPI: input scale, with comp */
+    hal_float_t   *torque[NUM_JOINTS];  /* RPI: torque, with comp */
 } haldata_t;
 
 // configuration and execution state
@@ -389,14 +390,14 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
     int retval;
     uint16_t curr_reg;
     uint16_t tmp_value[MODBUS_MAX_READ_REGISTERS];
-    int32_t pos32_fb, status3;
+    int32_t pos32_fb, status3, torque;
     int n;
     static int pollcount = 0;
-
+    float f_val;
     if (pollcount == 0) {
         for (n = 0; n < num_joints; n++)
         {
-            if ((p->slave[n] != 0) && (*(haldata->update_enc_pos[n]))) {
+            if ((p->slave[n] != 255) && (*(haldata->update_enc_pos[n]))) {
                 if (modbus_set_slave(p->ctx, p->slave[n]) < 0) {
                     fprintf(stderr, "%s: ERROR: invalid slave number: %d\n", p->modname, p->slave[n]);
                 }
@@ -406,9 +407,15 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
                 GETIREGS(REG_STATUS3, tmp_value);
                 status3 = ((tmp_value[1] << 16) | tmp_value[0]);
                 *(haldata->battery_warning[n]) = (status3 && 0x0040);
+                GETIREGS(REG_TORQUE, tmp_value);
+                torque = ((tmp_value[1] << 16) | tmp_value[0]);
+                f_val = *((float*)&torque);
+                *(haldata->torque[n]) = f_val;
+                 
                 // *(haldata->update_enc_pos[n]) = 0;
                 // printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%8.8x\n", p->slave[n], n, *(haldata->enc_pos[n]), pos32_fb, pos32_fb);
                 // printf("slave: %d n(%d) -- battery:(%d) (%d)\n", p->slave[n], n, status3, *(haldata->battery_warning[n]));
+                // printf("slave: %d n(%d) -- torque:(%f)(%f)\n", p->slave[n], n, f_val, torque);
             }
         }
     } else {
@@ -453,6 +460,8 @@ int hal_setup(int id, haldata_t *h, const char *name)
     {
         PIN(hal_pin_s32_newf(HAL_OUT, &(h->enc_pos[n]), id, "%s.%d.enc-pos", name, n));
         *(h->enc_pos[n]) = 0;
+        PIN(hal_pin_float_newf(HAL_OUT, &(h->torque[n]), id, "%s.%d.torque-current", name, n));
+        *(h->torque[n]) = 0;
         PIN(hal_pin_bit_newf(HAL_IO, &(h->update_enc_pos[n]), id, "%s.%d.update-enc-pos", name, n));
         *(h->update_enc_pos[n]) = 1;
         PIN(hal_pin_bit_newf(HAL_IO, &(h->battery_warning[n]), id, "%s.%d.battery-warning", name, n));
