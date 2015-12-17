@@ -94,7 +94,7 @@ static void home_start_move(emcmot_joint_t * joint, double vel, int probe_type)
     joint->risc_probe_type = probe_type;
     joint->risc_probe_pin = joint->home_sw_id;
     if (probe_type == RISC_PROBE_INDEX) {
-        joint->risc_probe_pin = joint->id;
+        joint->risc_probe_pin = *(joint->joint_id);
     }
 }
 

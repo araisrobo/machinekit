@@ -1166,8 +1166,15 @@ static int init_comm_buffers(void)
 	    return retval;
 	}
 
+	//!< joint_id: to be used for INDEX homing, usb_homing.c
+        retval = hal_pin_u32_newf(HAL_IN, &(joint->joint_id),
+                                    mot_comp_id, "axis.%d.joint-id", joint_num);
+        if (retval != 0) {
+            return retval;
+        }
+        *(joint->joint_id) = joint_num; /* default to AXIS_ID */
+
 	/* init the config fields with some "reasonable" defaults" */
-        joint->id = joint_num;          //!< to be used for INDEX homing, usb_homing.c
 	joint->type = 0;
 	joint->max_pos_limit = 1.0;
 	joint->min_pos_limit = -1.0;
