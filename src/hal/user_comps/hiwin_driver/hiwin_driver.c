@@ -392,12 +392,14 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
     uint16_t tmp_value[MODBUS_MAX_READ_REGISTERS];
     int32_t pos32_fb, status3, torque;
     int n;
+    int tmp_slave;
     static int pollcount = 0;
     float f_val;
     if (pollcount == 0) {
         for (n = 0; n < num_joints; n++)
         {
             if ((p->slave[n] != 255) && (*(haldata->update_enc_pos[n]))) {
+                tmp_slave = p->slave[n]; 
                 if (modbus_set_slave(p->ctx, p->slave[n]) < 0) {
                     fprintf(stderr, "%s: ERROR: invalid slave number: %d\n", p->modname, p->slave[n]);
                 }
@@ -433,8 +435,8 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
     p->last_errno = errno;
     (*haldata->errorcount)++;
     if (p->debug)
-        fprintf(stderr, "%s: read_data: modbus_read_registers(0x%4.4x): %s\n",
-                p->progname, curr_reg, modbus_strerror(errno));
+        fprintf(stderr, "%s:slave(%d) read_data: modbus_read_registers(0x%4.4x): %s\n",
+                p->progname,tmp_slave, curr_reg, modbus_strerror(errno));
     return p->last_errno;
 }
 
