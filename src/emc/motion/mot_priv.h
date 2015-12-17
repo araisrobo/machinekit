@@ -89,7 +89,6 @@ typedef struct {
     hal_s32_t   *risc_probe_pin;	/* OUT */
     hal_s32_t   *risc_probe_type;	/* OUT */
     hal_s32_t   *home_sw_id;		/* IN */ 
-    hal_float_t *index_pos_pin; /* RPI: motor index position (absolute motor position count) */
 
     hal_bit_t *usb_ferror_flag;
     hal_float_t *blender_offset;

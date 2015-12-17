@@ -984,11 +984,6 @@ static int export_joint(int num, joint_hal_t * addr)
     if (retval != 0) {
         return retval;
     }
-    retval = hal_pin_float_newf(HAL_IN, &(addr->index_pos_pin), mot_comp_id, "axis.%d.index-pos", num);
-    if (retval != 0) {
-        return retval;
-    }
-
     /* for usb_motion */
     retval = hal_pin_bit_newf(HAL_IN, &(addr->usb_ferror_flag), mot_comp_id, "axis.%d.usb-ferror-flag", num);
     if (retval != 0) {

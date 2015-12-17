@@ -837,9 +837,8 @@ static void process_inputs(void)
 	/* copy data from HAL to joint structure */
 	joint->index_enable = *(joint_data->index_enable);
         joint->motor_pos_fb = *(joint_data->motor_pos_fb);
-        joint->index_pos = *(joint_data->index_pos_pin);  // absolute switch position
         joint->pos_fb = joint->motor_pos_fb -
-                (joint->backlash_filt + joint->motor_offset);
+                        (joint->backlash_filt + joint->motor_offset);
         joint->risc_pos_cmd = *(joint_data->risc_pos_cmd);
         joint->blender_offset = *(joint_data->blender_offset);
 	/* calculate pos_fb */

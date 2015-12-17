@@ -597,8 +597,6 @@ Suggestion: Split this in to an Error and a Status flag register..
         int     home_sw_id;
         hal_u32_t *joint_id;            /* joint_id that maps to this axis */
 
-        double  index_pos;     	 	/* motor index position in absolute motor pulse counts */
-
 	double  blender_offset;         /* offset created by realtime component, blender.comp */
     } emcmot_joint_t;
 
