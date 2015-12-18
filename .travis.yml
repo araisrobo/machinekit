@@ -1,0 +1,29 @@
+sudo: required
+
+notifications:
+  email: 
+    on_success: never
+    on_failure: always
+  webhooks:
+    urls:
+      - $GITTER_IM_URL
+    on_success: change
+    on_failure: always
+    on_start: never
+
+
+language: bash
+
+services:
+- docker
+
+env:
+  global:
+    - ROOT=/opt/rootfs
+    - JOBS=2
+  matrix:
+    - TAG=wheezy-64    CMD=run_tests
+
+script:
+- .travis/docker_run.sh
+
