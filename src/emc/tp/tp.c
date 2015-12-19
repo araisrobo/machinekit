@@ -1934,6 +1934,31 @@ STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc) {
     return TP_ERR_OK;
 }
 
+
+/* tpAlignSpindleAxis - 同步主軸的起點和終點座標，避免產生額外的主軸動作 */
+static void tpAlignSpindleAxis(TP_STRUCT const * const tp, EmcPose * const start, EmcPose * const end)
+{
+    switch (tp->spindle.axis) {
+        case -1: /* do not specify spindleAxis */
+            break;
+        case 3:
+            end->a = start->a;
+            break;
+        case 4:
+            end->b = start->b;
+            break;
+        case 5:
+            end->c = start->c;
+            break;
+        default:
+            rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) incorrect spindleAxis(%d)\n", __FUNCTION__, __LINE__,
+                                            tp->spindle.axis);
+            break;
+    }
+    return;
+}
+
+
 //TODO final setup steps as separate functions
 //
 /**
@@ -1979,10 +2004,12 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
 
     tp_info_print("%d: tc.maxvel(%f) tc.jerk(%.20f)\n", __LINE__, tc.maxvel, tc.jerk);
 
+    /* 同步主軸的起點和終點座標，避免產生額外的主軸動作 */
+    tpAlignSpindleAxis(tp, &tp->goalPos, &end);
+
     // Setup line geometry
-    pmLine9Init(&tc.coords.line,
-            &tp->goalPos,
-            &end);
+    pmLine9Init(&tc.coords.line, &tp->goalPos, &end);
+
     tc.target = pmLine9Target(&tc.coords.line);
     if (tc.target < TP_POS_EPSILON) {
         rtapi_print_msg(RTAPI_MSG_DBG,"failed to create line id %d, zero-length segment\n",tp->nextId);
@@ -3319,6 +3346,7 @@ STATIC int tpUpdateCycle(TP_STRUCT * const tp,
 
     //Store displacement (checking for valid pose)
     int res_set = tpAddCurrentPos(tp, &displacement);
+    // rtapi_print_msg (RTAPI_MSG_DBG, "debug spindle(%d): a(%f), s(%f)\n", __LINE__, tp->currentPos.a, displacement.s);
 
 #ifdef TC_DEBUG
     double mag;
@@ -3537,8 +3565,31 @@ STATIC int tpHandleRegularCycle(TP_STRUCT * const tp,
 }
 
 
+void tpUpdateSpindleAxis(TP_STRUCT const * const tp, EmcPose * const pos)
+{
+    switch (tp->spindle.axis) {
+        case -1: /* do not specify spindleAxis */
+            break;
+        case 3:
+            pos->a = pos->s;
+            break;
+        case 4:
+            pos->b = pos->s;
+            break;
+        case 5:
+            pos->c = pos->s;
+            break;
+        default:
+            rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) incorrect spindleAxis(%d)\n", __FUNCTION__, __LINE__,
+                                            tp->spindle.axis);
+            break;
+    }
+    return;
+}
+
+
 /* calculate spindle displacement(delta-s) and velocity */
-STATIC void tpSpindleCycle(TP_STRUCT * const tp, EmcPose * const displacement)
+STATIC void tpSpindleCycle(TP_STRUCT * const tp)
 {
     /*Velocity Control Algorithm is taking from simple_tp.c */
     double max_da, vel_err, acc_req;
@@ -3583,32 +3634,12 @@ STATIC void tpSpindleCycle(TP_STRUCT * const tp, EmcPose * const displacement)
 
     /* integrate acceleration to get new velocity */
     tp->spindle.curr_vel_rps += tp->spindle.curr_acc * tp->cycleTime;
-    displacement->s = tp->spindle.curr_vel_rps * tp->cycleTime;
+    tp->currentPos.s += tp->spindle.curr_vel_rps * tp->cycleTime;
+    tpUpdateSpindleAxis(tp, &tp->currentPos);
 
     return;
 }
 
-void tpUpdateSpindleAxis(TP_STRUCT const * const tp, EmcPose * const pos)
-{
-    switch (tp->spindle.axis) {
-        case -1: /* do not specify spindleAxis */
-            break;
-        case 3:
-            pos->a = pos->s;
-            break;
-        case 4:
-            pos->b = pos->s;
-            break;
-        case 5:
-            pos->c = pos->s;
-            break;
-        default:
-            rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) incorrect spindleAxis(%d)\n", __FUNCTION__, __LINE__,
-                                            tp->spindle.axis);
-            break;
-    }
-    return;
-}
 
 STATIC int tpHandelSpindle(TP_STRUCT * const tp)
 {
@@ -3617,14 +3648,7 @@ STATIC int tpHandelSpindle(TP_STRUCT * const tp)
     {
         if ((tp->spindle.on) || ((tp->spindle.on == 0) && (tp->spindle.curr_vel_rps != 0)))
         {
-            EmcPose displacement;
-            ZERO_EMC_POSE(displacement);
-            tpSpindleCycle(tp, &displacement);  // calculate spindle displacement(delta-s) and velocity
-            // update spindle displacement to corresponding spindleAxis
-            tpUpdateSpindleAxis(tp, &displacement);
-            //Store displacement (checking for valid pose)
-            int res_set = tpAddCurrentPos(tp, &displacement);
-            return (res_set);
+            tpSpindleCycle(tp);  // calculate spindle displacement(delta-s) and velocity
         }
     }
     return TP_ERR_OK;

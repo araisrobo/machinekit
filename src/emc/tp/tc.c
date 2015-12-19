@@ -296,6 +296,8 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
     PmCartesian uvw;
     double progress=0.0;
 
+    pos->s = 0; // reset spindle position to 0
+
     switch (of_point) {
         case TC_GET_PROGRESS:
             progress = tc->progress;
