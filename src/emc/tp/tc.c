@@ -296,8 +296,6 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
     PmCartesian uvw;
     double progress=0.0;
 
-    pos->s = 0; // reset spindle position to 0
-
     switch (of_point) {
         case TC_GET_PROGRESS:
             progress = tc->progress;
@@ -322,8 +320,9 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
             // no rotary move allowed while tapping
             abc = tc->coords.spindle_sync.abc;
             uvw = tc->coords.spindle_sync.uvw;
-            pos->s = tc->coords.spindle_sync.spindle_dir * progress;
-            tp_debug_print ("spindle_dir(%f) progress(%f)\n",
+            pos->s = tc->coords.spindle_sync.s + tc->coords.spindle_sync.spindle_dir * progress;
+
+            tp_debug_print ("(%s:%d) spindle_dir(%f) progress(%f)\n", __FUNCTION__, __LINE__,
                     tc->coords.spindle_sync.spindle_dir, progress);
             tp_debug_print ("spindle pos(%f) of_point(%d)\n", pos->s, of_point);
             break;

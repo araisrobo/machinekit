@@ -103,9 +103,9 @@ typedef struct {
     PmCartLine xyz;             // original, but elongated, move down
     PmCartesian abc;
     PmCartesian uvw;
+    double s;                   // spindle-start-position
     double spindle_dir;
-    double spindle_reqvel;
-    int mode;   // G33(0), G33.1(1)
+    int mode;                   // G33(0), G33.1(1)
 } PmSpindleSyncMotion;
 
 enum state_type {

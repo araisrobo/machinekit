@@ -1259,11 +1259,15 @@ void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_
                 canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
     }
     else
-    {   // G33.2
-        assert(0);
-//        // x = angle, y = rpm, z = axis_id
-//        spindleSyncMotionMsg.pos.s = x; // spindle position passed as x parameter
-//        vel = spindle_dir * y / 60.0; // spindle positioning velocity (RPS) passed as y parameter(RPM)
+    {   // G33.2 A[ABSOLUTE_ANGLE] K[RPM]
+        //       move spindle to ABSOLUTE_ANGLE with RPM speed
+        spindleSyncMotionMsg.pos = to_ext_pose(
+                canonEndPoint.x, canonEndPoint.y, canonEndPoint.z,
+                canonEndPoint.a, canonEndPoint.b, canonEndPoint.c,
+                canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
+        // x = angle, y = rpm
+        spindleSyncMotionMsg.pos.s = x; // spindle position passed as x parameter
+        vel = spindle_dir * y / 60.0; // spindle positioning velocity (RPS) passed as y parameter(RPM)
     }
 
     
@@ -1424,7 +1428,7 @@ void START_SPEED_FEED_SYNCH(double feed_per_revolution, bool velocity_mode)
     flush_segments();
     EMC_TRAJ_SET_SPINDLESYNC spindlesyncMsg;
     spindlesyncMsg.feed_per_revolution = TO_EXT_LEN(FROM_PROG_LEN(feed_per_revolution));
-    spindlesyncMsg.velocity_mode = velocity_mode;
+    spindlesyncMsg.velocity_mode = velocity_mode; // 1(velocity_mode) 0(position_mode)
     interp_list.append(spindlesyncMsg);
     synched = 1;
     feed_per_spindle_revolution = feed_per_revolution;

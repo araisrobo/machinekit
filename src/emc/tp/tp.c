@@ -1500,9 +1500,9 @@ int tpAddSpindleSyncMotion(
 
     TC_STRUCT tc = {0};
 
-    assert (ssm_mode < 2);
+    assert (ssm_mode < 3);
     assert (ssm_mode >= 0);
-    atspeed = 0; // G33(CSS), G33.1(RIGID_TAP) do not wait for atspeed
+    atspeed = 0; // do not wait for atspeed for G33(CSS), G33.1(RIGID_TAP), G33.2(SPINDLE_POSITIONING)
 
     tcInit(&tc,
             TC_SPINDLE_SYNC_MOTION,
@@ -1519,7 +1519,7 @@ int tpAddSpindleSyncMotion(
 
     // Copy in motion parameters
     tcSetupMotion(&tc,
-            vel,
+            rtapi_fabs(vel),
             ini_maxvel,
             acc,
             jerk,
@@ -1540,10 +1540,27 @@ int tpAddSpindleSyncMotion(
 
     pmCartLineInit(&line_xyz, &start_xyz, &end_xyz);
 
+    if (vel > 0)        // vel is requested spindle velocity
+    {
+        tc.coords.spindle_sync.spindle_dir = 1.0;
+    } else
+    {
+        tc.coords.spindle_sync.spindle_dir = -1.0;
+    }
+
     // tc.target: set as revolutions of spindle
-    tc.target = line_xyz.tmag / tp->uu_per_rev;
-    tp_info_print("jerk(%f) req_vel(%f) req_acc(%f) ini_maxvel(%f)\n",
-                   jerk, vel, acc, ini_maxvel);
+    if (ssm_mode < 2) {
+        tc.target = line_xyz.tmag / tp->uu_per_rev;
+    } else {
+        double start_angle = tp->goalPos.s - rtapi_floor(tp->goalPos.s);
+        tc.target = (end.s / 360.0 - start_angle) * tc.coords.spindle_sync.spindle_dir;
+        if (tc.target < 0)
+        {
+            tc.target += 1;        // move toward spindle_end_angle
+        }
+    }
+
+    tp_info_print("jerk(%f) req_vel(%f) req_acc(%f) ini_maxvel(%f)\n", jerk, vel, acc, ini_maxvel);
     tp_info_print("target(%f) uu_per_rev(%f)\n", tc.target, tp->uu_per_rev);
 
     tc.distance_to_go = tc.target;
@@ -1553,8 +1570,9 @@ int tpAddSpindleSyncMotion(
     tc.coords.spindle_sync.xyz = line_xyz;
     tc.coords.spindle_sync.abc = abc;
     tc.coords.spindle_sync.uvw = uvw;
+    tc.coords.spindle_sync.s = tp->goalPos.s;  // update start point of spindle
+
     // updated spindle speed constrain based on spindleSyncMotionMsg.vel of emccanon.cc
-    tc.coords.spindle_sync.spindle_reqvel = vel;
 
     tc.motion_type = TC_SPINDLE_SYNC_MOTION;
 
@@ -1567,14 +1585,6 @@ int tpAddSpindleSyncMotion(
     tc.indexrotary = -1;
     tc.coords.spindle_sync.mode = ssm_mode;
 
-    if (vel > 0)        // vel is requested spindle velocity
-    {
-        tc.coords.spindle_sync.spindle_dir = 1.0;
-    } else
-    {
-        tc.coords.spindle_sync.spindle_dir = -1.0;
-    }
-
     TC_STRUCT *prev_tc;
     prev_tc = tcqLast(&tp->queue);
 
@@ -1584,9 +1594,8 @@ int tpAddSpindleSyncMotion(
         // Force exact stop mode after rigid tapping regardless of TP setting
         tcSetTermCond(&tc, TC_TERM_COND_STOP);
     } else {
+        // for G33(CSS) and G33.2(SPINDLE_POSITIONING)
         tpCheckCanonType(prev_tc, &tc);
-        rtapi_print_msg (RTAPI_MSG_DBG, "debug (%s:%d): arcBlendEnable(%d)", __FUNCTION__, __LINE__ ,
-                                         get_arcBlendEnable(tp->shared));
         if (get_arcBlendEnable(tp->shared)) {
             tpHandleBlendArc(tp, &tc);
         }
@@ -2014,8 +2023,6 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
 
     // Copy over state data from the trajectory planner
     tcSetupState(&tc, tp);
-
-    tp_info_print("%d: tc.maxvel(%f) tc.jerk(%.20f)\n", __LINE__, tc.maxvel, tc.jerk);
 
     /* 同步主軸的起點和終點座標，避免產生額外的主軸動作 */
     tpAlignSpindleAxis(tp, &tp->goalPos, &end);
@@ -3260,7 +3267,7 @@ STATIC double tpSyncSpindleSpeed (TP_STRUCT * tp)
         }
         else
         {
-            // G97, G33 w/ G97 or G33.1
+            // G97, G33 w/ G97 or G33.1, G33.2
             tp->spindle.speed_req_rps = tp->spindle.speed_rps;
             tp->spindle.css_error = 0;
         }
@@ -3285,6 +3292,8 @@ STATIC void tpSyncPositionMode(TP_STRUCT * const tp, TC_STRUCT * const tc,
         if (tc->coords.spindle_sync.mode < 2)
         {   // G33, G33.1
             tc->target_vel = rtapi_fabs(tpSyncSpindleSpeed(tp));
+            // G33.2 的主軸速度是0，因為要先下 M3S0 才能做 G33.2
+            // G33.2 的速度是由 G33.2 的 K 值指定，由 emccanon 傳給 tp
         }
     }
 
@@ -3336,6 +3345,7 @@ STATIC int tpUpdateCycle(TP_STRUCT * const tp,
 
     //placeholders for position for this update
     EmcPose before;
+    before.s = 0;
 
     //Store the current position due to this TC
     tcGetPos(tc, &before);
@@ -3352,6 +3362,7 @@ STATIC int tpUpdateCycle(TP_STRUCT * const tp,
     tpCheckEndCondition(tp, tc, nexttc);
 
     EmcPose displacement;
+    displacement.s = 0;
 
     // Calculate displacement
     tcGetPos(tc, &displacement);
@@ -3362,7 +3373,6 @@ STATIC int tpUpdateCycle(TP_STRUCT * const tp,
 
     //Store displacement (checking for valid pose)
     int res_set = tpAddCurrentPos(tp, &displacement);
-    // rtapi_print_msg (RTAPI_MSG_DBG, "debug spindle(%d): a(%f), s(%f)\n", __LINE__, tp->currentPos.a, displacement.s);
 
 #ifdef TC_DEBUG
     double mag;
@@ -3747,9 +3757,6 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
             set_spindleSync(tp->shared, 0);
             break;
         case TC_SYNC_VELOCITY:
-            /* comes from START_SPEED_FEED_SYNCH() of interp_convert.cc */
-            /* at 2015-08-22, there's no motion that is with TC_SYNC_VELOCITY */
-            assert(0);
             tp_debug_print("sync velocity\n");
             tpSyncVelocityMode(tp, tc, nexttc);
             break;
@@ -3810,10 +3817,11 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
 
 int tpSetSpindleSync(TP_STRUCT * const tp, double sync, int mode) {
     if(sync) {
-        /* comes from START_SPEED_FEED_SYNCH() of interp_convert.cc */
-        /* at 2015-08-22, there's no motion that is with TC_SYNC_VELOCITY */
-        assert (mode == 0);
-        tp->synchronized = TC_SYNC_POSITION;
+        /* specified by START_SPEED_FEED_SYNCH() of interp_convert.cc or emccanon.cc */
+        if (mode == 0)
+            tp->synchronized = TC_SYNC_POSITION;
+        else
+            tp->synchronized = TC_SYNC_VELOCITY;
         tp->uu_per_rev = sync;
     } else
         tp->synchronized = 0;
