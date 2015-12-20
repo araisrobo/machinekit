@@ -1,27 +1,29 @@
 G64 G21
-G96D300S13.9
+G96D90S13.9
 M3
 
+; test G1 motion blending
 F100
 G1X-2
 G1X-5
 G1X-3
-G1X0
-;G0X50
+G1X0 ; should stop blending while switching to CSS
 
+; test CSS blending
 G33X2K2
-;G96D300S53.9
 G33X5K2
+G96D30S53.9
 G33X10K2
 G33X5K2
-G1X0
-;G0 X2.5
-(debug, A=#<_hal[axis.3.joint-pos-fb]>)
-G04P0.1
-(debug, A=#<_hal[axis.3.joint-pos-fb]>)
-G04P0.1
-(debug, A=#<_hal[axis.3.joint-pos-fb]>)
-;G0 A[#<_hal[axis.3.joint-pos-fb]>]
-G0 X0
 M5
+
+; test M3 with G1 motion blending
+G97
+M3S100
+G1X10
+G1X5
+G1X2.5 ; should stop blending for M5
+M5
+G1X0
+
 M2
