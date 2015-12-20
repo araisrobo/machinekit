@@ -1,0 +1,27 @@
+G64 G21
+G96D300S13.9
+M3
+
+F100
+G1X-2
+G1X-5
+G1X-3
+G1X0
+;G0X50
+
+G33X2K2
+;G96D300S53.9
+G33X5K2
+G33X10K2
+G33X5K2
+G1X0
+;G0 X2.5
+(debug, A=#<_hal[axis.3.joint-pos-fb]>)
+G04P0.1
+(debug, A=#<_hal[axis.3.joint-pos-fb]>)
+G04P0.1
+(debug, A=#<_hal[axis.3.joint-pos-fb]>)
+;G0 A[#<_hal[axis.3.joint-pos-fb]>]
+G0 X0
+M5
+M2
