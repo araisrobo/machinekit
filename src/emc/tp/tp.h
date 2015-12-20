@@ -41,6 +41,7 @@ typedef int (*tpAddCurrentPos_t)(TP_STRUCT * const tp, EmcPose const * const dis
 typedef int (*tpSetCurrentPos_t)(TP_STRUCT * const tp, EmcPose const * const pos);
 typedef int (*tpAddSpindleSyncMotion_t)(TP_STRUCT * tp,
                                         EmcPose end,
+                                        int canon_motion_type,
                                         double vel,
                                         double ini_maxvel,
                                         double acc,

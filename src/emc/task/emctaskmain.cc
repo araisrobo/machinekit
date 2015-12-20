@@ -1756,7 +1756,6 @@ static int emcTaskCheckPreconditions(NMLmsg * cmd)
     case EMC_OPERATOR_DISPLAY_TYPE:
     case EMC_SYSTEM_CMD_TYPE:
     case EMC_TRAJ_PROBE_TYPE:	// prevent blending of this
-    case EMC_TRAJ_SPINDLE_SYNC_MOTION_TYPE: //and this
     case EMC_TRAJ_CLEAR_PROBE_TRIPPED_FLAG_TYPE:	// and this
     case EMC_TRAJ_END_OF_PROBE_TYPE:
     case EMC_AUX_INPUT_WAIT_TYPE:
@@ -1764,6 +1763,7 @@ static int emcTaskCheckPreconditions(NMLmsg * cmd)
 	return EMC_TASK_EXEC_WAITING_FOR_MOTION_AND_IO;
 	break;
 
+    case EMC_TRAJ_SPINDLE_SYNC_MOTION_TYPE: // allow blending for CSS motion
     case EMC_TRAJ_LINEAR_MOVE_TYPE:
     case EMC_TRAJ_CIRCULAR_MOVE_TYPE:
     case EMC_TRAJ_SET_VELOCITY_TYPE:
@@ -2215,6 +2215,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
     case EMC_TRAJ_SPINDLE_SYNC_MOTION_TYPE:
         retval = emcTrajSpindleSyncMotion(((EMC_TRAJ_SPINDLE_SYNC_MOTION *) cmd)->pos,
+                ((EMC_TRAJ_SPINDLE_SYNC_MOTION *) cmd)->type,
                 ((EMC_TRAJ_SPINDLE_SYNC_MOTION *) cmd)->vel,
                 ((EMC_TRAJ_SPINDLE_SYNC_MOTION *) cmd)->ini_maxvel,
                 ((EMC_TRAJ_SPINDLE_SYNC_MOTION *) cmd)->acc,

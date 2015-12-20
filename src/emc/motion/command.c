@@ -355,6 +355,7 @@ STATIC int is_feed_type(int motion_type)
     case EMC_MOTION_TYPE_ARC:
     case EMC_MOTION_TYPE_FEED:
     case EMC_MOTION_TYPE_PROBING:
+    case EMC_MOTION_TYPE_SPINDLE_SYNC:
         return 1;
     default:
         rtapi_print_msg(RTAPI_MSG_ERR, "Internal error: unhandled motion type %d\n", motion_type);
@@ -1618,6 +1619,7 @@ check_stuff ( "before command_handler()" );
             emcmotConfig->vtp->tpSetId(emcmotQueue, emcmotCommand->id);
             if (-1 == emcmotConfig->vtp->tpAddSpindleSyncMotion(emcmotQueue,
                                                                 emcmotCommand->pos,
+                                                                emcmotCommand->motion_type,
                                                                 emcmotCommand->vel,
                                                                 emcmotCommand->ini_maxvel,
                                                                 emcmotCommand->acc,

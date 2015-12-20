@@ -79,6 +79,7 @@ STATIC inline double tpGetMaxTargetVel(
         TP_STRUCT const * const tp,
         TC_STRUCT const * const tc);
 
+STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc);
 
 STATIC int tpAdjustAccelForTangent(TP_STRUCT const * const,
         TC_STRUCT * const tc,
@@ -1472,6 +1473,7 @@ STATIC int tpSetupSyncedIO(TP_STRUCT * const tp, TC_STRUCT * const tc) {
 int tpAddSpindleSyncMotion(
         TP_STRUCT *tp,
         EmcPose end,
+        int canon_motion_type,
         double vel,
         double ini_maxvel,
         double acc,
@@ -1500,14 +1502,11 @@ int tpAddSpindleSyncMotion(
 
     assert (ssm_mode < 2);
     assert (ssm_mode >= 0);
-    if (ssm_mode == 0){
-        atspeed = 1; // G33 needs to wait for spindle atspeed
-    } else {
-        atspeed = 0; // G33.1(RIGID_TAP) does not wait for atspeed
-    }
+    atspeed = 0; // G33(CSS), G33.1(RIGID_TAP) do not wait for atspeed
+
     tcInit(&tc,
             TC_SPINDLE_SYNC_MOTION,
-            0,
+            canon_motion_type,
             tp->cycleTime,
             enables,
             atspeed);
@@ -1576,11 +1575,24 @@ int tpAddSpindleSyncMotion(
         tc.coords.spindle_sync.spindle_dir = -1.0;
     }
 
-    // Force exact stop mode after rigid tapping regardless of TP setting
-    tcSetTermCond(&tc, TC_TERM_COND_STOP);
-
     TC_STRUCT *prev_tc;
     prev_tc = tcqLast(&tp->queue);
+
+    tp_info_print("(%s:%d) ssm_mode(%d)\n", __FUNCTION__, __LINE__, ssm_mode);
+
+    if (ssm_mode == 1) { // for G33.1
+        // Force exact stop mode after rigid tapping regardless of TP setting
+        tcSetTermCond(&tc, TC_TERM_COND_STOP);
+    } else {
+        tpCheckCanonType(prev_tc, &tc);
+        rtapi_print_msg (RTAPI_MSG_DBG, "debug (%s:%d): arcBlendEnable(%d)", __FUNCTION__, __LINE__ ,
+                                         get_arcBlendEnable(tp->shared));
+        if (get_arcBlendEnable(tp->shared)) {
+            tpHandleBlendArc(tp, &tc);
+        }
+        tcCheckLastParabolic(&tc, prev_tc);
+    }
+
     tcFinalizeLength(prev_tc);
     tcFlagEarlyStop(prev_tc, &tc);
     int retval = tpAddSegmentToQueue(tp, &tc, true); /* will update tp->goalPos */
@@ -1630,10 +1642,10 @@ STATIC blend_type_t tpCheckBlendArcType(TP_STRUCT const * const tp,
         return BLEND_NONE;
     }
 
-    tp_debug_print("Motion types: prev_tc = %u, tc = %u\n",
-            prev_tc->motion_type,tc->motion_type);
+    tp_debug_print("Motion types: prev_tc = %u, tc = %u\n", prev_tc->motion_type,tc->motion_type);
     //If not linear blends, we can't easily compute an arc
-    if ((prev_tc->motion_type == TC_LINEAR) && (tc->motion_type == TC_LINEAR)) {
+    if (((prev_tc->motion_type == TC_LINEAR) && (tc->motion_type == TC_LINEAR)) ||
+        ((prev_tc->motion_type == TC_SPINDLE_SYNC_MOTION) && (tc->motion_type == TC_SPINDLE_SYNC_MOTION))) {
         return BLEND_LINE_LINE;
     } else if (prev_tc->motion_type == TC_LINEAR && tc->motion_type == TC_CIRCULAR) {
         return BLEND_LINE_ARC;
@@ -1670,7 +1682,7 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
      * length may change if a new line is added to the queue.*/
 
     for (x = 1; x < get_arcBlendOptDepth(tp->shared) + 2; ++x) {
-        tp_info_print("==== Optimization step %d ====\n",x);
+        tp_info_print("(%s:%d)==== Optimization step %d ====\n", __FUNCTION__, __LINE__, x);
 
         // Update the pointers to the trajectory segments in use
         ind = len-x;
@@ -1711,7 +1723,7 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
         tp_info_print("  current term = %u, motion_type = %u, id = %u, accel_mode = %d target(%f) lookahead(%f)\n",
                 tc->term_cond, tc->motion_type, tc->id, tc->accel_mode, tc->target, tc->lookahead_target);
         tp_info_print("  prev term = %u, motion_type = %u, id = %u, accel_mode = %d target(%f) lookahead(%f)\n",
-                prev1_tc->term_cond, prev1_tc->motion_type, prev1_tc->id, prev1_tc->accel_mode, tc->target, tc->lookahead_target);
+                prev1_tc->term_cond, prev1_tc->motion_type, prev1_tc->id, prev1_tc->accel_mode, prev1_tc->target, prev1_tc->lookahead_target);
         if (!tc->finalized) {
             tp_debug_print("Segment %d, type %d not finalized, continuing\n",tc->id,tc->motion_type);
             // use worst-case final velocity that allows for up to 1/2 of a segment to be consumed.
@@ -1869,7 +1881,8 @@ STATIC int tpSetupTangent(TP_STRUCT const * const tp,
  * blend arc. Essentially all of the blend arc functions are called through
  * here to isolate the process.
  */
-STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc) {
+STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc)
+{
 
     tp_debug_print("*****************************************\n** Handle Blend Arc **\n");
 
@@ -2091,6 +2104,9 @@ int tpAddCircle(TP_STRUCT * const tp,
 
     // Copy over state data from the trajectory planner
     tcSetupState(&tc, tp);
+
+    /* 同步主軸的起點和終點座標，避免產生額外的主軸動作 */
+    tpAlignSpindleAxis(tp, &tp->goalPos, &end);
 
     // Setup circle geometry
     int res_init = pmCircle9Init(&tc.coords.circle,
@@ -3794,11 +3810,10 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
 
 int tpSetSpindleSync(TP_STRUCT * const tp, double sync, int mode) {
     if(sync) {
-        if (mode) {
-            tp->synchronized = TC_SYNC_VELOCITY;
-        } else {
-            tp->synchronized = TC_SYNC_POSITION;
-        }
+        /* comes from START_SPEED_FEED_SYNCH() of interp_convert.cc */
+        /* at 2015-08-22, there's no motion that is with TC_SYNC_VELOCITY */
+        assert (mode == 0);
+        tp->synchronized = TC_SYNC_POSITION;
         tp->uu_per_rev = sync;
     } else
         tp->synchronized = 0;

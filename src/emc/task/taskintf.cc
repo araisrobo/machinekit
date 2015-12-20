@@ -1208,7 +1208,7 @@ int emcTrajProbe(EmcPose pos, int type, double vel, double ini_maxvel, double ac
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcTrajSpindleSyncMotion(EmcPose pos, double vel, double ini_maxvel, double acc, double ini_maxjerk, int ssm_mode)
+int emcTrajSpindleSyncMotion(EmcPose pos, int type, double vel, double ini_maxvel, double acc, double ini_maxjerk, int ssm_mode)
 {
 #ifdef ISNAN_TRAP
     if (rtapi_isnan(pos.tran.x) || rtapi_isnan(pos.tran.y) || rtapi_isnan(pos.tran.z)) {
@@ -1220,6 +1220,7 @@ int emcTrajSpindleSyncMotion(EmcPose pos, double vel, double ini_maxvel, double 
     emcmotCommand.pos = pos;
     emcmotCommand.id = localEmcTrajMotionId;
     emcmotCommand.tag = localEmcTrajTag;
+    emcmotCommand.motion_type = type;
     emcmotCommand.vel = vel;
     emcmotCommand.ini_maxvel = ini_maxvel;
     emcmotCommand.acc = acc;

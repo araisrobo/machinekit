@@ -370,7 +370,7 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
  * This function will eventually handle state changes associated with altering a terminal condition.
  */
 int tcSetTermCond(TC_STRUCT * const tc, int term_cond) {
-    tp_debug_print("setting term condition %d on tc id %d, type %d\n", term_cond, tc->id, tc->motion_type);
+    tp_debug_print("(%s:%d) term condition %d on tc id %d, type %d\n", __FUNCTION__, __LINE__, term_cond, tc->id, tc->motion_type);
     tc->term_cond = term_cond;
     return 0;
 }
@@ -487,9 +487,9 @@ int tcFlagEarlyStop(TC_STRUCT * const tc,
         return TP_ERR_NO_ACTION;
     }
 
-    if(tc->synchronized != TC_SYNC_POSITION && nexttc->synchronized == TC_SYNC_POSITION) {
-        // we'll have to wait for spindle sync; might as well
-        // stop at the right place (don't blend)
+    if((tc->synchronized == TC_SYNC_POSITION) ^ (nexttc->synchronized == TC_SYNC_POSITION)) {
+        // we'll have to wait for approaching or leaving spindle sync motion; 
+        // might as well stop at the right place (don't blend)
         tp_debug_print("waiting on spindle sync for tc %d\n", tc->id);
         tcSetTermCond(tc, TC_TERM_COND_STOP);
     }
@@ -701,7 +701,7 @@ int tcFinalizeLength(TC_STRUCT * const tc)
     tp_debug_print("Finalizing tc id %d, type %d\n", tc->id, tc->motion_type);
     //TODO function to check for parabolic?
     int parabolic = (tc->blend_prev || tc->term_cond == TC_TERM_COND_PARABOLIC);
-    tp_debug_print("blend_prev = %d, term_cond = %d\n",tc->blend_prev, tc->term_cond);
+    tp_debug_print("(%s:%d) blend_prev = %d, term_cond = %d\n", __FUNCTION__, __LINE__, tc->blend_prev, tc->term_cond);
 
     if (tc->motion_type == TC_CIRCULAR) {
         tc->maxvel = pmCircleActualMaxVel(&tc->coords.circle.xyz, tc->maxvel, tc->maxaccel, parabolic);

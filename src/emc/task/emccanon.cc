@@ -1274,6 +1274,7 @@ void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_
     spindleSyncMotionMsg.acc = acc;
     spindleSyncMotionMsg.ini_maxjerk = axis_max_jerk[emcGetSpindleAxis()];
     spindleSyncMotionMsg.ssm_mode = ssm_mode;
+    spindleSyncMotionMsg.type = EMC_MOTION_TYPE_SPINDLE_SYNC;
 
     flush_segments();
     

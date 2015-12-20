@@ -967,6 +967,7 @@ class EMC_TRAJ_SPINDLE_SYNC_MOTION:public EMC_TRAJ_CMD_MSG {
     void update(CMS * cms);
 
     EmcPose pos;
+    int type;
     double vel, ini_maxvel, acc, ini_maxjerk;
     int ssm_mode; // set to 1 for rigid-tapping
 };

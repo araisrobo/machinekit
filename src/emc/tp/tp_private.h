@@ -42,7 +42,7 @@ int tpAddCurrentPos(TP_STRUCT * const tp, EmcPose const * const disp);
 
 int tpSetCurrentPos(TP_STRUCT * const tp, EmcPose const * const pos);
 
-int tpAddSpindleSyncMotion(TP_STRUCT *tp, EmcPose end, double vel,
+int tpAddSpindleSyncMotion(TP_STRUCT *tp, EmcPose end, int type, double vel,
                            double ini_maxvel, double acc, double jerk,
                            int ssm_mode, unsigned char enables,
                            struct state_tag_t tag);
