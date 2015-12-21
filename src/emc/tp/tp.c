@@ -794,10 +794,9 @@ STATIC int tpInitBlendArcFromPrev(TP_STRUCT const * const tp,
             vel,
             ini_maxvel,
             acc,
-            0,  //!< will update blend_tc->jrek at next step
-            tp->cycleTime);
-    // TODO: confirm if we should calculate JERK for BLENDER
-    blend_tc->jerk = prev_tc->jerk;
+            prev_tc->jerk,  //!< TODO: calculate jerk like what acc or ini_maxvel does
+            tp->cycleTime,
+            tp->spindle.speed_rps);
 
     // Skip syncdio setup since this blend extends the previous line
     blend_tc->syncdio = prev_tc->syncdio; //enqueue the list of DIOs that need toggling
@@ -1523,7 +1522,8 @@ int tpAddSpindleSyncMotion(
             ini_maxvel,
             acc,
             jerk,
-            tp->cycleTime);
+            tp->cycleTime,
+            tp->spindle.speed_rps);
 
     // Setup SpindleSyncMotion Geometry
     start_xyz = tp->goalPos.tran;
@@ -2012,7 +2012,8 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
             ini_maxvel,
             acc,
             ini_maxjerk,
-            tp->cycleTime);
+            tp->cycleTime,
+            tp->spindle.speed_rps);
 
     tp_info_print("%d: tc.maxvel(%f) tc.jerk(%.20f)\n", __LINE__, tc.maxvel, tc.jerk);
 
@@ -2144,7 +2145,8 @@ int tpAddCircle(TP_STRUCT * const tp,
             v_max_actual,
             acc,
             ini_maxjerk,
-            tp->cycleTime);
+            tp->cycleTime,
+            tp->spindle.speed_rps);
 
     TC_STRUCT *prev_tc;
     prev_tc = tcqLast(&tp->queue);
@@ -3120,6 +3122,9 @@ STATIC int tpActivateSegment(TP_STRUCT * const tp, TC_STRUCT * const tc) {
         return TP_ERR_MISSING_INPUT;
     }
 
+    // update saved spindle.speed_req_rps from TC to TP
+    tp->spindle.speed_req_rps = tc->spindle_speed_rps;
+
     // Do at speed checks that only happen once
     int needs_atspeed = tc->atspeed ||
         (tc->synchronized == TC_SYNC_POSITION && !(get_spindleSync(tp->shared)));
@@ -3190,10 +3195,16 @@ STATIC void tpSyncVelocityMode(TP_STRUCT * const tp, TC_STRUCT * const tc, TC_ST
     tc->target_vel = pos_error;
 }
 
-/* spindle speed calculator for CSS motion */
-STATIC double tpSyncSpindleSpeed (TP_STRUCT * tp)
+/**
+ *  tpSyncSpindleSpeed() - spindle speed calculator for
+ *                         G33 - CSS motion
+ *                         G33.1 - Rigid Tapping
+ **/
+
+STATIC double tpSyncSpindleSpeed (TP_STRUCT * tp, TC_STRUCT * const tc)
 {
-    if (tp->spindle.on) {
+//    if (tp->spindle.on)
+    {
         // spindle.css_factor is css_numerator in emccanon.cc
         if(tp->spindle.css_factor)
         {
@@ -3271,11 +3282,12 @@ STATIC double tpSyncSpindleSpeed (TP_STRUCT * tp)
             tp->spindle.speed_req_rps = tp->spindle.speed_rps;
             tp->spindle.css_error = 0;
         }
-    } else {
-        // spindle is OFF
-        tp->spindle.speed_req_rps = 0;
-        tp->spindle.css_error = 0;
     }
+//    else {
+//        // spindle is OFF
+//        tp->spindle.speed_req_rps = 0;
+//        tp->spindle.css_error = 0;
+//    }
 
     return (tp->spindle.speed_req_rps);
 }
@@ -3291,7 +3303,7 @@ STATIC void tpSyncPositionMode(TP_STRUCT * const tp, TC_STRUCT * const tc,
         // calc spindle target velocity of spindle for SpindleSyncMotion
         if (tc->coords.spindle_sync.mode < 2)
         {   // G33, G33.1
-            tc->target_vel = rtapi_fabs(tpSyncSpindleSpeed(tp));
+            tc->target_vel = rtapi_fabs(tpSyncSpindleSpeed(tp, tc));
             // G33.2 的主軸速度是0，因為要先下 M3S0 才能做 G33.2
             // G33.2 的速度是由 G33.2 的 K 值指定，由 emccanon 傳給 tp
         }
@@ -3619,6 +3631,7 @@ STATIC void tpSpindleCycle(TP_STRUCT * const tp)
 {
     /*Velocity Control Algorithm is taking from simple_tp.c */
     double max_da, vel_err, acc_req;
+    double scale, speed_req;
 
     max_da = tp->spindle.max_da;
 
@@ -3626,7 +3639,9 @@ STATIC void tpSpindleCycle(TP_STRUCT * const tp)
      * calculate an acceleration that tends to drive vel_err to zero,
      * but allows for move without velocity overshoot
      **/
-    vel_err = tp->spindle.speed_rps - tp->spindle.curr_vel_rps;
+    scale = *tp->shared->net_spindle_scale;  // net_spindle_scale is updated by control.c
+    speed_req = scale * tp->spindle.speed_req_rps;
+    vel_err = speed_req - tp->spindle.curr_vel_rps;
 
     /* positive and negative errors require some sign flipping to
            avoid sqrt(negative) */
@@ -3639,7 +3654,7 @@ STATIC void tpSpindleCycle(TP_STRUCT * const tp)
     } else {
         /* within 'tiny_dv' of desired vel, no need to accel */
         acc_req = 0;
-        tp->spindle.curr_vel_rps = tp->spindle.speed_rps;
+        tp->spindle.curr_vel_rps = speed_req;
     }
 
     /* limit acceleration request */
@@ -3777,8 +3792,8 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
     if(nexttc) {
         nexttc->feed_override = get_net_feed_scale(tp->shared);
 
-    tcClearFlags(tc);
-    tcClearFlags(nexttc);
+        tcClearFlags(tc);
+        tcClearFlags(nexttc);
     }
 
     /* handle pausing */

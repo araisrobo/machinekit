@@ -33,6 +33,7 @@ typedef struct tp_shared_t {
     hal_float_t *maxFeedScale;
     hal_float_t *net_feed_scale;
 
+
     hal_float_t *acc_limit[3];
     hal_float_t *vel_limit[3];
 
@@ -42,12 +43,13 @@ typedef struct tp_shared_t {
     // read/write by tp:
     // NB: this is the direction field in struct spindle_status
     // (there's another direction field in emcmot_command_t)
-    hal_s32_t  *spindle_direction;	// 0 stopped, 1 forward, -1 reverse
+    hal_s32_t   *spindle_direction;	// 0 stopped, 1 forward, -1 reverse
     hal_float_t *spindleRevs;
     hal_float_t *spindleSpeedIn;
-    hal_float_t *spindle_speed;  // in struct spindle_status
+    hal_float_t *spindle_speed;         // in struct spindle_status
     hal_bit_t   *spindle_index_enable;
-    hal_bit_t   *spindle_is_atspeed; // emcmotStatus->spindle_is_atspeed
+    hal_bit_t   *spindle_is_atspeed;    // emcmotStatus->spindle_is_atspeed
+    hal_float_t *net_spindle_scale;     /* net scale factor for spindle */
 
     hal_bit_t   *spindleSync;
     hal_float_t *current_vel;

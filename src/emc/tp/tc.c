@@ -580,7 +580,8 @@ int tcSetupMotion(TC_STRUCT * const tc,
         double ini_maxvel,
         double acc,
         double ini_maxjerk,
-        double cycle_time)
+        double cycle_time,
+        double spindle_speed_rps)
 {
 
     if (ini_maxjerk == 0) {
@@ -594,6 +595,7 @@ int tcSetupMotion(TC_STRUCT * const tc,
 
     tc->maxvel = ini_maxvel * cycle_time;                               // unit: dt
 
+    tc->spindle_speed_rps = spindle_speed_rps;
     tc->reqvel = vel;                                                   // unit: sec
     // Initial guess at target velocity is just the requested velocity
     tc->target_vel = vel;                                               // unit: sec

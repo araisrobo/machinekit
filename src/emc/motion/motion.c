@@ -1524,6 +1524,7 @@ static int init_shared(tp_shared_t *tps,
 
     // from emcmotStatus
     tps->net_feed_scale = &status->net_feed_scale;
+    tps->net_spindle_scale = &status->net_spindle_scale;
     tps->spindle_direction = &status->spindle.direction;
     tps->spindle_speed = &status->spindle.speed;
     tps->spindleRevs = &status->spindleRevs;

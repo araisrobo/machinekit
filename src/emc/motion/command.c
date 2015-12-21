@@ -1729,7 +1729,7 @@ check_stuff ( "before command_handler()" );
 	    emcmotStatus->spindle.brake = 0; //disengage brake
 	    emcmotStatus->atspeed_next_feed = 1;
 
-	    emcmotQueue->spindle.speed = emcmotStatus->spindle.speed * emcmotStatus->net_spindle_scale;
+	    emcmotQueue->spindle.speed = emcmotStatus->spindle.speed;
 	    emcmotQueue->spindle.css_factor = emcmotStatus->spindle.css_factor;
 	    emcmotQueue->spindle.xoffset = emcmotStatus->spindle.xoffset;
 	    emcmotQueue->spindle.on = 1;
