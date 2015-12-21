@@ -13,6 +13,7 @@ G1X0 ; should stop blending while switching to CSS
 G33X2K2
 G33X5K2
 G96D30S53.9
+G33X7.5K2
 G33X10K2
 G33X5K2
 M5
@@ -20,8 +21,6 @@ M5
 ; test M3 with G1 motion blending
 G97
 M3S100
-G1X10
-G1X5
 G1X2.5 ; should stop blending for M5
 M5
 G1X0

@@ -33,7 +33,6 @@ static vtp_t vtp = {
     .tpAddSpindleSyncMotion = tpAddSpindleSyncMotion,
     .tpAddLine         = tpAddLine,
     .tpAddCircle       = tpAddCircle,
-    .tpAddSpindle      = tpAddSpindle,
     .tpRunCycle        = tpRunCycle,
     .tpPause           = tpPause,
     .tpResume          = tpResume,

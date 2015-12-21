@@ -1725,24 +1725,16 @@ check_stuff ( "before command_handler()" );
 	    emcmotStatus->spindle.brake = 0; //disengage brake
 	    emcmotStatus->atspeed_next_feed = 1;
 
-            /* append it to the emcmotDebug->tp */
-	    emcmotConfig->vtp->tpSetId(emcmotQueue, emcmotCommand->id);
-            res_addline = emcmotConfig->vtp->tpAddSpindle(emcmotQueue,
-                    emcmotCommand->vel, // RPM
-                    emcmotCommand->css_factor,
-                    emcmotCommand->xoffset,
-                    1, // Spindle ON
-                    emcmotCommand->axis,
-                    emcmotCommand->ini_maxvel,
-                    emcmotStatus->acc,
-                    emcmotCommand->ini_maxjerk);
-            if (res_addline != 0) {
-                reportError(_("can't add Spindle command at line %d, error code %d"),
-                        emcmotCommand->id, res_addline);
-                emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
-                emcmotConfig->vtp->tpAbort(&emcmotDebug->tp);
-                SET_MOTION_ERROR_FLAG(1);
-            }
+	    emcmotQueue->next_spindle_updated = 0; // reset flag
+	    emcmotQueue->next_spindle.speed = emcmotCommand->vel; // RPM
+	    emcmotQueue->next_spindle.css_factor = emcmotCommand->css_factor;
+	    emcmotQueue->next_spindle.xoffset = emcmotCommand->xoffset;
+	    emcmotQueue->next_spindle.on = 1;
+	    emcmotQueue->next_spindle.max_vel = emcmotCommand->ini_maxvel;
+	    emcmotQueue->next_spindle.max_acc = emcmotCommand->acc;
+	    emcmotQueue->next_spindle.max_jerk = emcmotCommand->ini_maxjerk;
+            emcmotQueue->spindle.axis = emcmotCommand->axis;    // axis that maps as spindle
+            emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
 	    break;
 
 	case EMCMOT_SPINDLE_OFF:
@@ -1759,27 +1751,16 @@ check_stuff ( "before command_handler()" );
 	    *(emcmot_hal_data->spindle_orient) = 0;
 	    emcmotStatus->spindle.orient_state = EMCMOT_ORIENT_NONE;
 
-            /* append it to the emcmotDebug->tp */
-            if (emcmotDebug->enabling)
-	    {
-	        emcmotConfig->vtp->tpSetId(emcmotQueue, emcmotCommand->id);
-	        res_addline = emcmotConfig->vtp->tpAddSpindle(emcmotQueue,
-	                0, // RPM
-	                0, // css_factor
-	                emcmotCommand->xoffset,
-	                0, // Spindle OFF
-	                emcmotCommand->axis,
-	                emcmotCommand->ini_maxvel,
-	                emcmotStatus->acc,
-	                emcmotCommand->ini_maxjerk);
-	        if (res_addline != 0) {
-	            reportError(_("can't add Spindle command at line %d, error code %d"),
-	                    emcmotCommand->id, res_addline);
-	            emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
-	            emcmotConfig->vtp->tpAbort(&emcmotDebug->tp);
-	            SET_MOTION_ERROR_FLAG(1);
-	        }
-	    }
+	    emcmotQueue->next_spindle_updated = 0; // reset flag
+	    emcmotQueue->next_spindle.speed = 0; // RPM
+	    emcmotQueue->next_spindle.css_factor = 0;
+	    emcmotQueue->next_spindle.xoffset = emcmotCommand->xoffset;
+	    emcmotQueue->next_spindle.on = 0;
+	    emcmotQueue->next_spindle.max_vel = emcmotCommand->ini_maxvel;
+	    emcmotQueue->next_spindle.max_acc = emcmotCommand->acc;
+	    emcmotQueue->next_spindle.max_jerk = emcmotCommand->ini_maxjerk;
+	    emcmotQueue->spindle.axis = emcmotCommand->axis;    // axis that maps as spindle
+            emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
 	    break;
 
 	case EMCMOT_SPINDLE_ORIENT:
@@ -1812,28 +1793,26 @@ check_stuff ( "before command_handler()" );
 
 	case EMCMOT_SPINDLE_INCREASE:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_INCREASE");
-//	    if (emcmotStatus->spindle.speed > 0) {
-//		emcmotStatus->spindle.speed += 100; //FIXME - make the step a HAL parameter
-//	    } else if (emcmotStatus->spindle.speed < 0) {
-//		emcmotStatus->spindle.speed -= 100;
-//	    }
-//            emcmotQueue->spindle.speed = emcmotStatus->spindle.speed;
-//            emcmotConfig->vtp->tpSetSpindle(emcmotQueue); // setup speed_rps, direction, ... etc.
-            reportError(_("unsupported command %d"), emcmotCommand->command);
-            emcmotStatus->commandStatus = EMCMOT_COMMAND_UNKNOWN_COMMAND;
+	    if (emcmotStatus->spindle.speed > 0) {
+		emcmotStatus->spindle.speed += 100; //FIXME - make the step a HAL parameter
+	    } else if (emcmotStatus->spindle.speed < 0) {
+		emcmotStatus->spindle.speed -= 100;
+	    }
+            emcmotQueue->next_spindle_updated = 0; // reset flag
+            emcmotQueue->next_spindle.speed = emcmotStatus->spindle.speed;
+            emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
             break;
 
 	case EMCMOT_SPINDLE_DECREASE:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_DECREASE");
-//	    if (emcmotStatus->spindle.speed > 100) {
-//		emcmotStatus->spindle.speed -= 100; //FIXME - make the step a HAL parameter
-//	    } else if (emcmotStatus->spindle.speed < -100) {
-//		emcmotStatus->spindle.speed += 100;
-//	    }
-//            emcmotQueue->spindle.speed = emcmotStatus->spindle.speed;
-//            emcmotConfig->vtp->tpSetSpindle(emcmotQueue); // setup speed_rps, direction, ... etc.
-            reportError(_("unsupported command %d"), emcmotCommand->command);
-            emcmotStatus->commandStatus = EMCMOT_COMMAND_UNKNOWN_COMMAND;
+	    if (emcmotStatus->spindle.speed > 100) {
+		emcmotStatus->spindle.speed -= 100; //FIXME - make the step a HAL parameter
+	    } else if (emcmotStatus->spindle.speed < -100) {
+		emcmotStatus->spindle.speed += 100;
+	    }
+            emcmotQueue->next_spindle_updated = 0; // reset flag
+            emcmotQueue->next_spindle.speed = emcmotStatus->spindle.speed;
+            emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
             break;
 
 	case EMCMOT_SPINDLE_BRAKE_ENGAGE:

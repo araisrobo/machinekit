@@ -120,7 +120,10 @@ typedef struct tp_shared_t tp_shared_t; // see tp_shared.h
  */
 typedef struct {
     TC_QUEUE_STRUCT queue;
-    tp_spindle_t spindle; //Spindle data
+    tp_spindle_t spindle;       //Spindle data of current TC
+    tp_spindle_t next_spindle;  //Spindle data for upcoming TC
+    int          next_spindle_updated;
+
     tp_shared_t *shared;
 
     EmcPose currentPos;

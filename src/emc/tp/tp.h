@@ -73,15 +73,6 @@ typedef int (*tpAddCircle_t)(TP_STRUCT * tp,
 			     unsigned char enables,
 			     char atspeed,
 			    struct state_tag_t tag);
-typedef int (*tpAddSpindle_t)(TP_STRUCT * const tp,
-                              double speed,
-                              double css_factor,
-                              double xoffest,
-                              int on,
-                              int axis,
-                              double ini_maxvel,
-                              double acc,
-                              double ini_maxjerk);
 typedef int (*tpRunCycle_t)(TP_STRUCT * tp, long period);
 typedef int (*tpPause_t)(TP_STRUCT * tp);
 typedef int (*tpResume_t)(TP_STRUCT * tp);
@@ -94,7 +85,7 @@ typedef int (*tpActiveDepth_t)(TP_STRUCT * tp);
 typedef int (*tpGetMotionType_t)(TP_STRUCT * tp);
 typedef int (*tpGetAccelState_t)(TP_STRUCT * tp);
 typedef int (*tpSetSpindleSync_t)(TP_STRUCT * tp, double sync, int wait);
-typedef int (*tpSetSpindle_t)(TP_STRUCT * tp);
+typedef int (*tpSetSpindle_t)(TP_STRUCT * tp, TC_STRUCT * tc);
 
 typedef int (*tcqFull_t)(TC_QUEUE_STRUCT const * const tcq);
 
@@ -132,7 +123,6 @@ typedef struct {
     tpAddSpindleSyncMotion_t tpAddSpindleSyncMotion;
     tpAddLine_t	        tpAddLine;
     tpAddCircle_t	tpAddCircle;
-    tpAddSpindle_t      tpAddSpindle;
     tpRunCycle_t	tpRunCycle;
     tpPause_t	        tpPause;
     tpResume_t	        tpResume;

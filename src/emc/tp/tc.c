@@ -269,21 +269,14 @@ int tcGetEndpoint(TC_STRUCT const * const tc, EmcPose * const out) {
 }
 
 /**
- * tcUpdateSpindleAxisCSS - for CSS, update spindle position to corresponding spindleAxis
+ * tcUpdateSyncSpindleAxis - for Synchronized Spindle Motions, update spindle displacement to corresponding spindleAxis
  */
-int tcUpdateSpindleAxisCSS(TP_STRUCT const * const tp, TC_STRUCT const * const tc,  EmcPose * const pos)
+int tcUpdateSyncSpindleAxis(TP_STRUCT const * const tp, TC_STRUCT const * const tc,  EmcPose * const pos)
 {
-    if(tp->spindle.css_factor != 0)
-    {   // only update spindle position for G96 G33(CSS) motion
-        switch (tc->motion_type) {
-            case TC_SPINDLE_SYNC_MOTION:
-                // for RIGID_TAPPING(G33.1), CSS(G33 w/ G96), and THREADING(G33 w/ G97)
-                tpUpdateSpindleAxis(tp, pos);
-                break;
-            default:
-                tp_debug_print ("(%s:%d) TODO:...\n", __FUNCTION__, __LINE__);
-                break;
-        }
+    // 若是主軸同步運動，則更新 tcRunCycle 計算出來的新的主軸位置命令
+    if (tc->synchronized) {
+        tp_debug_print ("(%s:%d) css_factor(%f) motion_type(%d) tc->synchronized(%d)\n", __FUNCTION__, __LINE__, tp->spindle.css_factor, tc->motion_type, tc->synchronized);
+        tpUpdateSpindleAxis(tp, pos);
     }
     return 0;
 }
@@ -610,6 +603,15 @@ int tcSetupState(TC_STRUCT * const tc, TP_STRUCT const * const tp)
     tc->tolerance = tp->tolerance;
     tc->synchronized = tp->synchronized;
     tc->uu_per_rev = tp->uu_per_rev;
+
+    tc->spindle_speed =         tp->next_spindle.speed;
+    tc->spindle_css_factor =    tp->next_spindle.css_factor;
+    tc->spindle_xoffset =       tp->next_spindle.xoffset;
+    tc->spindle_on =            tp->next_spindle.on;
+    tc->spindle_max_vel =       tp->next_spindle.max_vel;
+    tc->spindle_max_acc =       tp->next_spindle.max_acc;
+    tc->spindle_max_jerk =      tp->next_spindle.max_jerk;
+
     return TP_ERR_OK;
 }
 
