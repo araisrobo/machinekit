@@ -100,6 +100,7 @@ typedef struct {
     double tiny_dv;
     double curr_acc;
     double curr_vel_rps;
+    int synchronized;       // set for spindle-synchronized-motions: G97 w/ G33, G96 w/ G33, G33.1, G33.2 ...
 
     int waiting_for_index;
     int waiting_for_atspeed;
@@ -158,7 +159,7 @@ typedef struct {
     double tolerance;           /* for subsequent motions, stay within this
                                    distance of the programmed path during
                                    blends */
-    int synchronized;       // spindle sync required for this move
+    int synchronized;           // spindle sync required for this move
     int velocity_mode; 	        /* TRUE if spindle sync is in velocity mode,
 				   FALSE if in position mode */
     double uu_per_rev;          /* user units per spindle revolution */

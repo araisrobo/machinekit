@@ -795,8 +795,7 @@ STATIC int tpInitBlendArcFromPrev(TP_STRUCT const * const tp,
             ini_maxvel,
             acc,
             prev_tc->jerk,  //!< TODO: calculate jerk like what acc or ini_maxvel does
-            tp->cycleTime,
-            tp->spindle.speed_rps);
+            tp->cycleTime);
 
     // Skip syncdio setup since this blend extends the previous line
     blend_tc->syncdio = prev_tc->syncdio; //enqueue the list of DIOs that need toggling
@@ -1522,8 +1521,7 @@ int tpAddSpindleSyncMotion(
             ini_maxvel,
             acc,
             jerk,
-            tp->cycleTime,
-            tp->spindle.speed_rps);
+            tp->cycleTime);
 
     // Setup SpindleSyncMotion Geometry
     start_xyz = tp->goalPos.tran;
@@ -1982,7 +1980,6 @@ static void tpAlignSpindleAxis(TP_STRUCT const * const tp, EmcPose * const start
 
 
 //TODO final setup steps as separate functions
-//
 /**
  * Add a straight line to the tc queue.
  * end of the previous move to the new end specified here at the
@@ -2012,8 +2009,7 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
             ini_maxvel,
             acc,
             ini_maxjerk,
-            tp->cycleTime,
-            tp->spindle.speed_rps);
+            tp->cycleTime);
 
     tp_info_print("%d: tc.maxvel(%f) tc.jerk(%.20f)\n", __LINE__, tc.maxvel, tc.jerk);
 
@@ -2145,8 +2141,7 @@ int tpAddCircle(TP_STRUCT * const tp,
             v_max_actual,
             acc,
             ini_maxjerk,
-            tp->cycleTime,
-            tp->spindle.speed_rps);
+            tp->cycleTime);
 
     TC_STRUCT *prev_tc;
     prev_tc = tcqLast(&tp->queue);
@@ -2163,6 +2158,42 @@ int tpAddCircle(TP_STRUCT * const tp,
     int retval = tpAddSegmentToQueue(tp, &tc, true);
 
     tpRunOptimization(tp);
+    return retval;
+}
+
+
+/**
+ * Add a Spindle command to the tc queue.
+ */
+int tpAddSpindle(TP_STRUCT * const tp, double speed, double css_factor, double xoffset, int on,
+                 int axis, double ini_maxvel, double acc, double ini_maxjerk)
+{
+    if (tpErrorCheck(tp) < 0) {
+        return TP_ERR_FAIL;
+    }
+
+    // Initialize new tc struct for the line segment
+    TC_STRUCT tc = {0};
+    tcInit(&tc,
+            TC_SPINDLE,
+            0,  // ignore canon_motion_type
+            tp->cycleTime,
+            0,  // ignore enables
+            0); // ignore atspeed
+
+    // Copy over state data from the trajectory planner
+    tcSetupState(&tc, tp);
+
+    tp->spindle.axis = axis;
+    tc.spindle_css_factor = css_factor;
+    tc.spindle_xoffset = xoffset;
+    tc.spindle_on = on;
+    tc.jerk = ini_maxjerk;    // unit: s^3
+    tc.maxaccel = acc;        // unit: s^2
+    tc.maxvel = ini_maxvel;   // unit: s
+    tc.reqvel = speed;        // RPM
+    int retval = tpAddSegmentToQueue(tp, &tc, true);
+
     return retval;
 }
 
@@ -3122,9 +3153,6 @@ STATIC int tpActivateSegment(TP_STRUCT * const tp, TC_STRUCT * const tc) {
         return TP_ERR_MISSING_INPUT;
     }
 
-    // update saved spindle.speed_req_rps from TC to TP
-    tp->spindle.speed_req_rps = tc->spindle_speed_rps;
-
     // Do at speed checks that only happen once
     int needs_atspeed = tc->atspeed ||
         (tc->synchronized == TC_SYNC_POSITION && !(get_spindleSync(tp->shared)));
@@ -3203,93 +3231,87 @@ STATIC void tpSyncVelocityMode(TP_STRUCT * const tp, TC_STRUCT * const tc, TC_ST
 
 STATIC double tpSyncSpindleSpeed (TP_STRUCT * tp, TC_STRUCT * const tc)
 {
-//    if (tp->spindle.on)
+    double speed_req;
+    // spindle.css_factor is css_numerator in emccanon.cc
+    if(tc->coords.spindle_sync.css_factor)
     {
-        // spindle.css_factor is css_numerator in emccanon.cc
-        if(tp->spindle.css_factor)
+        // for G96
+        tp_debug_print ("TODO: add yoffset for VBC, bypass yoffset for MEINAN\n");
+        //        double denom =  sqrt(pow(emcmotStatus->spindle.xoffset - emcmotStatus->carte_pos_cmd.tran.x, 2) +
+        //                             pow(emcmotStatus->g5x_offset.tran.y - emcmotStatus->carte_pos_cmd.tran.y, 2));
+        double denom =  (tp->spindle.xoffset - tp->currentPos.tran.x);
+        double speed;           // speed for major spindle (spindle-s)
+        double maxspeed;        // absolute max spindle speed
+        int positive = ((tp->spindle.xoffset - tp->currentPos.tran.x) > 0)? 1: -1;
+        // css_factor: unit(mm or inch)/min
+        if(denom != 0)
         {
-            // for G96
-            tp_debug_print ("TODO: add yoffset for VBC, bypass yoffset for MEINAN\n");
-    //        double denom =  sqrt(pow(emcmotStatus->spindle.xoffset - emcmotStatus->carte_pos_cmd.tran.x, 2) +
-    //                             pow(emcmotStatus->g5x_offset.tran.y - emcmotStatus->carte_pos_cmd.tran.y, 2));
-            double denom =  (tp->spindle.xoffset - tp->currentPos.tran.x);
-            double speed;           // speed for major spindle (spindle-s)
-            double maxspeed;        // absolute max spindle speed
-            int positive = ((tp->spindle.xoffset - tp->currentPos.tran.x) > 0)? 1: -1;
-            // css_factor: unit(mm or inch)/min
-            if(denom != 0)
-            {
-                speed = tp->spindle.css_factor / (denom * 60.0); // rps
-            }
-            else
-            {
-                speed = tp->spindle.speed_rps;
-            }
-    // for VBC:
-    //        if(emcmotStatus->spindle.dynamic_speed_mode == 0)
-    //        {
-    //        }
-    //        else
-    //        {
-    //            // dynamic_spindle_mode == 1
-    //            // adjust spindle speed dynamically to maintain constant tangential velocity
-    //            // the spindle speed is constant if (r <= const_speed_radius)
-    //            double csr;
-    //            csr = emcmotStatus->spindle.const_speed_radius;
-    //
-    //            if ((fabs(denom) >= csr) && (csr > 0))
-    //            {
-    //                           以下做法相當於將S(線速度) 設為 (D(max-RPM) * csr) :
-    //                speed = (emcmotStatus->spindle.speed_rps * csr) / denom; // rps
-    //            }
-    //            else
-    //            {
-    //                speed = emcmotStatus->spindle.speed_rps;
-    //            }
-    //        }
-            speed = rtapi_fabs(speed);
-            maxspeed = rtapi_fabs(tp->spindle.speed_rps);
-            if(speed > maxspeed) speed = maxspeed;
-            tp->spindle.speed_req_rps = speed * tp->spindle.direction;
-            // css_error: to be compensated by another spindle
-            tp->spindle.css_error =
-                            (tp->spindle.css_factor / 60.0
-                             - denom * positive * rtapi_fabs(tp->spindle.curr_vel_rps))
-                            * tp->spindle.direction; // (unit/(2*PI*sec)
-            tp_debug_print ("speed_req_rps(%f)\n", tp->spindle.speed_req_rps);
-            tp_debug_print ("css_req(%f)(unit/sec)\n", denom * tp->spindle.speed_req_rps * 2 * M_PI);
-            tp_debug_print ("css_cur(%f)\n", denom * tp->spindle.curr_vel_rps * 2 * M_PI);
-            tp_debug_print ("css_error(%f)(unit/(2*PI*sec))\n", tp->spindle.css_error);
-            tp_debug_print ("speed(%f) denom(%f) s.curr_vel(%f) css_factor(%f)\n",
-                                 speed, denom, tp->spindle.curr_vel_rps, tp->spindle.css_factor);
-            tp_debug_print ("spindle.direction(%d)\n", tp->spindle.direction);
-    //        DP ("synched-joint-vel(%f)(unit/sec)\n", tp->spindle.curr_vel_rps * tp->uu_per_rev);
-    #if (CSS_TRACE!=0)
-            /* prepare data for gnuplot */
-            fprintf (csstrace, "%11d%15.9f%15.9f%19.9f%19.9f%19.9f\n"
-                    , _dt
-                    , denom
-                    , tp->progress
-                    , tp->spindle.css_factor / 60.0 * 2 * M_PI
-                    , denom * tp->spindle.curr_vel_rps * 2 * M_PI
-                    , (tp->spindle.css_factor / 60.0 * 2 * M_PI - denom * tp->spindle.curr_vel_rps * 2 * M_PI));
-            _dt += 1;
-    #endif
+            speed = tp->spindle.css_factor / (denom * 60.0); // rps
         }
         else
         {
-            // G97, G33 w/ G97 or G33.1, G33.2
-            tp->spindle.speed_req_rps = tp->spindle.speed_rps;
-            tp->spindle.css_error = 0;
+            speed = tp->spindle.speed_rps;
         }
+        // for VBC:
+        //        if(emcmotStatus->spindle.dynamic_speed_mode == 0)
+        //        {
+        //        }
+        //        else
+        //        {
+        //            // dynamic_spindle_mode == 1
+        //            // adjust spindle speed dynamically to maintain constant tangential velocity
+        //            // the spindle speed is constant if (r <= const_speed_radius)
+        //            double csr;
+        //            csr = emcmotStatus->spindle.const_speed_radius;
+        //
+        //            if ((fabs(denom) >= csr) && (csr > 0))
+        //            {
+        //                           以下做法相當於將S(線速度) 設為 (D(max-RPM) * csr) :
+        //                speed = (emcmotStatus->spindle.speed_rps * csr) / denom; // rps
+        //            }
+        //            else
+        //            {
+        //                speed = emcmotStatus->spindle.speed_rps;
+        //            }
+        //        }
+        speed = rtapi_fabs(speed);
+        maxspeed = rtapi_fabs(tp->spindle.speed_rps);
+        if(speed > maxspeed) speed = maxspeed;
+        tp->spindle.speed_req_rps = speed * tp->spindle.direction;
+        // css_error: to be compensated by another spindle
+        tp->spindle.css_error =
+                (tp->spindle.css_factor / 60.0
+                        - denom * positive * rtapi_fabs(tp->spindle.curr_vel_rps))
+                        * tp->spindle.direction; // (unit/(2*PI*sec)
+        tp_debug_print ("speed_req_rps(%f)\n", tp->spindle.speed_req_rps);
+        tp_debug_print ("css_req(%f)(unit/sec)\n", denom * tp->spindle.speed_req_rps * 2 * M_PI);
+        tp_debug_print ("css_cur(%f)\n", denom * tp->spindle.curr_vel_rps * 2 * M_PI);
+        tp_debug_print ("css_error(%f)(unit/(2*PI*sec))\n", tp->spindle.css_error);
+        tp_debug_print ("speed(%f) denom(%f) s.curr_vel(%f) css_factor(%f)\n",
+                speed, denom, tp->spindle.curr_vel_rps, tp->spindle.css_factor);
+        tp_debug_print ("spindle.direction(%d)\n", tp->spindle.direction);
+        //        DP ("synched-joint-vel(%f)(unit/sec)\n", tp->spindle.curr_vel_rps * tp->uu_per_rev);
+#if (CSS_TRACE!=0)
+        /* prepare data for gnuplot */
+        fprintf (csstrace, "%11d%15.9f%15.9f%19.9f%19.9f%19.9f\n"
+                , _dt
+                , denom
+                , tp->progress
+                , tp->spindle.css_factor / 60.0 * 2 * M_PI
+                , denom * tp->spindle.curr_vel_rps * 2 * M_PI
+                , (tp->spindle.css_factor / 60.0 * 2 * M_PI - denom * tp->spindle.curr_vel_rps * 2 * M_PI));
+        _dt += 1;
+#endif
     }
-//    else {
-//        // spindle is OFF
-//        tp->spindle.speed_req_rps = 0;
-//        tp->spindle.css_error = 0;
-//    }
+    else
+    {
+        // G97, G33 w/ G97 or G33.1
+        // net_spindle_scale is updated by control.c
+        speed_req = *tp->shared->net_spindle_scale * tp->spindle.speed_rps;
+        tp->spindle.css_error = 0;
+    }
 
-    return (tp->spindle.speed_req_rps);
+    return (speed_req);
 }
 
 /**
@@ -3640,7 +3662,7 @@ STATIC void tpSpindleCycle(TP_STRUCT * const tp)
      * but allows for move without velocity overshoot
      **/
     scale = *tp->shared->net_spindle_scale;  // net_spindle_scale is updated by control.c
-    speed_req = scale * tp->spindle.speed_req_rps;
+    speed_req = scale * tp->spindle.speed_rps;
     vel_err = speed_req - tp->spindle.curr_vel_rps;
 
     /* positive and negative errors require some sign flipping to
@@ -3685,7 +3707,7 @@ STATIC void tpSpindleCycle(TP_STRUCT * const tp)
 STATIC int tpHandelSpindle(TP_STRUCT * const tp)
 {
     /* for CSS motion, update its spindle position at tcUpdateSpindleAxisCSS() */
-    if (tp->spindle.css_factor == 0)
+    if (tp->spindle.synchronized == 0)
     {
         if ((tp->spindle.on) || ((tp->spindle.on == 0) && (tp->spindle.curr_vel_rps != 0)))
         {
@@ -3708,7 +3730,6 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
 #if (TRACE!=0)
     _dt += 1;
 #endif
-    
     // handle spindle velocity control for non-CSS motions
     tpHandelSpindle(tp);
 
@@ -3720,6 +3741,15 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
      * future segments don't exist (NULL pointers) as we check for this later).
      */
     tc = tcqItem(&tp->queue, 0);
+
+    if (tc) {
+        if (tc->motion_type == TC_SPINDLE) {
+            tpSetSpindle(tp, tc);
+            tpCompleteSegment(tp, tc);
+            tc = tcqItem(&tp->queue, 0);
+        }
+    }
+
     nexttc = tcqItem(&tp->queue, 1);
 
     //Set GUI status to "zero" state
@@ -3949,17 +3979,26 @@ int tpSetAout(TP_STRUCT * const tp, unsigned int index, double start, double end
 }
 
 /* tpSetSpindle(): setup speed_rps, direction, ... etc. */
-int tpSetSpindle(TP_STRUCT * tp)
+int tpSetSpindle(TP_STRUCT * tp, TC_STRUCT * tc)
 {
     if (0 == tp) {
         return TP_ERR_FAIL;
     }
 
-    tp_debug_print("(%s:%d) spindle.speed(%f) max_vel(%f) max_acc(%f) max_jerk(%f)\n", __FUNCTION__, __LINE__,
-            tp->spindle.speed, tp->spindle.max_vel, tp->spindle.max_acc, tp->spindle.max_jerk);
-    tp->spindle.speed_rps = tp->spindle.speed / 60.0;
-    tp->spindle.max_da = tp->spindle.max_jerk * tp->cycleTime;
+    // in tpAddSpindle, the vel/acc/jerk are not scaled with dt
+    tp->spindle.speed = tc->reqvel;
+    tp->spindle.speed_rps = tc->reqvel / 60.0; // speed(RPM) -> RPS
+    tp->spindle.speed_req_rps = 0; // requested spindle speed altered by CSS motion
+    tp->spindle.max_da = tc->jerk * tp->cycleTime;
     tp->spindle.tiny_dv = tp->spindle.max_da * tp->cycleTime * 0.001;
+
+    tp->spindle.css_factor = tc->spindle_css_factor;
+    tp->spindle.xoffset = tc->spindle_xoffset;
+    tp->spindle.on = tc->spindle_on;
+    tp->spindle.max_vel = tc->maxvel;
+    tp->spindle.max_acc = tc->maxaccel;
+    tp->spindle.max_jerk = tc->jerk;
+    tp->spindle.synchronized = tc->synchronized;
 
     if (tp->spindle.speed > 0) {
         tp->spindle.direction = 1;      // direction: 0 stopped, 1 forward, -1 reverse

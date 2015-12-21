@@ -35,7 +35,8 @@ typedef enum {
     TC_LINEAR = 1,
     TC_CIRCULAR = 2,
     TC_SPINDLE_SYNC_MOTION = 3,
-    TC_SPHERICAL = 4
+    TC_SPHERICAL = 4,
+    TC_SPINDLE = 5
 } tc_motion_type_t;
 
 typedef enum {
@@ -108,6 +109,7 @@ typedef struct {
     PmCartesian uvw;
     double s;                   // spindle-start-position
     double spindle_dir;
+    double css_factor;
     int mode;                   // G33(0), G33.1(1) G33.2(2)
 } PmSpindleSyncMotion;
 
@@ -173,7 +175,9 @@ typedef struct {
     int synchronized;       // spindle sync state
     double uu_per_rev;      // for sync, user units per rev (e.g. 0.0625 for 16tpi)
     int uu_updated;
-    double spindle_speed_rps;
+    double spindle_css_factor;
+    double spindle_xoffset;
+    int spindle_on;
 
     double vel_at_blend_start;
     unsigned char enables;  // Feed scale, etc, enable bits for this move

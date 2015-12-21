@@ -42,6 +42,9 @@ int tpAddCurrentPos(TP_STRUCT * const tp, EmcPose const * const disp);
 
 int tpSetCurrentPos(TP_STRUCT * const tp, EmcPose const * const pos);
 
+int tpAddSpindle(TP_STRUCT * const tp, double speed, double css_factor, double xoffest, int on,
+                 int axis, double ini_maxvel, double acc, double ini_maxjerk);
+
 int tpAddSpindleSyncMotion(TP_STRUCT *tp, EmcPose end, int type, double vel,
                            double ini_maxvel, double acc, double jerk,
                            int ssm_mode, unsigned char enables,
@@ -79,7 +82,7 @@ int tpGetAccelState(TP_STRUCT * tp);
 
 int tpSetSpindleSync(TP_STRUCT * tp, double sync, int wait);
 
-int tpSetSpindle(TP_STRUCT * tp);
+int tpSetSpindle(TP_STRUCT * tp, TC_STRUCT * tc);
 
 void tpUpdateSpindleAxis(TP_STRUCT const * const tp, EmcPose * const pos);
 

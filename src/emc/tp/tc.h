@@ -89,8 +89,7 @@ int tcSetupMotion(TC_STRUCT * const tc,
         double ini_maxvel,
         double acc,
         double ini_maxjerk,
-        double cycle_time,
-        double spindle_speed_rps);
+        double cycle_time);
 
 int tcSetupState(TC_STRUCT * const tc, TP_STRUCT const * const tp);
 
