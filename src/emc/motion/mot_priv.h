@@ -288,6 +288,9 @@ extern int num_dio;
    but can be altered at motmod insmod time */
 extern int num_aio;
 
+/* axis that maps as spindle */
+extern int spindle_axis;
+
 /* pointer to emcmot_hal_data_t struct in HAL shmem, with all HAL data */
 extern emcmot_hal_data_t *emcmot_hal_data;
 

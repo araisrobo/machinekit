@@ -66,6 +66,8 @@ static long traj_period_nsec = 0;	/* trajectory planner period */
 RTAPI_MP_LONG(traj_period_nsec, "trajectory planner period (nsecs)");
 int num_joints = EMCMOT_MAX_JOINTS;	/* default number of joints present */
 RTAPI_MP_INT(num_joints, "number of joints");
+int spindle_axis = DEFAULT_SPINDLE_AXIS;     /* define axis that maps as spindle */
+RTAPI_MP_INT(spindle_axis, "spindle axis");
 int num_dio = 4;			/* default number of motion synched DIO */
 RTAPI_MP_INT(num_dio, "number of digital inputs/outputs");
 int num_aio = 4;			/* default number of motion synched AIO */
@@ -221,6 +223,13 @@ int rtapi_app_main(void)
 	    _("MOTION: num_joints is %d, must be between 1 and %d\n"),
 	    num_joints, EMCMOT_MAX_JOINTS);
 	return -1;
+    }
+
+    if ((spindle_axis != -1) && (( spindle_axis < 3) || (spindle_axis > 8))) {
+        rtapi_print_msg(RTAPI_MSG_ERR,
+            _("MOTION: spindle_axis is %d, must be (between 4 and 8) or (%d)\n"),
+              spindle_axis, DEFAULT_SPINDLE_AXIS);
+        return -1;
     }
 
     if (( num_dio < 1 ) || ( num_dio > EMCMOT_MAX_DIO )) {
@@ -1106,6 +1115,7 @@ static int init_comm_buffers(void)
     emcmotStatus->heartbeat = 0;
     emcmotStatus->computeTime = 0.0;
     emcmotConfig->numJoints = num_joints;
+    emcmotConfig->spindleAxis = spindle_axis;
 
     ZERO_EMC_POSE(emcmotStatus->carte_pos_cmd);
     ZERO_EMC_POSE(emcmotStatus->carte_pos_fb);
@@ -1512,6 +1522,7 @@ static int init_shared(tp_shared_t *tps,
     // global module param
     tps->num_dio = &num_dio;
     tps->num_aio = &num_aio;
+    tps->spindle_axis = &spindle_axis;
 
     // from emcmotConfig
     tps->arcBlendGapCycles = &cfg->arcBlendGapCycles;

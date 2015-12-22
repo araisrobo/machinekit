@@ -27,6 +27,7 @@
 #define EMCMOT_MAX_JOINTS 9
 /* number of axes defined by the interp */ //FIXME: shouldn't be here..
 #define EMCMOT_MAX_AXIS 9
+#define DEFAULT_SPINDLE_AXIS -1 // disable SPINDLE_AXIS mapping
 
 #define EMCMOT_MAX_DIO 128
 #define EMCMOT_MAX_AIO 64

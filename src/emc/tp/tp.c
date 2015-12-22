@@ -1963,7 +1963,9 @@ STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc)
 /* tpAlignSpindleAxis - 同步主軸的起點和終點座標，避免產生額外的主軸動作 */
 static void tpAlignSpindleAxis(TP_STRUCT const * const tp, EmcPose * const start, EmcPose * const end)
 {
-    switch (tp->spindle.axis) {
+    int spindle_axis;
+    spindle_axis = get_spindle_axis(tp->shared);
+    switch (spindle_axis) {
         case -1: /* do not specify spindleAxis */
             break;
         case 3:
@@ -1975,9 +1977,18 @@ static void tpAlignSpindleAxis(TP_STRUCT const * const tp, EmcPose * const start
         case 5:
             end->c = start->c;
             break;
+        case 6:
+            end->u = start->u;
+            break;
+        case 7:
+            end->v = start->v;
+            break;
+        case 8:
+            end->w = start->w;
+            break;
         default:
             rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) incorrect spindleAxis(%d)\n", __FUNCTION__, __LINE__,
-                                            tp->spindle.axis);
+                                            spindle_axis);
             break;
     }
     return;
@@ -3605,7 +3616,9 @@ STATIC int tpHandleRegularCycle(TP_STRUCT * const tp,
 
 void tpUpdateSpindleAxis(TP_STRUCT const * const tp, EmcPose * const pos)
 {
-    switch (tp->spindle.axis) {
+    int spindle_axis;
+    spindle_axis = get_spindle_axis(tp->shared);
+    switch (spindle_axis) {
         case -1: /* do not specify spindleAxis */
             break;
         case 3:
@@ -3617,9 +3630,18 @@ void tpUpdateSpindleAxis(TP_STRUCT const * const tp, EmcPose * const pos)
         case 5:
             pos->c = pos->s;
             break;
+        case 6:
+            pos->u = pos->s;
+            break;
+        case 7:
+            pos->v = pos->s;
+            break;
+        case 8:
+            pos->w = pos->s;
+            break;
         default:
             rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) incorrect spindleAxis(%d)\n", __FUNCTION__, __LINE__,
-                                            tp->spindle.axis);
+                                             spindle_axis);
             break;
     }
     return;

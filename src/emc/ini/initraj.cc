@@ -228,9 +228,11 @@ static int loadTraj(EmcIniFile *trajInifile)
         }
 
         // find the AXIS_* that maps as SPINDLE
-        int spindleAxis = 5;
-        trajInifile->Find(&spindleAxis, "SPINDLE_AXIS", "TRAJ");
-        emcSetSpindleAxis(spindleAxis);
+        int spindleAxis = -1;
+        if (trajInifile->Find(&spindleAxis, "SPINDLE_AXIS", "TRAJ") == 0) { // ERR_NONE(0)
+            rcs_print("%s (%s:%d) spindleAxis(%d)\n", __FILE__, __FUNCTION__, __LINE__, spindleAxis);
+            emcSetSpindleAxis(spindleAxis);
+        }
 
     }
 

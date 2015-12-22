@@ -23,7 +23,7 @@ typedef struct tp_shared_t {
     // read-only by tp, config items
     hal_s32_t   *num_dio;
     hal_s32_t   *num_aio;
-
+    hal_s32_t   *spindle_axis;
     hal_s32_t   *arcBlendGapCycles;
     hal_s32_t   *arcBlendOptDepth;
     hal_bit_t   *arcBlendEnable;
@@ -85,6 +85,8 @@ static inline void set_num_dio(tp_shared_t *ts, int n)  { *(ts->num_dio) = n; }
 
 static inline int get_num_aio(tp_shared_t *ts)  { return *(ts->num_aio); }
 static inline void set_num_aio(tp_shared_t *ts, int n)  { *(ts->num_aio) = n; }
+
+static inline int get_spindle_axis(tp_shared_t *ts)  { return *(ts->spindle_axis); }
 
 static inline hal_float_t get_acc_limit(tp_shared_t *ts, int n)
 { return *(ts->acc_limit[n]); }

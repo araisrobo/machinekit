@@ -808,7 +808,7 @@ Suggestion: Split this in to an Error and a Status flag register..
 				   inclusive). Allegedly, holds a copy of the
 				   global num_joints - seems daft to maintain
 				   duplicates ! */
-
+	int spindleAxis;        /* the axis that maps as spindle */
 	double trajCycleTime;	/* the rate at which the trajectory loop
 				   runs.... (maybe) */
 	double servoCycleTime;	/* the rate of the servo loop - Not the same

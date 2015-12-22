@@ -729,7 +729,7 @@ static int localEmcTrajAxisMask = 0;
 static double localEmcTrajLinearUnits = 1.0;
 static double localEmcTrajAngularUnits = 1.0;
 static int localEmcTrajMotionId = 0;
-static int localSpindleAxis = 5;        // default to AXIS_5
+static int localSpindleAxis = DEFAULT_SPINDLE_AXIS; //!< default to -1 (disable Spindle Axis Mapping
 //FIXME if you can't beat em...
 static struct state_tag_t localEmcTrajTag;
 

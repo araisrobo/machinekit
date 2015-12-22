@@ -1733,7 +1733,6 @@ check_stuff ( "before command_handler()" );
 	    emcmotQueue->next_spindle.max_vel = emcmotCommand->ini_maxvel;
 	    emcmotQueue->next_spindle.max_acc = emcmotCommand->acc;
 	    emcmotQueue->next_spindle.max_jerk = emcmotCommand->ini_maxjerk;
-            emcmotQueue->spindle.axis = emcmotCommand->axis;    // axis that maps as spindle
             emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
 	    break;
 
@@ -1759,7 +1758,6 @@ check_stuff ( "before command_handler()" );
 	    emcmotQueue->next_spindle.max_vel = emcmotCommand->ini_maxvel;
 	    emcmotQueue->next_spindle.max_acc = emcmotCommand->acc;
 	    emcmotQueue->next_spindle.max_jerk = emcmotCommand->ini_maxjerk;
-	    emcmotQueue->spindle.axis = emcmotCommand->axis;    // axis that maps as spindle
             emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
 	    break;
 
