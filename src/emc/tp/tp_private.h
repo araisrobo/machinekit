@@ -36,7 +36,7 @@ struct state_tag_t tpGetExecTag(TP_STRUCT * const tp);
 
 int tpSetTermCond(TP_STRUCT * tp, int cond, double tolerance);
 
-int tpSetPos(TP_STRUCT * tp, EmcPose const * const pos);
+int tpSetPos(TP_STRUCT * tp, EmcPose * const pos);
 
 int tpAddCurrentPos(TP_STRUCT * const tp, EmcPose const * const disp);
 
@@ -65,7 +65,7 @@ int tpTcqInit(TP_STRUCT * tp);
 
 int tpAbort(TP_STRUCT * tp);
 
-int tpGetPos(TP_STRUCT const  * const tp, EmcPose * const pos);
+int tpGetPos(TP_STRUCT * const tp, EmcPose * const pos);
 
 int tpIsDone(TP_STRUCT * tp);
 
@@ -81,7 +81,9 @@ int tpSetSpindleSync(TP_STRUCT * tp, double sync, int wait);
 
 int tpSetSpindle(TP_STRUCT * tp, TC_STRUCT * tc);
 
-void tpUpdateSpindleAxis(TP_STRUCT const * const tp, EmcPose * const pos);
+void tpGetSpindleAxis(TP_STRUCT const * const tp, EmcPose * pos);
+
+void tpSetSpindleAxis(TP_STRUCT const * const tp, EmcPose * pos);
 
 void tpToggleDIOs(TP_STRUCT const * const tp,TC_STRUCT * tc); //gets called when a new tc is taken from the queue. it checks and toggles all needed DIO's
 

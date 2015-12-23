@@ -652,11 +652,14 @@ int tpSetTermCond(TP_STRUCT * const tp, int cond, double tolerance)
  * It sets the current position AND the goal position to be the same.  Used
  * only at TP initialization and when switching modes.
  */
-int tpSetPos(TP_STRUCT * const tp, EmcPose const * const pos)
+int tpSetPos(TP_STRUCT * const tp, EmcPose * const pos)
 {
     if (0 == tp) {
         return TP_ERR_FAIL;
     }
+
+    // set spindle position from spindle_axis
+    tpSetSpindleAxis(tp, pos); // pos.s <= pos.[ABCUVW]
 
     int res_invalid = tpSetCurrentPos(tp, pos);
     if (res_invalid) {
@@ -3613,8 +3616,46 @@ STATIC int tpHandleRegularCycle(TP_STRUCT * const tp,
     return TP_ERR_OK;
 }
 
+/**
+ * tpSetSpindleAxis - set spindle position from spindle_axis
+ */
+void tpSetSpindleAxis(TP_STRUCT const * const tp, EmcPose * pos)
+{
+    int spindle_axis;
+    spindle_axis = get_spindle_axis(tp->shared);
+    switch (spindle_axis) {
+        case -1: /* do not specify spindleAxis */
+            break;
+        case 3:
+            pos->s = pos->a;
+            break;
+        case 4:
+            pos->s = pos->b;
+            break;
+        case 5:
+            pos->s = pos->c;
+            break;
+        case 6:
+            pos->s = pos->u;
+            break;
+        case 7:
+            pos->s = pos->v;
+            break;
+        case 8:
+            pos->s = pos->w;
+            break;
+        default:
+            rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) incorrect spindleAxis(%d)\n", __FUNCTION__, __LINE__,
+                                             spindle_axis);
+            break;
+    }
+    return;
+}
 
-void tpUpdateSpindleAxis(TP_STRUCT const * const tp, EmcPose * const pos)
+/**
+ * tpGetSpindleAxis - get spindle position for spindle_axis
+ */
+void tpGetSpindleAxis(TP_STRUCT const * const tp, EmcPose * pos)
 {
     int spindle_axis;
     spindle_axis = get_spindle_axis(tp->shared);
@@ -3698,13 +3739,13 @@ STATIC void tpSpindleCycle(TP_STRUCT * const tp)
     /* integrate acceleration to get new velocity */
     tp->spindle.curr_vel_rps += tp->spindle.curr_acc * tp->cycleTime;
     tp->currentPos.s += tp->spindle.curr_vel_rps * tp->cycleTime;
-    tpUpdateSpindleAxis(tp, &tp->currentPos);
+    tpGetSpindleAxis(tp, &tp->currentPos);
 
     return;
 }
 
 
-STATIC int tpHandelSpindle(TP_STRUCT * const tp)
+STATIC int tpHandleSpindle(TP_STRUCT * const tp)
 {
     /* for CSS motion, update its spindle position at tcUpdateSpindleAxisCSS() */
     if (tp->spindle.synchronized == 0)
@@ -3731,7 +3772,7 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
     _dt += 1;
 #endif
     // handle spindle velocity control for non-CSS motions
-    tpHandelSpindle(tp);
+    tpHandleSpindle(tp);
 
     //Pointers to current and next trajectory component
     TC_STRUCT *tc;
@@ -3919,16 +3960,16 @@ int tpGetAccelState(TP_STRUCT * const tp)
     return tp->accelState;
 }
 
-int tpGetPos(TP_STRUCT const * const tp, EmcPose * const pos)
+int tpGetPos(TP_STRUCT * const tp, EmcPose * const pos)
 {
 
     if (0 == tp) {
         ZERO_EMC_POSE((*pos));
         return TP_ERR_FAIL;
     } else {
+        tpGetSpindleAxis(tp, &(tp->currentPos)); // get spindle position for spindle_axis <= pos.s
         *pos = tp->currentPos;
     }
-
     return TP_ERR_OK;
 }
 

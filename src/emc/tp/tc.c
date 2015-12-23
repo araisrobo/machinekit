@@ -276,7 +276,7 @@ int tcUpdateSyncSpindleAxis(TP_STRUCT const * const tp, TC_STRUCT const * const 
     // 若是主軸同步運動，則更新 tcRunCycle 計算出來的新的主軸位置命令
     if (tc->synchronized) {
         tp_debug_print ("(%s:%d) css_factor(%f) motion_type(%d) tc->synchronized(%d)\n", __FUNCTION__, __LINE__, tp->spindle.css_factor, tc->motion_type, tc->synchronized);
-        tpUpdateSpindleAxis(tp, pos);
+        tpGetSpindleAxis(tp, pos);
     }
     return 0;
 }
