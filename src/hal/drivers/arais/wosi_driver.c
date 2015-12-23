@@ -116,6 +116,9 @@ typedef struct
     double scale_recip; /* reciprocal value used for scaling */
     double vel_cmd_t; /* velocity command (units/cycle_time) */
     double prev_pos_cmd; /* prev pos_cmd: previous position command */
+    double pos_cmd;
+    double risc_probe_vel;
+
     hal_float_t *probed_pos;
     hal_float_t *pos_fb; /* pin: position feedback (position units) */
     hal_float_t *risc_pos_cmd; /* pin: position command issued by RISC (position units) */
@@ -216,9 +219,12 @@ typedef struct
     hal_bit_t *coord_mode;
 
     uint32_t prev_machine_ctrl; // num_joints is not included
-    hal_bit_t *machine_on;
+    hal_bit_t *machine_on; // delayed amp_enable by external component
+    hal_bit_t amp_enable;
+    hal_u32_t rb_tick;
 
     hal_bit_t *update_pos_req;
+    hal_bit_t update_pos_ack;
     hal_u32_t *rcmd_seq_num_req;
     hal_u32_t *rcmd_seq_num_ack;
     hal_u32_t *rcmd_state;
@@ -1462,7 +1468,7 @@ int wosi_driver_init(int hal_comp_id, char *inifile)
 
 #if (TRACE==1)
     /* prepare header for gnuplot */
-    DPS("#%10s", "dt");
+    DPS("#%10s#%10s", "dt", "tick");
     for (int n = 0; n < num_joints; n++)
     {
         DPS("      int_pcmd[%d]", n);
@@ -1475,7 +1481,7 @@ int wosi_driver_init(int hal_comp_id, char *inifile)
 
 #if (TRACE==3)
     /* prepare header for gnuplot */
-    DPS("#%10s", "dt");
+    DPS("#%10s#%10s", "dt", "tick");
     for (int n = 0; n < NUM_DEBUG; n++)
     {
         DPS("         debug[%d]", n);
@@ -1544,6 +1550,17 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     wosi_status(&w_param); // print bandwidth utilization
 #endif
 
+    /* buffer servo_tick in case of race condition */
+    machine_control->update_pos_ack = (tick_jcmd->cmd & (1 << TICK_UPDATE_POS_ACK));
+    machine_control->amp_enable = (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE));
+    machine_control->rb_tick = (tick_jcmd->_tick);
+    for (n = 0; n < num_joints; n++)
+    {
+        stepgen = &(stepgen_array[n]);
+        stepgen->pos_cmd = tick_jcmd->pos_cmd[n];
+        stepgen->risc_probe_vel = tick_jcmd->risc_probe_vel[n];
+    }
+
     /* begin set analog trigger level*/
     if (*machine_control->analog_ref_level
             != machine_control->prev_analog_ref_level)
@@ -1608,7 +1625,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     }
     /* end: */
 
-    if (tick_jcmd->cmd & (1 << TICK_UPDATE_POS_ACK))
+    if (machine_control->update_pos_ack)
     {
         int32_t dbuf[2];
         dbuf[0] = RCMD_UPDATE_POS_ACK;
@@ -1616,14 +1633,12 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 2);
         // Reset update_pos_req after sending a RCMD_UPDATE_POS_ACK packet
         *machine_control->update_pos_req = 0;
-
         // reset prev_pos_cmd and related variables
         for (n = 0; n < num_joints; n++)
         {
             stepgen = &(stepgen_array[n]);
-            stepgen->prev_pos_cmd = tick_jcmd->pos_cmd[n];
-            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
-                                * stepgen->pos_scale;
+            stepgen->prev_pos_cmd = stepgen->pos_cmd;
+            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE * stepgen->pos_scale;
         }
     }
 
@@ -1743,9 +1758,9 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 
 #if (TRACE==1)
     _dt++;
-    if (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE))
+    if (machine_control->amp_enable)
     {
-        DPS("%11u", _dt); // %11u: '#' + %10s
+        DPS("%11u%11u", _dt, machine_control->rb_tick); // %11u: '#' + %10s
     }
 #endif
 
@@ -1870,7 +1885,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         *(stepgen->vel_fb) = *(stepgen->enc_vel_p) * stepgen->scale_recip
                 * recip_dt * FP_SCALE_RECIP;
 
-        if ((tick_jcmd->cmd & (1 << TICK_AMP_ENABLE)) == 0)
+        if ((machine_control->amp_enable) == 0)
         {
             /* AXIS not PWR-ON */
             /* reload_params only when machine-is-off */
@@ -1889,7 +1904,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             }
 
             /* to prevent position drift while toggeling "PWR-ON" switch */
-            (stepgen->prev_pos_cmd) = tick_jcmd->pos_cmd[n];
+            (stepgen->prev_pos_cmd) = stepgen->pos_cmd;
             stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE * stepgen->pos_scale;
 
             if (*(stepgen->set_enc_req)) {
@@ -1904,10 +1919,10 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             }
         }
 
-        if (tick_jcmd->risc_probe_vel[n] == 0)
+        if (stepgen->risc_probe_vel == 0)
             stepgen->risc_probing = 0;
 
-        if ((*stepgen->homing) && (tick_jcmd->risc_probe_vel[n] != 0)
+        if ((*stepgen->homing) && (stepgen->risc_probe_vel != 0)
                 && (stepgen->risc_probing == 0)
                 && (*machine_control->rcmd_state == RCMD_IDLE))
         {
@@ -1917,7 +1932,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             dbuf[1] = n  // joint_num
                     | (*stepgen->risc_probe_type << 8)
                     | (*stepgen->risc_probe_pin << 16);
-            dbuf[2] = tick_jcmd->risc_probe_vel[n] * stepgen->pos_scale * dt
+            dbuf[2] = stepgen->risc_probe_vel * stepgen->pos_scale * dt
                       *FIXED_POINT_SCALE; // fixed-point 16.16
             dbuf[3] = *stepgen->risc_probe_dist * stepgen->pos_scale; // distance in pulse
             send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 4);
@@ -1938,10 +1953,6 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
                     | ((*machine_control->trigger_cond & 0x1) << 30)
                     | ((*machine_control->probing & 0x1) << 31);
             // distance in pulse
-//            printf("level(%d) din(%d) ain(%d)\n type(%d) cond(%d) probing(%d)\n",
-//            		*machine_control->trigger_level, *machine_control->trigger_din,
-//            		*machine_control->trigger_ain, *machine_control->trigger_type,
-//            		*machine_control->trigger_cond, *machine_control->probing);
             send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 2);
             machine_control->prev_probing = *machine_control->probing;
         }
@@ -1950,38 +1961,40 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         int32_t pulse_accel;
         int32_t pulse_jerk;
 
-        if (tick_jcmd->cmd & (1 << TICK_UPDATE_POS_ACK))
-        {
-            (stepgen->prev_pos_cmd) = tick_jcmd->pos_cmd[n];
-            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
-                    * stepgen->pos_scale;
-        }
-        stepgen->vel_cmd_t = (tick_jcmd->pos_cmd[n] - (stepgen->prev_pos_cmd));
+        stepgen->vel_cmd_t = (stepgen->pos_cmd - (stepgen->prev_pos_cmd));
         *stepgen->vel_cmd = stepgen->vel_cmd_t * recip_dt;
 
         integer_pos_cmd = (int32_t) (stepgen->vel_cmd_t * (stepgen->pos_scale)
                 * FIXED_POINT_SCALE);
 
-        // integer_pos_cmd is indeed pulse_vel (velocity in pulse)
-        if (abs(integer_pos_cmd) > stepgen->pulse_maxv)
-        {
-            pulse_accel = integer_pos_cmd - stepgen->pulse_vel;
-            pulse_jerk = pulse_accel - stepgen->pulse_accel;
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d]: assert(integer_pos_cmd(%d) > pulse_maxv(%d))\n", n, integer_pos_cmd, stepgen->pulse_maxv);
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pos_fb(%f) ferror(%f)\n", n, (*stepgen->pos_fb), (*stepgen->ferror));
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], vel_cmd(%f,unit/s) pos_cmd(%f) prev_pos_cmd(%f)\n", n,
-                    *stepgen->vel_cmd, tick_jcmd->pos_cmd[n],
+        if ((machine_control->update_pos_ack)) {
+            rtapi_print_msg(RTAPI_MSG_DBG, "(%s:%d) j[%d], vel_cmd(%f,unit/s) tick_jcmp.pos_cmd(%f) stepgen.pos_cmd(%f) prev_pos_cmd(%f)\n", __FUNCTION__, __LINE__,
+                    n,
+                    *stepgen->vel_cmd, tick_jcmd->pos_cmd[n], stepgen->pos_cmd,
                     (stepgen->prev_pos_cmd));
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n", n,
-                    integer_pos_cmd, pulse_accel, pulse_jerk);
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], PREV pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
-                    n, stepgen->pulse_vel, stepgen->pulse_accel,
-                    stepgen->pulse_jerk);
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_maxv(%d), pulse_maxa(%d), pulse_maxj(%d)\n", n,
-                    stepgen->pulse_maxv, stepgen->pulse_maxa,
-                    stepgen->pulse_maxj);
+            assert (tick_jcmd->pos_cmd[n] == stepgen->pos_cmd);
+        } else {
+            // integer_pos_cmd is indeed pulse_vel (velocity in pulse)
+            if (abs(integer_pos_cmd) > stepgen->pulse_maxv)
+            {
+                pulse_accel = integer_pos_cmd - stepgen->pulse_vel;
+                pulse_jerk = pulse_accel - stepgen->pulse_accel;
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d]: assert(integer_pos_cmd(%d) > pulse_maxv(%d))\n", n, integer_pos_cmd, stepgen->pulse_maxv);
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pos_fb(%f) ferror(%f)\n", n, (*stepgen->pos_fb), (*stepgen->ferror));
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], vel_cmd(%f,unit/s) pos_cmd(%f) prev_pos_cmd(%f)\n", n,
+                        *stepgen->vel_cmd, stepgen->pos_cmd,
+                        (stepgen->prev_pos_cmd));
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n", n,
+                        integer_pos_cmd, pulse_accel, pulse_jerk);
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], PREV pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
+                        n, stepgen->pulse_vel, stepgen->pulse_accel,
+                        stepgen->pulse_jerk);
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_maxv(%d), pulse_maxa(%d), pulse_maxj(%d)\n", n,
+                        stepgen->pulse_maxv, stepgen->pulse_maxa,
+                        stepgen->pulse_maxj);
+            }
+            assert(abs(integer_pos_cmd) <= stepgen->pulse_maxv);
         }
-        assert(abs(integer_pos_cmd) <= stepgen->pulse_maxv);
         pulse_accel = integer_pos_cmd - stepgen->pulse_vel;
         pulse_jerk = pulse_accel - stepgen->pulse_accel;
         stepgen->pulse_vel = integer_pos_cmd;
@@ -1995,7 +2008,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             if (wosi_pos_cmd >= 8192)
             {
                 rtapi_print_msg(RTAPI_MSG_ERR, "j(%d) pos_cmd(%f) prev_pos_cmd(%f) vel_cmd_t(%f)\n", n,
-                        tick_jcmd->pos_cmd[n], (stepgen->prev_pos_cmd),
+                        stepgen->pos_cmd, (stepgen->prev_pos_cmd),
                         stepgen->vel_cmd_t);
                 rtapi_print_msg(RTAPI_MSG_ERR, "wosi.c: wosi_pos_cmd(%d) too large\n",
                         wosi_pos_cmd);
@@ -2069,7 +2082,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     }
 
 #if (TRACE==1)
-    if (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE))
+    if (machine_control->amp_enable)
     {
         DPS("\n");
     }
