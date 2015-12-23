@@ -17,6 +17,7 @@ enum MotionType {
     _EMC_MOTION_TYPE_TOOLCHANGE = 4;
     _EMC_MOTION_TYPE_PROBING = 5;
     _EMC_MOTION_TYPE_INDEXROTARY = 6;
+    _EMC_MOTION_TYPE_SPINDLE_SYNC_MOTION = 7;
 };
 
 enum  cmd_code_t  {
