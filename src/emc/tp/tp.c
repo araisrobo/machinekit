@@ -2875,18 +2875,28 @@ void tpToggleDIOs(TP_STRUCT const * const tp,
 
 STATIC void tpSetUuPerRev(TP_STRUCT * const tp, TC_STRUCT * const tc)
 {
-    if(tc->uu_updated == 0)
+    if (tc)
     {
-        PmCartesian uu;
-        tc->uu_updated = 1;
+        if(tc->uu_updated == 0)
+        {
+            PmCartesian uu;
+            tc->uu_updated = 1;
 
-        if (tc->uu_per_rev != 0.0) {
-            uu.x = tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.x;
-            uu.y = tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.y;
-            uu.z = tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.z;
-        } else {
-            uu = (PmCartesian){0.0, 0.0, 0.0};
+            if (tc->uu_per_rev != 0.0) {
+                uu.x = tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.x;
+                uu.y = tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.y;
+                uu.z = tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.z;
+            } else {
+                uu = (PmCartesian){0.0, 0.0, 0.0};
+            }
+            SetUuPerRev(tp->shared, uu);
         }
+    }
+    else
+    {
+        // called by tpSetSpindle() to reset uu_per_rev
+        PmCartesian uu;
+        uu = (PmCartesian){0.0, 0.0, 0.0};
         SetUuPerRev(tp->shared, uu);
     }
     return;
@@ -3892,17 +3902,18 @@ int tpRunCycle(TP_STRUCT * const tp, long period)
     return TP_ERR_OK;
 }
 
-int tpSetSpindleSync(TP_STRUCT * const tp, double sync, int mode) {
+int tpSetSpindleSync(TP_STRUCT * const tp, double sync, int mode)
+{
+    tp->uu_per_rev = sync;
     if(sync) {
         /* specified by START_SPEED_FEED_SYNCH() of interp_convert.cc or emccanon.cc */
         if (mode == 0)
             tp->synchronized = TC_SYNC_POSITION;
         else
             tp->synchronized = TC_SYNC_VELOCITY;
-        tp->uu_per_rev = sync;
-    } else
+    } else {
         tp->synchronized = 0;
-
+    }
     return TP_ERR_OK;
 }
 
@@ -4049,6 +4060,7 @@ int tpSetSpindle(TP_STRUCT * tp, TC_STRUCT * tc)
         tp->spindle.max_acc             = tp->next_spindle.max_acc;
         tp->spindle.max_jerk            = tp->next_spindle.max_jerk;
         tp->spindle.synchronized        = tp->synchronized;
+        tpSetUuPerRev(tp, NULL);        //!< to reset uu_per_rev
     }
 
     if (tp->spindle.speed > 0) {
