@@ -6,10 +6,10 @@ M3S90
 F100
 G1X10
 G1X20
-M3S30
+S30
 G1X30
 G1X25
-M3S100
+S100
 G1X15
 M5 ; should stop blending while stopping spindle
 G1X0 

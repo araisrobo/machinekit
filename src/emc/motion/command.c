@@ -975,6 +975,7 @@ check_stuff ( "before command_handler()" );
             if(!is_feed_type(emcmotCommand->motion_type) && emcmotStatus->spindle.css_factor) {
                 emcmotStatus->atspeed_next_feed = 1;
             }
+
             /* append it to the emcmotDebug->tp */
             emcmotConfig->vtp->tpSetId(&emcmotDebug->tp, emcmotCommand->id);
             int res_addline = emcmotConfig->vtp->tpAddLine(&emcmotDebug->tp,
@@ -1714,16 +1715,7 @@ check_stuff ( "before command_handler()" );
 	    *(emcmot_hal_data->spindle_orient) = 0;
 	    emcmotStatus->spindle.orient_state = EMCMOT_ORIENT_NONE;
 
-	    emcmotStatus->spindle.speed = emcmotCommand->vel;
-	    emcmotStatus->spindle.css_factor = emcmotCommand->css_factor;
-	    emcmotStatus->spindle.xoffset = emcmotCommand->xoffset;
-	    if (emcmotCommand->vel >= 0) {
-		emcmotStatus->spindle.direction = 1;
-	    } else {
-		emcmotStatus->spindle.direction = -1;
-	    }
-	    emcmotStatus->spindle.brake = 0; //disengage brake
-	    emcmotStatus->atspeed_next_feed = 1;
+	    emcmotStatus->atspeed_next_feed = !(emcmotQueue->spindle.on);
 
 	    emcmotQueue->next_spindle_updated = 0; // reset flag
 	    emcmotQueue->next_spindle.speed = emcmotCommand->vel; // RPM
@@ -1739,9 +1731,6 @@ check_stuff ( "before command_handler()" );
 	case EMCMOT_SPINDLE_OFF:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_OFF");
 
-	    emcmotStatus->spindle.speed = 0;
-	    emcmotStatus->spindle.direction = 0;
-	    emcmotStatus->spindle.brake = 1; // engage brake
 	    if (*(emcmot_hal_data->spindle_orient))
 		rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_ORIENT cancelled by SPINDLE_OFF");
 	    if (*(emcmot_hal_data->spindle_locked))
@@ -1763,6 +1752,7 @@ check_stuff ( "before command_handler()" );
 
 	case EMCMOT_SPINDLE_ORIENT:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_ORIENT");
+            reportError(_("EMCMOT_SPINDLE_ORIENT is not verified yet"));
 	    if (*(emcmot_hal_data->spindle_orient)) {
 		rtapi_print_msg(RTAPI_MSG_DBG, "orient already in progress");
 
@@ -1791,30 +1781,47 @@ check_stuff ( "before command_handler()" );
 
 	case EMCMOT_SPINDLE_INCREASE:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_INCREASE");
-	    if (emcmotStatus->spindle.speed > 0) {
-		emcmotStatus->spindle.speed += 100; //FIXME - make the step a HAL parameter
-	    } else if (emcmotStatus->spindle.speed < 0) {
-		emcmotStatus->spindle.speed -= 100;
+	    if (emcmotQueue->spindle.speed > 0) {
+	        emcmotQueue->spindle.speed += 100; //FIXME - make the step a HAL parameter
+	    } else if (emcmotQueue->spindle.speed < 0) {
+	        emcmotQueue->spindle.speed -= 100;
 	    }
             emcmotQueue->next_spindle_updated = 0; // reset flag
-            emcmotQueue->next_spindle.speed = emcmotStatus->spindle.speed;
+            emcmotQueue->next_spindle.speed = emcmotQueue->spindle.speed;
+            /**
+             * if emcmotQueue->depth == 0
+             * then
+             *     update emcmotStatus->spindle.speed from emcmotQueue->next_spindle.speed
+             * else
+             *     update emcmotStatus->spindle.speed from emcmotQueue->spindle.speed
+             **/
             emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
             break;
 
 	case EMCMOT_SPINDLE_DECREASE:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_DECREASE");
-	    if (emcmotStatus->spindle.speed > 100) {
-		emcmotStatus->spindle.speed -= 100; //FIXME - make the step a HAL parameter
-	    } else if (emcmotStatus->spindle.speed < -100) {
-		emcmotStatus->spindle.speed += 100;
-	    }
+            if (emcmotQueue->spindle.speed > 100) {
+                emcmotQueue->spindle.speed -= 100; //FIXME - make the step a HAL parameter
+            } else if (emcmotQueue->spindle.speed < -100) {
+                emcmotQueue->spindle.speed += 100;
+            } else {
+                emcmotQueue->spindle.speed = 0;
+            }
             emcmotQueue->next_spindle_updated = 0; // reset flag
-            emcmotQueue->next_spindle.speed = emcmotStatus->spindle.speed;
+            emcmotQueue->next_spindle.speed = emcmotQueue->spindle.speed;
+            /**
+             * if emcmotQueue->depth == 0
+             * then
+             *     update emcmotStatus->spindle.speed from emcmotQueue->next_spindle.speed
+             * else
+             *     update emcmotStatus->spindle.speed from emcmotQueue->spindle.speed
+             **/
             emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
             break;
 
 	case EMCMOT_SPINDLE_BRAKE_ENGAGE:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_BRAKE_ENGAGE");
+            reportError(_("EMCMOT_SPINDLE_BRAKE_ENGAGE is not verified yet"));
 	    emcmotStatus->spindle.speed = 0;
 	    emcmotStatus->spindle.direction = 0;
 	    emcmotStatus->spindle.brake = 1;

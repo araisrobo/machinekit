@@ -1522,7 +1522,6 @@ static int init_shared(tp_shared_t *tps,
     // global module param
     tps->num_dio = &num_dio;
     tps->num_aio = &num_aio;
-    tps->spindle_axis = &spindle_axis;
 
     // from emcmotConfig
     tps->arcBlendGapCycles = &cfg->arcBlendGapCycles;
@@ -1543,6 +1542,11 @@ static int init_shared(tp_shared_t *tps,
     tps->spindle_index_enable = &status->spindle_index_enable;
     tps->spindle_is_atspeed = &status->spindle_is_atspeed; // or pin
     tps->spindleSync = &status->spindleSync;
+    tps->spindle_axis = &spindle_axis;
+    tps->spindle_css_factor = &status->spindle.css_factor;
+    tps->spindle_xoffset = &status->spindle.xoffset;
+    tps->spindle_brake = &status->spindle.brake;
+
     tps->current_vel = &status->current_vel;
     tps->requested_vel = &status->requested_vel;
     tps->distance_to_go = &status->distance_to_go;

@@ -4059,6 +4059,12 @@ int tpSetSpindle(TP_STRUCT * tp, TC_STRUCT * tc)
         tp->spindle.direction = -1;
     }
 
+    set_spindle_speed(tp->shared, tp->spindle.speed);
+    set_spindle_css_factor(tp->shared, tp->spindle.css_factor);
+    set_spindle_xoffset(tp->shared, tp->spindle.xoffset);
+    set_spindle_direction(tp->shared, tp->spindle.direction);
+    set_spindle_brake(tp->shared, !(tp->spindle.on));
+
     return TP_ERR_OK;
 }
 
