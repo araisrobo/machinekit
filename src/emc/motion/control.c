@@ -1303,7 +1303,7 @@ static void handle_usbmot_sync(void)
 
     if ((emcmotStatus->depth == 0) ||
         ((emcmotStatus->pause_state == PS_PAUSING) && (emcmotStatus->current_vel <= TP_VEL_EPSILON)))
-    {   // ACK when no more EMCMOT motion commands, and machine is STOPPING
+    {   // ACK when no more EMCMOT motion commands, or machine is STOPPING
         emcmotStatus->update_pos_ack = *emcmot_hal_data->update_pos_req;
     }
     else
@@ -1357,7 +1357,7 @@ static void handle_usbmot_sync(void)
             /* copy coarse command */
             positions[joint_num] = joint->coarse_pos;
 //            rtapi_print (
-//                    _("handle_special_cmd: j[%d] risc_pos_cmd(%f) pos_cmd(%f) pos_fb(%f) curr_pos(%f) motor_offset(%f)\n"),
+//                    _("(%s:%d): j[%d] risc_pos_cmd(%f) pos_cmd(%f) pos_fb(%f) curr_pos(%f) motor_offset(%f)\n"), __FUNCTION__, __LINE__,
 //                    joint_num,
 //                    joint->risc_pos_cmd,
 //                    joint->pos_cmd,
