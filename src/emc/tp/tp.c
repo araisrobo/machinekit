@@ -1567,6 +1567,7 @@ int tpAddSpindleSyncMotion(
     // tc.target: set as revolutions of spindle
     if (ssm_mode < 2) {
         tc.target = line_xyz.tmag / tp->uu_per_rev;
+        // tc.uu_per_rev was set inside tpSetupState()
     } else {
         double start_angle = tp->goalPos.s - rtapi_floor(tp->goalPos.s);
         tc.target = (end.s / 360.0 - start_angle) * tc.coords.spindle_sync.spindle_dir;
@@ -1574,6 +1575,7 @@ int tpAddSpindleSyncMotion(
         {
             tc.target += 1;        // move toward spindle_end_angle
         }
+        tc.uu_per_rev = 0;
     }
 
     tp_info_print("jerk(%f) req_vel(%f) req_acc(%f) ini_maxvel(%f)\n", jerk, vel, acc, ini_maxvel);
@@ -2882,7 +2884,7 @@ STATIC void tpSetUuPerRev(TP_STRUCT * const tp, TC_STRUCT * const tc)
             PmCartesian uu;
             tc->uu_updated = 1;
 
-            if (tc->uu_per_rev != 0.0) {
+            if (tc->uu_per_rev != 0) {
                 uu.x = tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.x;
                 uu.y = tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.y;
                 uu.z = tc->uu_per_rev * tc->coords.spindle_sync.xyz.uVec.z;
