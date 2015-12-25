@@ -1333,21 +1333,12 @@ static void handle_usbmot_sync(void)
         int joint_num;
         emcmot_joint_t *joint;
         double positions[EMCMOT_MAX_JOINTS];
-        double prev_pos_cmd;
 
         for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++) {
             /* point to joint struct */
             joint = &joints[joint_num];
             /* copy risc_pos_cmd feedback */
-
-            // FIXME: we just update probed joint don't update other joints.
-            //        risc_pos_cmd is (*stepgen->cmd_fbs) multiply stepgen->scale_recip
-            //        can not resolve all the data
-            prev_pos_cmd = joint->pos_cmd;
             joint->pos_cmd = joint->risc_pos_cmd - joint->backlash_filt - joint->motor_offset - joint->blender_offset;
-            if(rtapi_fabs(joint->pos_cmd - prev_pos_cmd) <= rtapi_fabs(joint->scale_recip)) {
-                joint->pos_cmd = prev_pos_cmd;
-            }
             joint->coarse_pos = joint->pos_cmd;
             joint->free_pos_cmd = joint->pos_cmd;
             /* to reset cubic parameters */
@@ -1357,12 +1348,12 @@ static void handle_usbmot_sync(void)
             /* copy coarse command */
             positions[joint_num] = joint->coarse_pos;
 //            rtapi_print (
-//                    _("(%s:%d): j[%d] risc_pos_cmd(%f) pos_cmd(%f) pos_fb(%f) curr_pos(%f) motor_offset(%f)\n"), __FUNCTION__, __LINE__,
+//                    _("(%s:%d): j[%d] risc_pos_cmd(%f) pos_cmd(%f) pos_fb(%f) free_pos_cmd(%f) motor_offset(%f)\n"), __FUNCTION__, __LINE__,
 //                    joint_num,
 //                    joint->risc_pos_cmd,
 //                    joint->pos_cmd,
 //                    joint->pos_fb,
-//                    joint->free_tp.curr_pos,
+//                    joint->free_pos_cmd,
 //                    joint->motor_offset);
 //            rtapi_print(
 //                      _("enable(%d) result(%d) rcmd_fbs(%d) req_vel(%d) cur_acc(%d) cur_vel(%d)\n"),
