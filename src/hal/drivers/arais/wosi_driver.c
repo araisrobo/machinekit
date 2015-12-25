@@ -136,7 +136,7 @@ typedef struct
     /* motion type be set */
     int32_t motion_type; /* motion type wrote to risc */
 
-    hal_s32_t *cmd_pos; /* position command retained by RISC (unit: pulse) */
+    hal_s32_t *risc_pos_cmd_pulse; /* position command inside RISC (unit: pulse) */
     hal_s32_t *enc_vel_p; /* encoder velocity in pulse per servo-period */
 
     hal_bit_t *homing;
@@ -347,7 +347,7 @@ static void fetchmail(const uint8_t *buf_head)
             p += 1;
             *(stepgen->enc_pos) = (int32_t) *p;
             p += 1;
-            *(stepgen->cmd_pos) = (int32_t) *p;
+            *(stepgen->risc_pos_cmd_pulse) = (int32_t) *p;
             p += 1;
             *(stepgen->enc_vel_p) = (int32_t) *p; // encoder velocity in pulses per servo-period
             stepgen += 1; // point to next joint
@@ -1877,7 +1877,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         }
 
         *(stepgen->pos_fb) = (*stepgen->enc_pos) * stepgen->scale_recip;
-        *(stepgen->risc_pos_cmd) = (*stepgen->cmd_pos) * stepgen->scale_recip;
+        *(stepgen->risc_pos_cmd) = (*stepgen->risc_pos_cmd_pulse) * stepgen->scale_recip;
         *(stepgen->ferror) = *(stepgen->risc_pos_cmd) - *(stepgen->pos_fb);
 
         // update velocity-feedback based on RISC-reported encoder-velocity
@@ -2138,8 +2138,8 @@ static int export_stepgen(int num, stepgen_t * addr)
 {
     int retval;
 
-    retval = hal_pin_s32_newf(HAL_OUT, &(addr->cmd_pos), comp_id,
-            "wosi.stepgen.%d.cmd-pos", num);
+    retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_pos_cmd_pulse), comp_id,
+            "wosi.stepgen.%d.risc-pos-cmd-pulse", num);
     if (retval != 0)
     {
         return retval;
