@@ -108,16 +108,12 @@ int emcAxisSetUnits(int axis, double units)
     return 0;
 }
 
-int emcAxisSetBacklash(int axis, double backlash, double input_scale)
+int emcAxisSetBacklash(int axis, double backlash)
 {
 #ifdef ISNAN_TRAP
     if (rtapi_isnan(backlash)) {
 	printf("isnan error for backlash in emcAxisSetBacklash()\n");
 	return -1;
-    }
-    if (rtapi_isnan(input_scale)) {
-        printf("isnan error for input_scale in emcAxisSetBacklash()\n");
-        return -1;
     }
 #endif
 
@@ -128,7 +124,6 @@ int emcAxisSetBacklash(int axis, double backlash, double input_scale)
     emcmotCommand.command = EMCMOT_SET_BACKLASH;
     emcmotCommand.axis = axis;
     emcmotCommand.backlash = backlash;
-    emcmotCommand.scale = input_scale;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }

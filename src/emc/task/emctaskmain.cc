@@ -1976,8 +1976,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	set_backlash_msg = (EMC_AXIS_SET_BACKLASH *) cmd;
 	retval =
 	    emcAxisSetBacklash(set_backlash_msg->axis,
-			       set_backlash_msg->backlash,
-			       set_backlash_msg->input_scale);
+			       set_backlash_msg->backlash);
 	break;
 
     case EMC_AXIS_SET_HOMING_PARAMS_TYPE:

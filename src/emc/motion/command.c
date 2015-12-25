@@ -702,7 +702,6 @@ check_stuff ( "before command_handler()" );
 		break;
 	    }
 	    joint->backlash = emcmotCommand->backlash;
-	    joint->scale_recip = 1.0 / emcmotCommand->scale;
 	    break;
 
 	    /*
