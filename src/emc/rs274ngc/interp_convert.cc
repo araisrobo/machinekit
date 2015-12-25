@@ -4594,7 +4594,7 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
     //  * Spindle must be on; and its initial speed must be 0 (M3S0)
     //  * usage: G33.2 A[ABSOLUTE_ANGLE] K[RPM]
     //           move spindle to ABSOLUTE_ANGLE with RPM speed
-    double angle, orig_feed_rate;
+    double angle;
     CHKS(((settings->spindle_turning != CANON_CLOCKWISE) &&
             (settings->spindle_turning != CANON_COUNTERCLOCKWISE)),
             _("Spindle not turning in G33.2"));

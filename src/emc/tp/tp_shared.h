@@ -54,7 +54,7 @@ typedef struct tp_shared_t {
 
     hal_float_t *spindle_css_factor;    // in struct spindle_status
     hal_float_t *spindle_xoffset;       // in struct spindle_status
-    hal_bit_t   *spindle_brake;
+    hal_s32_t   *spindle_brake;
 
     hal_float_t *current_vel;
     hal_float_t *dtg[9]; // an EmcPose
