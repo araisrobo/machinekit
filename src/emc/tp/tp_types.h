@@ -101,7 +101,6 @@ typedef struct {
     double curr_vel_rps;
     int synchronized;       // set for spindle-synchronized-motions: G97 w/ G33, G96 w/ G33, G33.1, G33.2 ...
 
-    int waiting_for_index;
     int waiting_for_atspeed;
 
     // TODO: obsoleted params:

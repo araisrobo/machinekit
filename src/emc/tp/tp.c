@@ -485,7 +485,6 @@ int tpInit(TP_STRUCT * const tp)
     tp->wMax = 0.0;
     tp->wDotMax = 0.0;
 
-    tp->spindle.waiting_for_index = MOTION_INVALID_ID;
     tp->spindle.waiting_for_atspeed = MOTION_INVALID_ID;
 
     ZERO_EMC_POSE(tp->currentPos);
@@ -3065,9 +3064,8 @@ STATIC int tpHandleAbort(TP_STRUCT * const tp, TC_STRUCT * const tc,
         return TP_ERR_NO_ACTION;
     }
     //If the motion has stopped, then it's safe to reset the TP struct.
-    if( MOTION_ID_VALID(tp->spindle.waiting_for_index) ||
-            MOTION_ID_VALID(tp->spindle.waiting_for_atspeed) ||
-            (tc->currentvel == 0.0 && (!nexttc || nexttc->currentvel == 0.0))) {
+    if( MOTION_ID_VALID(tp->spindle.waiting_for_atspeed) ||
+        (tc->currentvel == 0.0 && (!nexttc || nexttc->currentvel == 0.0))) {
         tcqInit(&tp->queue);
         tp->goalPos = tp->currentPos;
         tp->done = 1;
@@ -3075,7 +3073,6 @@ STATIC int tpHandleAbort(TP_STRUCT * const tp, TC_STRUCT * const tc,
         tp->aborting = 0;
         tp->motionType = 0;
         tp->synchronized = 0;
-        tp->spindle.waiting_for_index = MOTION_INVALID_ID;
         tp->spindle.waiting_for_atspeed = MOTION_INVALID_ID;
 	set_spindleSync(tp->shared, 0);
         tpResume(tp);
@@ -3094,15 +3091,6 @@ STATIC int tpHandleAbort(TP_STRUCT * const tp, TC_STRUCT * const tc,
 STATIC int tpCheckAtSpeed(TP_STRUCT * const tp, TC_STRUCT * const tc)
 {
 
-    // this is no longer the segment we were waiting_for_index for
-    if (MOTION_ID_VALID(tp->spindle.waiting_for_index) && tp->spindle.waiting_for_index != tc->id)
-    {
-        rtapi_print_msg(RTAPI_MSG_ERR,
-                "Was waiting for index on motion id %d, but reached id %d\n",
-                tp->spindle.waiting_for_index, tc->id);
-        tp->spindle.waiting_for_index = MOTION_INVALID_ID;
-    }
-
     if (MOTION_ID_VALID(tp->spindle.waiting_for_atspeed) && tp->spindle.waiting_for_atspeed != tc->id)
     {
 
@@ -3118,17 +3106,6 @@ STATIC int tpCheckAtSpeed(TP_STRUCT * const tp, TC_STRUCT * const tc)
             return TP_ERR_WAITING;
         } else {
             tp->spindle.waiting_for_atspeed = MOTION_INVALID_ID;
-        }
-    }
-
-    if (MOTION_ID_VALID(tp->spindle.waiting_for_index)) {
-        if (get_spindle_index_enable(tp->shared)) {
-            /* haven't passed index yet */
-            return TP_ERR_WAITING;
-        } else {
-            /* passed index, start the move */
-            set_spindleSync(tp->shared, 1);
-            tp->spindle.waiting_for_index = MOTION_INVALID_ID;
         }
     }
 
@@ -3153,8 +3130,7 @@ STATIC int tpActivateSegment(TP_STRUCT * const tp, TC_STRUCT * const tc) {
     }
 
     // Do at speed checks that only happen once
-    int needs_atspeed = tc->atspeed ||
-        (tc->synchronized == TC_SYNC_POSITION && !(get_spindleSync(tp->shared)));
+    int needs_atspeed = tc->atspeed;
 
     if ( needs_atspeed && !(get_spindle_is_atspeed(tp->shared))) {
         tp->spindle.waiting_for_atspeed = tc->id;
@@ -3190,17 +3166,6 @@ STATIC int tpActivateSegment(TP_STRUCT * const tp, TC_STRUCT * const tc) {
     tp->motionType = tc->canon_motion_type;
     tc->blending_next = 0;
     tc->on_final_decel = 0;
-
-    tp_debug_print("TODO: implement waiting_for_index for spindle@tp\n");
-//    if (TC_SYNC_POSITION == tc->synchronized && !(get_spindleSync(tp->shared))) {
-//        tp_debug_print("Setting up position sync\n");
-//        // if we aren't already synced, wait
-//        tp->spindle.waiting_for_index = tc->id;
-//        // ask for an index reset
-//        set_spindle_index_enable(tp->shared, 1);
-//        rtapi_print_msg(RTAPI_MSG_DBG, "Waiting on sync...\n");
-//        return TP_ERR_WAITING;
-//    }
 
     // Update the modal state displayed by the TP
     tp->execTag = tc->tag;
