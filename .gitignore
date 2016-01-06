@@ -71,3 +71,4 @@ src/hal/cython/machinekit/*.c
 .cproject
 .project
 .pydevproject
+core
