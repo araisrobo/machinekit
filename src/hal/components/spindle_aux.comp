@@ -111,6 +111,7 @@ static double vel_ctrl(double vel_cmd, double period, double maxJerk, double max
 FUNCTION(_)
 {
     static spindle_state_t cur_state = S_IDLE;
+    static int error_reported;
     
     // rtapi_print_msg (RTAPI_MSG_DBG, "cur_state(%d)", cur_state);
 
@@ -121,6 +122,7 @@ FUNCTION(_)
     switch (cur_state) {
     case S_IDLE:
         curr_vel = 0;
+        error_reported = 0;
         if (on) {
             cur_state = S_VEL_MODE;
         }
@@ -128,7 +130,15 @@ FUNCTION(_)
 
     case S_VEL_MODE:
         if (css_factor != 0) {
-            vel_req = css_error_velocity_cmd / aux_radius;
+            if (aux_radius > 0) {
+                vel_req = css_error_velocity_cmd / aux_radius;
+            } else {
+                vel_req = 0;
+                if (!error_reported) {
+                    rtapi_print_msg (RTAPI_MSG_ERR, "spindle_aux.aux-radius is %f", aux_radius);
+                    error_reported = 1;
+                }
+            }
         } else {
             vel_req = velocity_cmd;
         }
