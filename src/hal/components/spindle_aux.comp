@@ -170,16 +170,11 @@ FUNCTION(_)
             at_speed = 0;
         }
     } else {
-        if ((rtapi_fabs(1 - feedback_vel/vel_req)) <= at_speed_range) {
+        if ((rtapi_fabs(vel_req - feedback_vel)) <= vel_req * at_speed_range) {
             at_speed = 1;
         } else {
             at_speed = 0;
         }
-    }
-
-    if (!on)
-    {
-        at_speed = 0;
     }
 
     speed_rpm = curr_vel * 60.0;
