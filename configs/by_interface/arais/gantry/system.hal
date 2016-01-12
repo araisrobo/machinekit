@@ -22,7 +22,7 @@ loadrt [KINS]KINEMATICS
 loadrt tp
 ##############################################################################
 # motion controller, get name and thread periods from ini file
-loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=[EMCMOT]NUM_DIO num_aio=[EMCMOT]NUM_AIO num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=[EMCMOT]NUM_DIO num_aio=[EMCMOT]NUM_AIO spindle_axis=[TRAJ]SPINDLE_AXIS num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
 newinst rgantry rgantry.0 pincount=2
 
 # tick message flow: servo_tick => ring_jcmd => wosi_trans
@@ -74,7 +74,6 @@ net current-vel   wosi.motion.current-vel <= motion.current-vel
 # y-axis gantry
 net ypos-cmd  rgantry.0.position-cmd     <= axis.1.motor-pos-cmd
 net ypos-fb   rgantry.0.position-fb      => axis.1.motor-pos-fb
-setp rgantry.0.search-vel [AXIS_1]HOME_SEARCH_VEL
 
 
 # create HAL signals for position commands from motion module
