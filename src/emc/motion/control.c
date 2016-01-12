@@ -1335,6 +1335,12 @@ static void handle_usbmot_sync(void)
         double positions[EMCMOT_MAX_JOINTS];
 
         for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++) {
+
+            // bypass spindle position update if it is running
+            if ((joint_num == *(emcmot_hal_data->spindle_joint_id)) && (*(emcmot_hal_data->spindle_on))) {
+                continue;
+            }
+
             /* point to joint struct */
             joint = &joints[joint_num];
             /* copy risc_pos_cmd feedback */
