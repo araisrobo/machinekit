@@ -165,6 +165,7 @@ typedef struct {
 
     // simplest way of spindle control (output start/stop)
     hal_bit_t *spindle_on;	/* spindle spin output */
+    hal_s32_t *spindle_joint_id;
 
     // same thing for 2 directions
     hal_bit_t *spindle_forward;	/* spindle spin-forward output */

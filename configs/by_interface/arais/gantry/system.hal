@@ -290,6 +290,7 @@ setp            wosi.stepgen.5.jog-vel   [JOINT_5]JOG_VEL
 # addf sim_spindle servo-thread
 # # end of sim_spindle_encoder.hal
 setp wosi.motion.spindle-joint-id [TRAJ]SPINDLE_JOINT
+setp motion.spindle-joint-id [TRAJ]SPINDLE_JOINT
 
 net bp-tick     <= wosi.bp-tick
 
