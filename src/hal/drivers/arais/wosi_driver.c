@@ -202,8 +202,6 @@ typedef struct
     double prev_ahc_level;
     hal_s32_t *accel_state;
     hal_s32_t prev_accel_state;
-    hal_u32_t *jog_sel;
-    hal_s32_t *jog_vel_scale;
 
     /* command channel for emc2 */
     hal_u32_t *wosi_cmd;
@@ -238,6 +236,7 @@ typedef struct
     hal_bit_t *sfifo_empty;
 
     hal_u32_t *spindle_joint_id;
+    hal_u32_t *spindle_aux_joint_id;
 
     hal_bit_t *gantry_en;
     uint32_t gantry_ctrl;
@@ -672,23 +671,21 @@ static int system_initialize(FILE *fp)
             ;
 
         /**
-         *  MACHINE_CTRL,   // [31:28]  JOG_VEL_SCALE
+         *  MACHINE_CTRL,   // [31:28]  SPINDLE_AUX_JOINT_ID
          *                  // [27:24]  SPINDLE_JOINT_ID
          *                  // [23:16]  NUM_JOINTS
-         *                  // [l5: 8]  JOG_SEL
-         *                                  [15]: MPG(1), CONT(0)
-         *                                  [14]: RESERVED
-         *                                  [13:8]: J[5:0], EN(1), DISABLE(0)
+         *                  // [l5: 8]  OBSOLETED: JOG_SEL
          *                  // [ 7: 4]  ACCEL_STATE, the FSM state of S-CURVE-VELOCITY profile
-         *                  // [ 3: 1]  MOTION_MODE:
+         *                  // [    3]  HOMING
+         *                  // [ 2: 1]  MOTION_MODE:
          *                                  FREE    (0)
          *                                  TELEOP  (1)
          *                                  COORD   (2)
-         *                                  HOMING  (4)
          *                  // [    0]  MACHINE_ON
          **/
         // configure NUM_JOINTS after all joint parameters are set
-        immediate_data = (num_joints << 16); // assume motion_mode(0) and pid_enable(0)
+        immediate_data = (0xFF << 24) | // reset SPINDLE_*_ID to 0xF (invalid joint value)
+                         (num_joints << 16); // assume motion_mode(0) and pid_enable(0)
         write_machine_param(MACHINE_CTRL, (uint32_t) immediate_data);
         while (wosi_flush(&w_param) == -1)
             ;
@@ -1575,41 +1572,35 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 
     /* begin motion_mode */
     /**
-     *  MACHINE_CTRL,   // [31:28]  JOG_VEL_SCALE
+     *  MACHINE_CTRL,   // [31:28]  SPINDLE_AUX_JOINT_ID
      *                  // [27:24]  SPINDLE_JOINT_ID
      *                  // [23:16]  NUM_JOINTS
-     *                  // [l5: 8]  JOG_SEL
-     *                                  [15]: MPG(1), CONT(0)
-     *                                  [14]: RESERVED
-     *                                  [13:8]: J[5:0], EN(1)
-     *                  // [ 7: 4]  ACCEL_STATE
-     *                  // [ 3: 1]  MOTION_MODE:
+     *                  // [l5: 8]  OBSOLETED: JOG_SEL
+     *                  // [ 7: 4]  ACCEL_STATE, the FSM state of S-CURVE-VELOCITY profile
+     *                  // [    3]  HOMING
+     *                  // [ 2: 1]  MOTION_MODE:
      *                                  FREE    (0)
      *                                  TELEOP  (1)
      *                                  COORD   (2)
-     *                                  HOMING  (4)
      *                  // [    0]  MACHINE_ON
      **/
-
     homing = 0;
     for (n = 0; n < num_joints; n++)
     {
         homing |= *(stepgen_array[n].homing);
     }
 
-    assert(abs(*machine_control->jog_vel_scale) < 8);
-    tmp = (*machine_control->jog_vel_scale << 28)
-            | (*machine_control->jog_sel << 8)
-            | (*machine_control->accel_state << 4) | (homing << 3)
+    tmp = (*machine_control->accel_state << 4) | (homing << 3)
             | (*machine_control->coord_mode << 2)
             | (*machine_control->teleop_mode << 1)
             | (*machine_control->machine_on);
     if (tmp != machine_control->prev_machine_ctrl)
     {
         machine_control->prev_machine_ctrl = tmp;
-        immediate_data = (num_joints << 16) | tmp;
-        immediate_data = ((*machine_control->spindle_joint_id) << 24)
-                | immediate_data;
+        immediate_data = tmp |
+                         (num_joints << 16) |
+                         ((*machine_control->spindle_joint_id) << 24) |
+                         ((*machine_control->spindle_aux_joint_id) << 28);
         write_machine_param(MACHINE_CTRL, (uint32_t) immediate_data);
     }
 
@@ -2481,22 +2472,6 @@ static int export_machine_control(machine_control_t * machine_control)
     *(machine_control->accel_state) = 0;
     machine_control->prev_accel_state = 0;
 
-    retval = hal_pin_u32_newf(HAL_IN, &(machine_control->jog_sel), comp_id,
-            "wosi.motion.jog-sel");
-    if (retval != 0)
-    {
-        return retval;
-    }
-    *(machine_control->jog_sel) = 0;
-
-    retval = hal_pin_s32_newf(HAL_IN, &(machine_control->jog_vel_scale),
-            comp_id, "wosi.motion.jog-vel-scale");
-    if (retval != 0)
-    {
-        return retval;
-    }
-    *(machine_control->jog_vel_scale) = 0;
-
     retval = hal_pin_s32_newf(HAL_OUT, &(machine_control->mpg_count), comp_id,
             "wosi.mpg_count");
     if (retval != 0)
@@ -2649,7 +2624,15 @@ static int export_machine_control(machine_control_t * machine_control)
     {
         return retval;
     }
-    *(machine_control->spindle_joint_id) = 0;
+    *(machine_control->spindle_joint_id) = 0xF;
+
+    retval = hal_pin_u32_newf(HAL_IN, &(machine_control->spindle_aux_joint_id),
+            comp_id, "wosi.motion.spindle-aux-joint-id");
+    if (retval != 0)
+    {
+        return retval;
+    }
+    *(machine_control->spindle_aux_joint_id) = 0xF;
 
     retval = hal_pin_u32_newf(HAL_IN, &(machine_control->trigger_din), comp_id,
             "wosi.trigger.din");

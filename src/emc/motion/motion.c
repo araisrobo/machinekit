@@ -401,10 +401,12 @@ static int init_hal_io(void)
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_speed_cmd_rps), mot_comp_id, "motion.spindle-speed-cmd-rps")) < 0) goto error;
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->spindle_inhibit), mot_comp_id, "motion.spindle-inhibit")) < 0) goto error;
     if ((retval = hal_pin_s32_newf(HAL_IN, &(emcmot_hal_data->spindle_joint_id), mot_comp_id, "motion.spindle-joint-id")) < 0) goto error;
+    if ((retval = hal_pin_s32_newf(HAL_IN, &(emcmot_hal_data->spindle_aux_joint_id), mot_comp_id, "motion.spindle-aux-joint-id")) < 0) goto error;
     *(emcmot_hal_data->spindle_inhibit) = 0;
     *(emcmot_hal_data->css_factor) = 0;
     *(emcmot_hal_data->css_error) = 0;
     *(emcmot_hal_data->spindle_joint_id) = -1;
+    *(emcmot_hal_data->spindle_aux_joint_id) = -1;
 
     // spindle orient pins
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_orient_angle), mot_comp_id, "motion.spindle-orient-angle")) < 0) goto error;
