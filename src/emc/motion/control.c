@@ -1337,8 +1337,11 @@ static void handle_usbmot_sync(void)
         for (joint_num = 0; joint_num < emcmotConfig->numJoints; joint_num++) {
 
             // bypass spindle position update if it is running
-            if ((joint_num == *(emcmot_hal_data->spindle_joint_id)) && (*(emcmot_hal_data->spindle_on))) {
-                continue;
+            if (*(emcmot_hal_data->spindle_on)) {
+                if ((joint_num == *(emcmot_hal_data->spindle_joint_id)) ||
+                    (joint_num == *(emcmot_hal_data->spindle_aux_joint_id))) {
+                    continue;
+                }
             }
 
             /* point to joint struct */
