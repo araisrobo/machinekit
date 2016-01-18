@@ -770,18 +770,15 @@ int emcJointUnhome(int joint)
 	return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcJogCont(int nr, double vel)
+int emcJogCont(int nr, double vel, int jjogmode)
 {
-    if (nr < 0 || nr >= EMCMOT_MAX_JOINTS) {
-	return 0;
-    }
-
-    if (vel > JointConfig[nr].MaxVel) {
-	vel = JointConfig[nr].MaxVel;
-    } else if (vel < -JointConfig[nr].MaxVel) {
-	vel = -JointConfig[nr].MaxVel;
-    }
-
+    if (jjogmode) {
+        if (nr < 0 || nr >= EMCMOT_MAX_JOINTS) { return 0; }
+        if (vel > JointConfig[nr].MaxVel) {
+            vel = JointConfig[nr].MaxVel;
+        } else if (vel < -JointConfig[nr].MaxVel) {
+            vel = -JointConfig[nr].MaxVel;
+        }
     if (JointConfig[nr].SyncEnable && (emcmotStatus.motion_state == EMCMOT_MOTION_FREE)) {
         // synchronize jog for gantry joint
         emcmotCommand.command = EMCMOT_JOG_CONT;
@@ -790,25 +787,33 @@ int emcJogCont(int nr, double vel)
         usrmotWriteEmcmotCommand(&emcmotCommand);
     }
 
+        emcmotCommand.joint = nr;
+        emcmotCommand.axis = -1;  //NA
+    } else {
+        if (nr < 0 || nr >= EMCMOT_MAX_AXIS) { return 0; }
+        if (vel > AxisConfig[nr].MaxVel) {
+            vel = AxisConfig[nr].MaxVel;
+        } else if (vel < -AxisConfig[nr].MaxVel) {
+            vel = -AxisConfig[nr].MaxVel;
+        }
+        emcmotCommand.joint = -1; //NA
+        emcmotCommand.axis = nr;
+    }
     emcmotCommand.command = EMCMOT_JOG_CONT;
-    emcmotCommand.joint = nr;
     emcmotCommand.vel = vel;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcJogIncr(int nr, double incr, double vel)
+int emcJogIncr(int nr, double incr, double vel, int jjogmode)
 {
-    if (nr < 0 || nr >= EMCMOT_MAX_JOINTS) {
-	return 0;
-    }
-
-    if (vel > JointConfig[nr].MaxVel) {
-	vel = JointConfig[nr].MaxVel;
-    } else if (vel < -JointConfig[nr].MaxVel) {
-	vel = -JointConfig[nr].MaxVel;
-    }
-    
+    if (jjogmode) {
+        if (nr < 0 || nr >= EMCMOT_MAX_JOINTS) { return 0; }
+        if (vel > JointConfig[nr].MaxVel) {
+            vel = JointConfig[nr].MaxVel;
+        } else if (vel < -JointConfig[nr].MaxVel) {
+            vel = -JointConfig[nr].MaxVel;
+        }
     if (JointConfig[nr].SyncEnable && (emcmotStatus.motion_state == EMCMOT_MOTION_FREE)) {
         // synchronize jog for gantry joint
         emcmotCommand.command = EMCMOT_JOG_INCR;
@@ -818,26 +823,34 @@ int emcJogIncr(int nr, double incr, double vel)
         usrmotWriteEmcmotCommand(&emcmotCommand);
     }
 
+        emcmotCommand.joint = nr;
+        emcmotCommand.axis = -1; //NA
+    } else {
+        if (nr < 0 || nr >= EMCMOT_MAX_AXIS) { return 0; }
+        if (vel > AxisConfig[nr].MaxVel) {
+            vel = AxisConfig[nr].MaxVel;
+        } else if (vel < -AxisConfig[nr].MaxVel) {
+            vel = -AxisConfig[nr].MaxVel;
+        }
+        emcmotCommand.joint = -1; //NA
+        emcmotCommand.axis = nr;
+    }
     emcmotCommand.command = EMCMOT_JOG_INCR;
-    emcmotCommand.joint = nr;
     emcmotCommand.vel = vel;
     emcmotCommand.offset = incr;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcJogAbs(int nr, double pos, double vel)
+int emcJogAbs(int nr, double pos, double vel, int jjogmode)
 {
-    if (nr < 0 || nr >= EMCMOT_MAX_JOINTS) {
-	return 0;
-    }
-
-    if (vel > JointConfig[nr].MaxVel) {
-	vel = JointConfig[nr].MaxVel;
-    } else if (vel < -JointConfig[nr].MaxVel) {
-	vel = -JointConfig[nr].MaxVel;
-    }
-
+    if (jjogmode) {        
+        if (nr < 0 || nr >= EMCMOT_MAX_JOINTS) { return 0; }
+        if (vel > JointConfig[nr].MaxVel) {
+            vel = JointConfig[nr].MaxVel;
+        } else if (vel < -JointConfig[nr].MaxVel) {
+            vel = -JointConfig[nr].MaxVel;
+        }
     if (JointConfig[nr].SyncEnable && (emcmotStatus.motion_state == EMCMOT_MOTION_FREE)) {
         // synchronize jog for gantry joint
         emcmotCommand.command = EMCMOT_JOG_ABS;
@@ -847,22 +860,37 @@ int emcJogAbs(int nr, double pos, double vel)
         usrmotWriteEmcmotCommand(&emcmotCommand);
     }
 
+        emcmotCommand.joint = nr;
+        emcmotCommand.axis = -1; //NA
+    } else {
+        if (nr < 0 || nr >= EMCMOT_MAX_AXIS) { return 0; }
+        if (vel > AxisConfig[nr].MaxVel) {
+            vel = AxisConfig[nr].MaxVel;
+        } else if (vel < -AxisConfig[nr].MaxVel) {
+            vel = -AxisConfig[nr].MaxVel;
+        }
+        emcmotCommand.joint = -1; //NA
+        emcmotCommand.axis = nr;
+    }
     emcmotCommand.command = EMCMOT_JOG_ABS;
-    emcmotCommand.joint = nr;
     emcmotCommand.vel = vel;
     emcmotCommand.offset = pos;
 
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcJogStop(int nr)
+int emcJogStop(int nr, int jjogmode)
 {
-    if (nr < 0 || nr >= EMCMOT_MAX_JOINTS) {
-	return 0;
+    if (jjogmode) {
+        if (nr < 0 || nr >= EMCMOT_MAX_JOINTS) { return 0; }
+        emcmotCommand.joint = nr;
+        emcmotCommand.axis = -1; //NA
+    } else {
+        if (nr < 0 || nr >= EMCMOT_MAX_AXIS) { return 0; }
+        emcmotCommand.joint = -1; //NA
+        emcmotCommand.axis = nr;
     }
     emcmotCommand.command = EMCMOT_JOINT_ABORT;
-    emcmotCommand.joint = nr;
-
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
