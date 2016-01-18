@@ -22,7 +22,7 @@ loadrt [KINS]KINEMATICS
 loadrt tp
 ##############################################################################
 # motion controller, get name and thread periods from ini file
-loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=[EMCMOT]NUM_DIO num_aio=[EMCMOT]NUM_AIO num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=[EMCMOT]NUM_DIO num_aio=[EMCMOT]NUM_AIO spindle_axis=[TRAJ]SPINDLE_AXIS num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
 newinst rgantry rgantry.0 pincount=2
 
 # tick message flow: servo_tick => ring_jcmd => wosi_trans
@@ -74,7 +74,6 @@ net current-vel   wosi.motion.current-vel <= motion.current-vel
 # y-axis gantry
 net ypos-cmd  rgantry.0.position-cmd     <= axis.1.motor-pos-cmd
 net ypos-fb   rgantry.0.position-fb      => axis.1.motor-pos-fb
-setp rgantry.0.search-vel [AXIS_1]HOME_SEARCH_VEL
 
 
 # create HAL signals for position commands from motion module
@@ -139,6 +138,7 @@ net J3-risc-pos-cmd wosi.stepgen.3.risc-pos-cmd => axis.2.risc-pos-cmd
 net J4-risc-pos-cmd wosi.stepgen.4.risc-pos-cmd => axis.3.risc-pos-cmd
 
 # for usb-homing:
+setp axis.0.joint-id        0
 setp axis.0.home-sw-id      [JOINT_0]HOME_SW_ID
 net [JOINT_0]HOME_SW_NET    axis.0.home-sw-in
 net j0-homing               axis.0.homing => wosi.stepgen.0.homing
@@ -147,9 +147,13 @@ net j0-risc-probe-pin       axis.0.risc-probe-pin => wosi.stepgen.0.risc-probe-p
 net j0-risc-probe-type      axis.0.risc-probe-type => wosi.stepgen.0.risc-probe-type
 
 # for usb-homing: y-axis gantry
+setp axis.1.joint-id                    1
 setp axis.1.home-sw-id                  [JOINT_1]HOME_SW_ID
+setp rgantry.0.homing-abs-enc           [JOINT_1]ENC_ABS
 setp rgantry.0.joint.00.home-sw-id      [JOINT_1]HOME_SW_ID
 setp rgantry.0.joint.01.home-sw-id      [JOINT_2]HOME_SW_ID
+setp rgantry.0.joint.00.home-offset     [AXIS_1]HOME_OFFSET
+setp rgantry.0.joint.01.home-offset     [AXIS_1]HOME_OFFSET_GANTRY_SLAVE
 net  [JOINT_1]HOME_SW_NET               => rgantry.0.joint.00.home-sw-i
 net  [JOINT_2]HOME_SW_NET               => rgantry.0.joint.01.home-sw-i
 net  a1-home-sw axis.1.home-sw-in       <= rgantry.0.home                     
@@ -173,6 +177,7 @@ net  j2-risc-probe-type                 <= rgantry.0.joint.01.risc-probe-type-o
 net  j2-risc-probe-type                 => wosi.stepgen.2.risc-probe-type
 
 # for usb-homing:
+setp axis.2.joint-id        3
 setp axis.2.home-sw-id      [JOINT_3]HOME_SW_ID
 net [JOINT_3]HOME_SW_NET    axis.2.home-sw-in
 net j3-homing               axis.2.homing => wosi.stepgen.3.homing
@@ -181,6 +186,7 @@ net j3-risc-probe-pin       axis.2.risc-probe-pin => wosi.stepgen.3.risc-probe-p
 net j3-risc-probe-type      axis.2.risc-probe-type => wosi.stepgen.3.risc-probe-type
 
 # for usb-homing:
+setp axis.3.joint-id        4
 setp axis.3.home-sw-id      [JOINT_4]HOME_SW_ID
 net [JOINT_4]HOME_SW_NET    axis.3.home-sw-in
 net j4-homing               axis.3.homing => wosi.stepgen.4.homing
@@ -223,42 +229,12 @@ net ahc-doing   wosi.ahc.doing
 net ahc-level   wosi.ahc.level 
 
 # jog-vel is mm/sec
-setp            wosi.stepgen.0.jog-vel   [AXIS_0]MAX_VELOCITY
-setp            wosi.stepgen.1.jog-vel   [AXIS_1]MAX_VELOCITY
-setp            wosi.stepgen.2.jog-vel   [AXIS_1]MAX_VELOCITY
-setp            wosi.stepgen.3.jog-vel   [AXIS_2]MAX_VELOCITY
-setp            wosi.stepgen.4.jog-vel   [AXIS_3]MAX_VELOCITY
+setp            wosi.stepgen.0.jog-vel   [JOINT_0]JOG_VEL
+setp            wosi.stepgen.1.jog-vel   [JOINT_1]JOG_VEL
+setp            wosi.stepgen.2.jog-vel   [JOINT_1]JOG_VEL
+setp            wosi.stepgen.3.jog-vel   [JOINT_3]JOG_VEL
+setp            wosi.stepgen.4.jog-vel   [JOINT_4]JOG_VEL
 
-# spindle control
-# # refer to ysli 2015-07-26 for spindle speed scale
-# # spindle-DAC = spindle-speed-cmd(RPM) * 65536 * 10000 / (20 * 560 * 1500) * 6(GEAR-BOX-RATIO)
-# setp            mult2.0.in0                        234.05712
-# net spindle-vel motion.spindle-speed-out        => mult2.0.in1
-# net aout_01     wosi.analog.out.01              <= mult2.0.out
-# net spindle-vel => motion.spindle-speed-in
-# 
-# # copy from sim_spindle_encoder.hal
-# loadrt sim_spindle names=sim_spindle
-# setp sim_spindle.scale 0.01666667
-# loadrt near names=near_speed
-# # encoder reset control
-# # hook up motion controller's sync output
-# net spindle-index-enable motion.spindle-index-enable <=> sim_spindle.index-enable
-# # report our revolution count to the motion controller
-# net spindle-pos sim_spindle.position-fb => motion.spindle-revs
-# # spindle speed control
-# net spindle-vel sim_spindle.velocity-cmd
-# # for spindle velocity estimate
-# net spindle-vel near_speed.in2
-# # at-speed detection
-# setp near_speed.scale 1.1
-# setp near_speed.difference 10
-# net spindle-vel => near_speed.in1
-# net spindle-at-speed near_speed.out motion.spindle-at-speed
-# addf near_speed servo-thread
-# addf sim_spindle servo-thread
-# # end of sim_spindle_encoder.hal
-setp wosi.motion.spindle-joint-id [TRAJ]SPINDLE_JOINT
 
 net bp-tick     <= wosi.bp-tick
 
