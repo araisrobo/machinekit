@@ -20,7 +20,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <signal.h>
-#include <math.h>
+#include "rtapi_math.h"
 
 #include "hal.h"		/* access to HAL functions/definitions */
 #include "rtapi.h"		/* rtapi_print_msg */
@@ -195,8 +195,8 @@ struct PTR {
 
 template<class T> struct NATIVE {};
 template<> struct NATIVE<hal_bit_t> { typedef bool type; };
-template<> struct NATIVE<hal_s32_t> { typedef rtapi_s32 type; };
-template<> struct NATIVE<hal_u32_t> { typedef rtapi_u32 type; };
+template<> struct NATIVE<hal_s32_t> { typedef __s32 type; };
+template<> struct NATIVE<hal_u32_t> { typedef __u32 type; };
 template<> struct NATIVE<hal_float_t> { typedef double type; };
 struct VALUE {
     template<class T> struct field { typedef typename NATIVE<T>::type type; };
@@ -1149,7 +1149,7 @@ static int sendSpindleForward()
 {
     EMC_SPINDLE_ON emc_spindle_on_msg;
     if (emcStatus->task.activeSettings[2] != 0) {
-	emc_spindle_on_msg.speed = fabs(emcStatus->task.activeSettings[2]);
+	emc_spindle_on_msg.speed = rtapi_fabs(emcStatus->task.activeSettings[2]);
     } else {
 	emc_spindle_on_msg.speed = +1;
     }
@@ -1161,7 +1161,7 @@ static int sendSpindleReverse()
     EMC_SPINDLE_ON emc_spindle_on_msg;
     if (emcStatus->task.activeSettings[2] != 0) {
 	emc_spindle_on_msg.speed =
-	    -1 * fabs(emcStatus->task.activeSettings[2]);
+	    -1 * rtapi_fabs(emcStatus->task.activeSettings[2]);
     } else {
 	emc_spindle_on_msg.speed = -1;
     }
@@ -1797,7 +1797,7 @@ static void check_hal_changes()
 
     // if the jog-speed changes while in a continuous jog, we want to
     // re-start the jog with the new speed
-    if (fabs(old_halui_data.jjog_speed - new_halui_data.jjog_speed) > 0.00001) {
+    if (rtapi_fabs(old_halui_data.jjog_speed - new_halui_data.jjog_speed) > 0.00001) {
         old_halui_data.jjog_speed = new_halui_data.jjog_speed;
         jjog_speed_changed = 1;
     } else {
@@ -1808,7 +1808,7 @@ static void check_hal_changes()
 
     // if the jog-speed changes while in a continuous jog, we want to
     // re-start the jog with the new speed
-    if (fabs(old_halui_data.ajog_speed - new_halui_data.ajog_speed) > 0.00001) {
+    if (rtapi_fabs(old_halui_data.ajog_speed - new_halui_data.ajog_speed) > 0.00001) {
         old_halui_data.ajog_speed = new_halui_data.ajog_speed;
         ajog_speed_changed = 1;
     } else {
@@ -1841,7 +1841,7 @@ static void check_hal_changes()
 	}
 
 	floatt = new_halui_data.jjog_analog[joint];
-	bit = (fabs(floatt) > new_halui_data.jjog_deadband);
+	bit = (rtapi_fabs(floatt) > new_halui_data.jjog_deadband);
 	if ((floatt != old_halui_data.jjog_analog[joint]) || (bit && jjog_speed_changed)) {
 	    if (bit)
 		sendJogCont(joint,(new_halui_data.jjog_speed) * (new_halui_data.jjog_analog[joint]),JOGJOINT);
@@ -1915,7 +1915,7 @@ static void check_hal_changes()
 	}
 
 	floatt = new_halui_data.ajog_analog[axis_num];
-	bit = (fabs(floatt) > new_halui_data.ajog_deadband);
+	bit = (rtapi_fabs(floatt) > new_halui_data.ajog_deadband);
 	if ((floatt != old_halui_data.ajog_analog[axis_num]) || (bit && ajog_speed_changed)) {
 	    if (bit)
 		sendJogCont(axis_num,(new_halui_data.ajog_speed) * (new_halui_data.ajog_analog[axis_num]),JOGTELEOP);

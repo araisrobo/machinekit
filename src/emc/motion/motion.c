@@ -704,8 +704,10 @@ static int export_joint(int num, joint_hal_t * addr)
     if ( unlock_joints_mask & (1 << num) ) {
         // these pins may be needed for rotary joints
         rtapi_print_msg(RTAPI_MSG_WARN,"motion.c: Creating unlock hal pins for joint %d\n",num);
-    if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->unlock), mot_comp_id, "joint.%d.unlock", num)) != 0) return retval;
-    if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->is_unlocked), mot_comp_id, "joint.%d.is-unlocked", num)) != 0) return retval;
+        if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->unlock), mot_comp_id, "joint.%d.unlock", num)) != 0) return retval;
+        if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->is_unlocked), mot_comp_id, "joint.%d.is-unlocked", num)) != 0) return retval;
+    }
+
     if ((retval = hal_pin_float_newf(HAL_IN, &(addr->probed_pos), mot_comp_id, "joint.%d.probed-pos", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->risc_probe_vel), mot_comp_id, "joint.%d.risc-probe-vel", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(addr->risc_probe_dist), mot_comp_id, "joint.%d.risc-probe-dist", num)) != 0) return retval;
