@@ -108,11 +108,17 @@ typedef struct
     char enc_type; /* A(AB-PHASE), S(STEP-DIR), L(LOOPBACK) */
     double enc_scale; /* encoder scale */
     char alr_id; /* alarm id */
+    hal_s32_t *abs_enc_i; /* pin: absolute encoder position input */
+    hal_bit_t *set_enc_req; /* pin: request signal to set enc_pos with abs_enc */
+    hal_bit_t *set_enc_ack; /* pin: acknowledge signal of set enc_pos with abs_enc */
     hal_s32_t *enc_pos; /* pin: encoder position from servo drive, captured from FPGA */
     hal_float_t pos_scale; /* param: steps per position unit */
     double scale_recip; /* reciprocal value used for scaling */
     double vel_cmd_t; /* velocity command (units/cycle_time) */
     double prev_pos_cmd; /* prev pos_cmd: previous position command */
+    double pos_cmd;
+    double risc_probe_vel;
+
     hal_float_t *probed_pos;
     hal_float_t *pos_fb; /* pin: position feedback (position units) */
     hal_float_t *risc_pos_cmd; /* pin: position command issued by RISC (position units) */
@@ -130,7 +136,7 @@ typedef struct
     /* motion type be set */
     int32_t motion_type; /* motion type wrote to risc */
 
-    hal_s32_t *cmd_pos; /* position command retained by RISC (unit: pulse) */
+    hal_s32_t *risc_pos_cmd_pulse; /* position command inside RISC (unit: pulse) */
     hal_s32_t *enc_vel_p; /* encoder velocity in pulse per servo-period */
 
     hal_bit_t *homing;
@@ -196,8 +202,6 @@ typedef struct
     double prev_ahc_level;
     hal_s32_t *accel_state;
     hal_s32_t prev_accel_state;
-    hal_u32_t *jog_sel;
-    hal_s32_t *jog_vel_scale;
 
     /* command channel for emc2 */
     hal_u32_t *wosi_cmd;
@@ -213,9 +217,12 @@ typedef struct
     hal_bit_t *coord_mode;
 
     uint32_t prev_machine_ctrl; // num_joints is not included
-    hal_bit_t *machine_on;
+    hal_bit_t *machine_on; // delayed amp_enable by external component
+    hal_bit_t amp_enable;
+    hal_u32_t rb_tick;
 
     hal_bit_t *update_pos_req;
+    hal_bit_t update_pos_ack;
     hal_u32_t *rcmd_seq_num_req;
     hal_u32_t *rcmd_seq_num_ack;
     hal_u32_t *rcmd_state;
@@ -229,6 +236,7 @@ typedef struct
     hal_bit_t *sfifo_empty;
 
     hal_u32_t *spindle_joint_id;
+    hal_u32_t *spindle_aux_joint_id;
 
     hal_bit_t *gantry_en;
     uint32_t gantry_ctrl;
@@ -338,7 +346,7 @@ static void fetchmail(const uint8_t *buf_head)
             p += 1;
             *(stepgen->enc_pos) = (int32_t) *p;
             p += 1;
-            *(stepgen->cmd_pos) = (int32_t) *p;
+            *(stepgen->risc_pos_cmd_pulse) = (int32_t) *p;
             p += 1;
             *(stepgen->enc_vel_p) = (int32_t) *p; // encoder velocity in pulses per servo-period
             stepgen += 1; // point to next joint
@@ -663,23 +671,21 @@ static int system_initialize(FILE *fp)
             ;
 
         /**
-         *  MACHINE_CTRL,   // [31:28]  JOG_VEL_SCALE
+         *  MACHINE_CTRL,   // [31:28]  SPINDLE_AUX_JOINT_ID
          *                  // [27:24]  SPINDLE_JOINT_ID
          *                  // [23:16]  NUM_JOINTS
-         *                  // [l5: 8]  JOG_SEL
-         *                                  [15]: MPG(1), CONT(0)
-         *                                  [14]: RESERVED
-         *                                  [13:8]: J[5:0], EN(1), DISABLE(0)
+         *                  // [l5: 8]  OBSOLETED: JOG_SEL
          *                  // [ 7: 4]  ACCEL_STATE, the FSM state of S-CURVE-VELOCITY profile
-         *                  // [ 3: 1]  MOTION_MODE:
+         *                  // [    3]  HOMING
+         *                  // [ 2: 1]  MOTION_MODE:
          *                                  FREE    (0)
          *                                  TELEOP  (1)
          *                                  COORD   (2)
-         *                                  HOMING  (4)
          *                  // [    0]  MACHINE_ON
          **/
         // configure NUM_JOINTS after all joint parameters are set
-        immediate_data = (num_joints << 16); // assume motion_mode(0) and pid_enable(0)
+        immediate_data = (0xFF << 24) | // reset SPINDLE_*_ID to 0xF (invalid joint value)
+                         (num_joints << 16); // assume motion_mode(0) and pid_enable(0)
         write_machine_param(MACHINE_CTRL, (uint32_t) immediate_data);
         while (wosi_flush(&w_param) == -1)
             ;
@@ -941,6 +947,43 @@ static int load_parameters(FILE *fp)
                     n, n);
             sprintf(section, "AXIS_%d", n);
         }
+        
+        s = iniFind(fp, "INPUT_SCALE", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no INPUT_SCALE defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "MAX_VELOCITY", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no MAX_VELOCITY defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "MAX_ACCELERATION", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no MAX_ACCELERATION defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "MAX_JERK", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no MAX_JERK defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "ENC_SCALE", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no ENC_SCALE defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "FERROR", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no FERROR defined for %s\n", section);
+            return -1;
+        }
+        s = iniFind(fp, "OUT_CH", section);
+        if (s == NULL) {
+            rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_CH defined for %s\n", section);
+            return -1;
+        }
+
         pos_scale = atof(iniFind(fp, "INPUT_SCALE", section));
         max_vel = 1.01 * atof(iniFind(fp, "MAX_VELOCITY", section)); // add 1% for fixed point arithmetic
         max_accel = 1.01 * atof(iniFind(fp, "MAX_ACCELERATION", section));
@@ -950,10 +993,6 @@ static int load_parameters(FILE *fp)
         assert(max_jerk > 0);
         assert(pos_scale != 0);
 
-        rtapi_print_msg(RTAPI_MSG_INFO,
-                "j[%d] max_vel(%f) max_accel(%f) max_jerk(%f) pos_scale(%f)\n",
-                n, max_vel, max_accel, max_jerk, pos_scale);
-
         /* config encoder scale parameter */
         enc_scale = atof(iniFind(fp, "ENC_SCALE", section));
         assert(enc_scale != 0);
@@ -962,6 +1001,10 @@ static int load_parameters(FILE *fp)
         while (wosi_flush(&w_param) == -1)
             ;
         stepgen_array[n].enc_scale = enc_scale;
+        
+        rtapi_print_msg(RTAPI_MSG_INFO,
+                "j[%d] max_vel(%f) max_accel(%f) max_jerk(%f) pos_scale(%f) enc_scale(%f)\n",
+                n, max_vel, max_accel, max_jerk, pos_scale, enc_scale);
 
         /* unit_pulse_scale per servo_period */
         immediate_data = (int32_t) (FIXED_POINT_SCALE * pos_scale * dt);
@@ -1016,7 +1059,7 @@ static int load_parameters(FILE *fp)
         // following error send with unit pulse
         max_ferror = atof(iniFind(fp, "FERROR", section));
         immediate_data = (uint32_t) (max_ferror * abs_scale);
-        rtapi_print_msg(RTAPI_MSG_INFO, "max ferror(%d)\n", immediate_data);
+        rtapi_print_msg(RTAPI_MSG_INFO, "j[%d] max ferror(%d)\n", n, immediate_data);
         write_mot_param(n, (MAXFOLLWING_ERR), immediate_data);
         while (wosi_flush(&w_param) == -1)
             ;
@@ -1029,6 +1072,8 @@ static int load_parameters(FILE *fp)
             rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_DEV defined for %s\n", section);
             return -1;
         }
+        
+        rtapi_print_msg(RTAPI_MSG_INFO, "j[%d] OUT_CH(%d) OUT_DEV(%s)\n", n, ch, s);
 
         if (toupper(s[0]) == 'A') {
             immediate_data = (OUT_TYPE_AB_PHASE << 28) | (ch << 24);
@@ -1053,6 +1098,38 @@ static int load_parameters(FILE *fp)
         if ((toupper(s[0]) == 'P') || (toupper(s[0]) == 'D'))
         {
             int omin, omax;
+        
+            s = iniFind(fp, "OUT_MIN", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_MIN defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_MAX", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_MAX defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_MAX_IPULSE", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_MAX_IPULSE defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_SCALE", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_SCALE defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_SCALE_RECIP", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_SCALE_RECIP defined for %s\n", section);
+                return -1;
+            }
+            s = iniFind(fp, "OUT_OFFSET", section);
+            if (s == NULL) {
+                rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_OFFSET defined for %s\n", section);
+                return -1;
+            }
+
             omin = atoi(iniFind(fp, "OUT_MIN", section));
             omax = atoi(iniFind(fp, "OUT_MAX", section));
             if (omin < -32768) { omin = -32768; } //!< omin: int16_t
@@ -1091,6 +1168,7 @@ static int load_parameters(FILE *fp)
             rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no ENC_TYPE defined for %s\n", section);
             return -1;
         }
+        rtapi_print_msg(RTAPI_MSG_INFO, "j[%d] ENC_TYPE(%s)\n", n, s);
         if (toupper(s[0]) == 'L') {
             // ENC_TYPE(00): fake ENCODER counts (loop PULSE_CMD to ENCODER)
             stepgen_array[n].enc_type = ENC_TYPE_LOOPBACK;
@@ -1161,6 +1239,7 @@ static int load_parameters(FILE *fp)
             rtapi_print_msg(RTAPI_MSG_ERR, "WOSI: ERROR: no ALR_ID defined for JOINT_%d\n", n);
             return -1;
         }
+        rtapi_print_msg(RTAPI_MSG_INFO, "j[%d] ALR_ID(%s)\n", n, s);
         stepgen_array[n].alr_id = atoi(s);
         // end of ALR_ID (ALR_EN_BITS)
 
@@ -1386,7 +1465,7 @@ int wosi_driver_init(int hal_comp_id, char *inifile)
 
 #if (TRACE==1)
     /* prepare header for gnuplot */
-    DPS("#%10s", "dt");
+    DPS("#%10s#%10s", "dt", "tick");
     for (int n = 0; n < num_joints; n++)
     {
         DPS("      int_pcmd[%d]", n);
@@ -1399,7 +1478,7 @@ int wosi_driver_init(int hal_comp_id, char *inifile)
 
 #if (TRACE==3)
     /* prepare header for gnuplot */
-    DPS("#%10s", "dt");
+    DPS("#%10s#%10s", "dt", "tick");
     for (int n = 0; n < NUM_DEBUG; n++)
     {
         DPS("         debug[%d]", n);
@@ -1468,6 +1547,17 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     wosi_status(&w_param); // print bandwidth utilization
 #endif
 
+    /* buffer servo_tick in case of race condition */
+    machine_control->update_pos_ack = (tick_jcmd->cmd & (1 << TICK_UPDATE_POS_ACK));
+    machine_control->amp_enable = (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE));
+    machine_control->rb_tick = (tick_jcmd->_tick);
+    for (n = 0; n < num_joints; n++)
+    {
+        stepgen = &(stepgen_array[n]);
+        stepgen->pos_cmd = tick_jcmd->pos_cmd[n];
+        stepgen->risc_probe_vel = tick_jcmd->risc_probe_vel[n];
+    }
+
     /* begin set analog trigger level*/
     if (*machine_control->analog_ref_level
             != machine_control->prev_analog_ref_level)
@@ -1482,41 +1572,35 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 
     /* begin motion_mode */
     /**
-     *  MACHINE_CTRL,   // [31:28]  JOG_VEL_SCALE
+     *  MACHINE_CTRL,   // [31:28]  SPINDLE_AUX_JOINT_ID
      *                  // [27:24]  SPINDLE_JOINT_ID
      *                  // [23:16]  NUM_JOINTS
-     *                  // [l5: 8]  JOG_SEL
-     *                                  [15]: MPG(1), CONT(0)
-     *                                  [14]: RESERVED
-     *                                  [13:8]: J[5:0], EN(1)
-     *                  // [ 7: 4]  ACCEL_STATE
-     *                  // [ 3: 1]  MOTION_MODE:
+     *                  // [l5: 8]  OBSOLETED: JOG_SEL
+     *                  // [ 7: 4]  ACCEL_STATE, the FSM state of S-CURVE-VELOCITY profile
+     *                  // [    3]  HOMING
+     *                  // [ 2: 1]  MOTION_MODE:
      *                                  FREE    (0)
      *                                  TELEOP  (1)
      *                                  COORD   (2)
-     *                                  HOMING  (4)
      *                  // [    0]  MACHINE_ON
      **/
-
     homing = 0;
     for (n = 0; n < num_joints; n++)
     {
         homing |= *(stepgen_array[n].homing);
     }
 
-    assert(abs(*machine_control->jog_vel_scale) < 8);
-    tmp = (*machine_control->jog_vel_scale << 28)
-            | (*machine_control->jog_sel << 8)
-            | (*machine_control->accel_state << 4) | (homing << 3)
+    tmp = (*machine_control->accel_state << 4) | (homing << 3)
             | (*machine_control->coord_mode << 2)
             | (*machine_control->teleop_mode << 1)
             | (*machine_control->machine_on);
     if (tmp != machine_control->prev_machine_ctrl)
     {
         machine_control->prev_machine_ctrl = tmp;
-        immediate_data = (num_joints << 16) | tmp;
-        immediate_data = ((*machine_control->spindle_joint_id) << 24)
-                | immediate_data;
+        immediate_data = tmp |
+                         (num_joints << 16) |
+                         ((*machine_control->spindle_joint_id) << 24) |
+                         ((*machine_control->spindle_aux_joint_id) << 28);
         write_machine_param(MACHINE_CTRL, (uint32_t) immediate_data);
     }
 
@@ -1532,7 +1616,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     }
     /* end: */
 
-    if (tick_jcmd->cmd & (1 << TICK_UPDATE_POS_ACK))
+    if (machine_control->update_pos_ack)
     {
         int32_t dbuf[2];
         dbuf[0] = RCMD_UPDATE_POS_ACK;
@@ -1540,14 +1624,12 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 2);
         // Reset update_pos_req after sending a RCMD_UPDATE_POS_ACK packet
         *machine_control->update_pos_req = 0;
-
         // reset prev_pos_cmd and related variables
         for (n = 0; n < num_joints; n++)
         {
             stepgen = &(stepgen_array[n]);
-            stepgen->prev_pos_cmd = tick_jcmd->pos_cmd[n];
-            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
-                                * stepgen->pos_scale;
+            stepgen->prev_pos_cmd = stepgen->pos_cmd;
+            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE * stepgen->pos_scale;
         }
     }
 
@@ -1667,9 +1749,9 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
 
 #if (TRACE==1)
     _dt++;
-    if (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE))
+    if (machine_control->amp_enable)
     {
-        DPS("%11u", _dt); // %11u: '#' + %10s
+        DPS("%11u%11u", _dt, machine_control->rb_tick); // %11u: '#' + %10s
     }
 #endif
 
@@ -1786,7 +1868,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         }
 
         *(stepgen->pos_fb) = (*stepgen->enc_pos) * stepgen->scale_recip;
-        *(stepgen->risc_pos_cmd) = (*stepgen->cmd_pos) * stepgen->scale_recip;
+        *(stepgen->risc_pos_cmd) = (*stepgen->risc_pos_cmd_pulse) * stepgen->scale_recip;
         *(stepgen->ferror) = *(stepgen->risc_pos_cmd) - *(stepgen->pos_fb);
 
         // update velocity-feedback based on RISC-reported encoder-velocity
@@ -1794,7 +1876,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         *(stepgen->vel_fb) = *(stepgen->enc_vel_p) * stepgen->scale_recip
                 * recip_dt * FP_SCALE_RECIP;
 
-        if ((tick_jcmd->cmd & (1 << TICK_AMP_ENABLE)) == 0)
+        if ((machine_control->amp_enable) == 0)
         {
             /* AXIS not PWR-ON */
             /* reload_params only when machine-is-off */
@@ -1813,15 +1895,25 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             }
 
             /* to prevent position drift while toggeling "PWR-ON" switch */
-            (stepgen->prev_pos_cmd) = tick_jcmd->pos_cmd[n];
-            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
-                    * stepgen->pos_scale;
+            (stepgen->prev_pos_cmd) = stepgen->pos_cmd;
+            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE * stepgen->pos_scale;
+
+            if (*(stepgen->set_enc_req)) {
+                int32_t dbuf[3];
+                dbuf[0] = RCMD_SET_ENC_POS;
+                dbuf[1] = n;  // joint_num
+                dbuf[2] = *(stepgen->abs_enc_i) * (stepgen->enc_scale);
+                send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 3);
+                *(stepgen->set_enc_ack) = 1;
+            } else if (*(stepgen->set_enc_ack)) {
+                *(stepgen->set_enc_ack) = 0;
+            }
         }
 
-        if (tick_jcmd->risc_probe_vel[n] == 0)
+        if (stepgen->risc_probe_vel == 0)
             stepgen->risc_probing = 0;
 
-        if ((*stepgen->homing) && (tick_jcmd->risc_probe_vel[n] != 0)
+        if ((*stepgen->homing) && (stepgen->risc_probe_vel != 0)
                 && (stepgen->risc_probing == 0)
                 && (*machine_control->rcmd_state == RCMD_IDLE))
         {
@@ -1831,7 +1923,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             dbuf[1] = n  // joint_num
                     | (*stepgen->risc_probe_type << 8)
                     | (*stepgen->risc_probe_pin << 16);
-            dbuf[2] = tick_jcmd->risc_probe_vel[n] * stepgen->pos_scale * dt
+            dbuf[2] = stepgen->risc_probe_vel * stepgen->pos_scale * dt
                       *FIXED_POINT_SCALE; // fixed-point 16.16
             dbuf[3] = *stepgen->risc_probe_dist * stepgen->pos_scale; // distance in pulse
             send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 4);
@@ -1852,10 +1944,6 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
                     | ((*machine_control->trigger_cond & 0x1) << 30)
                     | ((*machine_control->probing & 0x1) << 31);
             // distance in pulse
-//            printf("level(%d) din(%d) ain(%d)\n type(%d) cond(%d) probing(%d)\n",
-//            		*machine_control->trigger_level, *machine_control->trigger_din,
-//            		*machine_control->trigger_ain, *machine_control->trigger_type,
-//            		*machine_control->trigger_cond, *machine_control->probing);
             send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 2);
             machine_control->prev_probing = *machine_control->probing;
         }
@@ -1864,38 +1952,40 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
         int32_t pulse_accel;
         int32_t pulse_jerk;
 
-        if (tick_jcmd->cmd & (1 << TICK_UPDATE_POS_ACK))
-        {
-            (stepgen->prev_pos_cmd) = tick_jcmd->pos_cmd[n];
-            stepgen->rawcount = stepgen->prev_pos_cmd * FIXED_POINT_SCALE
-                    * stepgen->pos_scale;
-        }
-        stepgen->vel_cmd_t = (tick_jcmd->pos_cmd[n] - (stepgen->prev_pos_cmd));
+        stepgen->vel_cmd_t = (stepgen->pos_cmd - (stepgen->prev_pos_cmd));
         *stepgen->vel_cmd = stepgen->vel_cmd_t * recip_dt;
 
         integer_pos_cmd = (int32_t) (stepgen->vel_cmd_t * (stepgen->pos_scale)
                 * FIXED_POINT_SCALE);
 
-        // integer_pos_cmd is indeed pulse_vel (velocity in pulse)
-        if (abs(integer_pos_cmd) > stepgen->pulse_maxv)
-        {
-            pulse_accel = integer_pos_cmd - stepgen->pulse_vel;
-            pulse_jerk = pulse_accel - stepgen->pulse_accel;
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d]: assert(integer_pos_cmd(%d) > pulse_maxv(%d))\n", n, integer_pos_cmd, stepgen->pulse_maxv);
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pos_fb(%f) ferror(%f)\n", n, (*stepgen->pos_fb), (*stepgen->ferror));
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], vel_cmd(%f,unit/s) pos_cmd(%f) prev_pos_cmd(%f)\n", n,
-                    *stepgen->vel_cmd, tick_jcmd->pos_cmd[n],
+        if ((machine_control->update_pos_ack)) {
+            rtapi_print_msg(RTAPI_MSG_DBG, "(%s:%d) j[%d], vel_cmd(%f,unit/s) tick_jcmp.pos_cmd(%f) stepgen.pos_cmd(%f) prev_pos_cmd(%f)\n", __FUNCTION__, __LINE__,
+                    n,
+                    *stepgen->vel_cmd, tick_jcmd->pos_cmd[n], stepgen->pos_cmd,
                     (stepgen->prev_pos_cmd));
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n", n,
-                    integer_pos_cmd, pulse_accel, pulse_jerk);
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], PREV pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
-                    n, stepgen->pulse_vel, stepgen->pulse_accel,
-                    stepgen->pulse_jerk);
-            rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_maxv(%d), pulse_maxa(%d), pulse_maxj(%d)\n", n,
-                    stepgen->pulse_maxv, stepgen->pulse_maxa,
-                    stepgen->pulse_maxj);
+            assert (tick_jcmd->pos_cmd[n] == stepgen->pos_cmd);
+        } else {
+            // integer_pos_cmd is indeed pulse_vel (velocity in pulse)
+            if (abs(integer_pos_cmd) > stepgen->pulse_maxv)
+            {
+                pulse_accel = integer_pos_cmd - stepgen->pulse_vel;
+                pulse_jerk = pulse_accel - stepgen->pulse_accel;
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d]: assert(integer_pos_cmd(%d) > pulse_maxv(%d))\n", n, integer_pos_cmd, stepgen->pulse_maxv);
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pos_fb(%f) ferror(%f)\n", n, (*stepgen->pos_fb), (*stepgen->ferror));
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], vel_cmd(%f,unit/s) pos_cmd(%f) prev_pos_cmd(%f)\n", n,
+                        *stepgen->vel_cmd, stepgen->pos_cmd,
+                        (stepgen->prev_pos_cmd));
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n", n,
+                        integer_pos_cmd, pulse_accel, pulse_jerk);
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], PREV pulse_vel(%d), pulse_accel(%d), pulse_jerk(%d)\n",
+                        n, stepgen->pulse_vel, stepgen->pulse_accel,
+                        stepgen->pulse_jerk);
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], pulse_maxv(%d), pulse_maxa(%d), pulse_maxj(%d)\n", n,
+                        stepgen->pulse_maxv, stepgen->pulse_maxa,
+                        stepgen->pulse_maxj);
+            }
+            assert(abs(integer_pos_cmd) <= stepgen->pulse_maxv);
         }
-        assert(abs(integer_pos_cmd) <= stepgen->pulse_maxv);
         pulse_accel = integer_pos_cmd - stepgen->pulse_vel;
         pulse_jerk = pulse_accel - stepgen->pulse_accel;
         stepgen->pulse_vel = integer_pos_cmd;
@@ -1909,7 +1999,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             if (wosi_pos_cmd >= 8192)
             {
                 rtapi_print_msg(RTAPI_MSG_ERR, "j(%d) pos_cmd(%f) prev_pos_cmd(%f) vel_cmd_t(%f)\n", n,
-                        tick_jcmd->pos_cmd[n], (stepgen->prev_pos_cmd),
+                        stepgen->pos_cmd, (stepgen->prev_pos_cmd),
                         stepgen->vel_cmd_t);
                 rtapi_print_msg(RTAPI_MSG_ERR, "wosi.c: wosi_pos_cmd(%d) too large\n",
                         wosi_pos_cmd);
@@ -1983,7 +2073,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     }
 
 #if (TRACE==1)
-    if (tick_jcmd->cmd & (1 << TICK_AMP_ENABLE))
+    if (machine_control->amp_enable)
     {
         DPS("\n");
     }
@@ -2039,8 +2129,8 @@ static int export_stepgen(int num, stepgen_t * addr)
 {
     int retval;
 
-    retval = hal_pin_s32_newf(HAL_OUT, &(addr->cmd_pos), comp_id,
-            "wosi.stepgen.%d.cmd-pos", num);
+    retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_pos_cmd_pulse), comp_id,
+            "wosi.stepgen.%d.risc-pos-cmd-pulse", num);
     if (retval != 0)
     {
         return retval;
@@ -2053,8 +2143,12 @@ static int export_stepgen(int num, stepgen_t * addr)
         return retval;
     }
 
+    if ((retval = hal_pin_s32_newf(HAL_IN, &(addr->abs_enc_i), comp_id, "wosi.stepgen.%d.abs-enc-i", num)) != 0) return retval;
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->set_enc_req), comp_id, "wosi.stepgen.%d.set-enc-req", num)) != 0) return retval;
+    if ((retval = hal_pin_bit_newf(HAL_OUT, &(addr->set_enc_ack), comp_id, "wosi.stepgen.%d.set-enc-ack", num)) != 0) return retval;
+
     retval = hal_pin_s32_newf(HAL_OUT, &(addr->enc_pos), comp_id,
-            "wosi.stepgen.%d.enc_pos", num);
+            "wosi.stepgen.%d.enc-pos", num);
     if (retval != 0)
     {
         return retval;
@@ -2206,6 +2300,10 @@ static int export_stepgen(int num, stepgen_t * addr)
     addr->pulse_vel = 0;
     addr->pulse_accel = 0;
     addr->pulse_jerk = 0;
+
+    *(addr->abs_enc_i) = 0; /* pin: absolute encoder position input */
+    *(addr->set_enc_req) = 0; /* pin: request signal to set enc_pos with abs_enc */
+    *(addr->set_enc_ack) = 0; /* pin: acknowledge signal of set enc_pos with abs_enc */
 
     return 0;
 }
@@ -2374,22 +2472,6 @@ static int export_machine_control(machine_control_t * machine_control)
     *(machine_control->accel_state) = 0;
     machine_control->prev_accel_state = 0;
 
-    retval = hal_pin_u32_newf(HAL_IN, &(machine_control->jog_sel), comp_id,
-            "wosi.motion.jog-sel");
-    if (retval != 0)
-    {
-        return retval;
-    }
-    *(machine_control->jog_sel) = 0;
-
-    retval = hal_pin_s32_newf(HAL_IN, &(machine_control->jog_vel_scale),
-            comp_id, "wosi.motion.jog-vel-scale");
-    if (retval != 0)
-    {
-        return retval;
-    }
-    *(machine_control->jog_vel_scale) = 0;
-
     retval = hal_pin_s32_newf(HAL_OUT, &(machine_control->mpg_count), comp_id,
             "wosi.mpg_count");
     if (retval != 0)
@@ -2542,7 +2624,15 @@ static int export_machine_control(machine_control_t * machine_control)
     {
         return retval;
     }
-    *(machine_control->spindle_joint_id) = 0;
+    *(machine_control->spindle_joint_id) = 0xF;
+
+    retval = hal_pin_u32_newf(HAL_IN, &(machine_control->spindle_aux_joint_id),
+            comp_id, "wosi.motion.spindle-aux-joint-id");
+    if (retval != 0)
+    {
+        return retval;
+    }
+    *(machine_control->spindle_aux_joint_id) = 0xF;
 
     retval = hal_pin_u32_newf(HAL_IN, &(machine_control->trigger_din), comp_id,
             "wosi.trigger.din");

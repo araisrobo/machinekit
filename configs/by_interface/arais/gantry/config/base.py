@@ -183,8 +183,7 @@ def setup_io():
             hal.Pin("wosi.machine-on").link(dout_pin) 
         elif (i == 32):  # dout_32 is for spindle-on
             hal.Pin("motion.spindle-on").link(dout_pin)
-        elif (i <= 33):           # default to M64Pxx operations
-            # dout-33 is for GANGI
+        else:            # default to M64Pxx operations
             hal.Pin("motion.digital-out-%02d" % i).link(dout_pin)
 
     for i in range(0,96):
@@ -202,33 +201,20 @@ def setup_io():
             din_not_pin = hal.newsig("din_%d_not" % i, hal.HAL_BIT)
         hal.Pin("wosi.gpio.in.%d.not" % i).link(din_not_pin)
 
-def setup_motion():
+def setup_motion(ini):
+    joints = ini.find("ARAIS", "JOINTS")
     ### create motion signals
-    spindle_forward_pin = hal.newsig("spindle_forward", hal.HAL_BIT)
-    hal.Pin("motion.spindle-forward").link(spindle_forward_pin)
-    spindle_reverse_pin = hal.newsig("spindle_reverse", hal.HAL_BIT)
-    hal.Pin("motion.spindle-reverse").link(spindle_reverse_pin)
-    spindle_at_speed_pin = hal.newsig("spindle_at_speed", hal.HAL_BIT)
-    hal.Pin("motion.spindle-at-speed").link(spindle_at_speed_pin)
-    spindle_brake_pin= hal.newsig("spindle_brake", hal.HAL_BIT)
-    hal.Pin("motion.spindle-brake").link(spindle_brake_pin)
-    spindle_speed_in_pin= hal.newsig("spindle_speed_in", hal.HAL_FLOAT)
-    hal.Pin("motion.spindle-speed-in").link(spindle_speed_in_pin)
-    spindle_speed_out_pin= hal.newsig("spindle_speed_out", hal.HAL_FLOAT)
-    hal.Pin("motion.spindle-speed-out").link(spindle_speed_out_pin)
-    spindle_revs_pin= hal.newsig("spindle_revs", hal.HAL_FLOAT)
-    hal.Pin("motion.spindle-revs").link(spindle_revs_pin)
 
     # net xuu-per-rev motion.spindle.xuu-per-rev => wosi.stepgen.0.uu-per-rev
     xuu_pin= hal.newsig("xuu-per-rev", hal.HAL_FLOAT)
     hal.Pin("motion.spindle.xuu-per-rev").link(xuu_pin)
     hal.Pin("wosi.stepgen.0.uu-per-rev").link(xuu_pin)
 
-    for i in range(0,6):
-        enc_pos_pin = hal.newsig("enc_pos_j%d" % i, hal.HAL_S32)
-        hal.Pin("wosi.stepgen.%d.enc_pos" % i).link(enc_pos_pin)
-        cmd_pos_pin = hal.newsig("cmd_pos_j%d" % i, hal.HAL_S32)
-        hal.Pin("wosi.stepgen.%d.cmd-pos" % i).link(cmd_pos_pin)
+    for i in range(0,int(joints)):
+        enc_pos_pin = hal.newsig("enc-pos-j%d" % i, hal.HAL_S32)
+        hal.Pin("wosi.stepgen.%d.enc-pos" % i).link(enc_pos_pin)
+        risc_pos_cmd_pulse_pin = hal.newsig("risc-pos-cmd-pulse-j%d" % i, hal.HAL_S32)
+        hal.Pin("wosi.stepgen.%d.risc-pos-cmd-pulse" % i).link(risc_pos_cmd_pulse_pin)
         ferror_pin = hal.newsig("ferror_j%d" % i, hal.HAL_FLOAT)     
         hal.Pin("wosi.stepgen.%d.ferror" % i).link(ferror_pin)
 
@@ -250,17 +236,18 @@ def setup_debug():
         debug_pin = hal.newsig("debug_%d" % i, hal.HAL_S32)
         hal.Pin("wosi.debug.value-%02d" % i).link(debug_pin)
 
-def setup_signals():
+def setup_signals(ini):
+    joints = ini.find("ARAIS", "JOINTS")
     ### setup signals component as hal-remote-component
     name = 'signals'
     comp = hal.RemoteComponent(name, timer=100)
     
     # create signals.xxx...
     comp.newpin('bptick', hal.HAL_U32, hal.HAL_IN)
-
-    for i in range(0,8):
+    comp.newpin('joints', hal.HAL_U32, hal.HAL_IN)
+    for i in range(0,int(joints)):
         comp.newpin('joint.%d.enc-pos' % (i), hal.HAL_S32, hal.HAL_IN)
-        comp.newpin('joint.%d.cmd-pos' % (i), hal.HAL_S32, hal.HAL_IN)
+        comp.newpin('joint.%d.risc-pos-cmd-pulse' % (i), hal.HAL_S32, hal.HAL_IN)
         comp.newpin('joint.%d.vel-fb' % (i), hal.HAL_FLOAT, hal.HAL_IN)
         comp.newpin('joint.%d.pos-cmd' % (i), hal.HAL_FLOAT, hal.HAL_IN)
         comp.newpin('joint.%d.pos-fb' % (i), hal.HAL_FLOAT, hal.HAL_IN)
@@ -285,10 +272,11 @@ def setup_signals():
     comp.ready()
 
     comp.pin('bptick').link('bp-tick')
-
-    for i in range(0,8):
-        comp.pin('joint.%d.enc-pos' % (i)).link("enc_pos_j%d" % (i))
-        comp.pin('joint.%d.cmd-pos' % (i)).link('cmd_pos_j%d' % (i))
+    comp.pin('joints').set(int(joints))
+    
+    for i in range(0,int(joints)):
+        comp.pin('joint.%d.enc-pos' % (i)).link("enc-pos-j%d" % (i))
+        comp.pin('joint.%d.risc-pos-cmd-pulse' % (i)).link('risc-pos-cmd-pulse-j%d' % (i))
         comp.pin('joint.%d.vel-fb' % (i)).link('J%dvel-fb' % i)
         comp.pin('joint.%d.pos-cmd' % (i)).link('j%d-pos-cmd' % i)
         comp.pin('joint.%d.pos-fb' % (i)).link('j%d-pos-fb' % i)

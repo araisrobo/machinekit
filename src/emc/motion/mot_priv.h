@@ -86,7 +86,6 @@ typedef struct {
     hal_s32_t   *risc_probe_pin;	/* OUT */
     hal_s32_t   *risc_probe_type;	/* OUT */
     hal_s32_t   *home_sw_id;		/* IN */ 
-    hal_float_t *index_pos_pin; /* RPI: motor index position (absolute motor position count) */
 
     hal_bit_t *usb_ferror_flag;
     hal_float_t *blender_offset;
@@ -171,6 +170,8 @@ typedef struct {
 
     // simplest way of spindle control (output start/stop)
     hal_bit_t *spindle_on;	/* spindle spin output */
+    hal_s32_t *spindle_joint_id;
+    hal_s32_t *spindle_aux_joint_id;
 
     // same thing for 2 directions
     hal_bit_t *spindle_forward;	/* spindle spin-forward output */
@@ -191,6 +192,8 @@ typedef struct {
     hal_float_t *spindle_speed_out_rps_abs;	/* spindle speed output absolute*/
     hal_float_t *spindle_speed_cmd_rps;	/* spindle speed command without SO applied */
     hal_float_t *spindle_speed_in;	/* spindle speed measured */
+    hal_float_t *css_factor;
+    hal_float_t *css_error;
     
     // spindle orient
     hal_float_t *spindle_orient_angle;	/* out: desired spindle angle, degrees */
@@ -278,6 +281,9 @@ typedef struct {
 *                   GLOBAL VARIABLE DECLARATIONS                       *
 ************************************************************************/
 
+
+/* axis that maps as spindle */
+extern int spindle_axis;
 /* pointer to emcmot_hal_data_t struct in HAL shmem, with all HAL data */
 extern emcmot_hal_data_t *emcmot_hal_data;
 

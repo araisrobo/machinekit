@@ -22,7 +22,7 @@ loadrt [KINS]KINEMATICS
 loadrt tp
 ##############################################################################
 # motion controller, get name and thread periods from ini file
-loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=[EMCMOT]NUM_DIO num_aio=[EMCMOT]NUM_AIO num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=[EMCMOT]NUM_DIO num_aio=[EMCMOT]NUM_AIO spindle_axis=[TRAJ]SPINDLE_AXIS num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
 
 # tick message flow: servo_tick => ring_jcmd => wosi_trans
 # this creates the named ring ring_jcmd as record ring
@@ -77,7 +77,6 @@ net j3-pos-cmd      joint.3.motor-pos-cmd       => servo_tick.j3-pos-cmd
 net j4-pos-cmd      joint.4.motor-pos-cmd       => servo_tick.j4-pos-cmd 
 net j5-pos-cmd      joint.5.motor-pos-cmd       => servo_tick.j5-pos-cmd
 net j6-pos-cmd      joint.6.motor-pos-cmd       => servo_tick.j6-pos-cmd
-net j7-pos-cmd                                  => servo_tick.j7-pos-cmd
 net update-pos-ack  motion.update-pos-ack       => servo_tick.update-pos-ack
 
 # loop position commands back to motion module feedback
@@ -88,7 +87,6 @@ net j3-pos-fb   wosi.stepgen.3.position-fb => joint.3.motor-pos-fb
 net j4-pos-fb   wosi.stepgen.4.position-fb => joint.4.motor-pos-fb
 net j5-pos-fb   wosi.stepgen.5.position-fb => joint.5.motor-pos-fb
 net j6-pos-fb   wosi.stepgen.6.position-fb => joint.6.motor-pos-fb
-net j7-pos-fb   wosi.stepgen.7.position-fb
 
 net J0vel-fb  wosi.stepgen.0.vel-fb
 net J1vel-fb  wosi.stepgen.1.vel-fb
@@ -97,7 +95,7 @@ net J3vel-fb  wosi.stepgen.3.vel-fb
 net J4vel-fb  wosi.stepgen.4.vel-fb
 net J5vel-fb  wosi.stepgen.5.vel-fb
 net J6vel-fb  wosi.stepgen.6.vel-fb
-net J7vel-fb  wosi.stepgen.7.vel-fb
+# net J7vel-fb  wosi.stepgen.7.vel-fb
 
 # create signals for tool loading loopback
 net tool-prep-loop iocontrol.0.tool-prepare iocontrol.0.tool-prepared
@@ -142,7 +140,6 @@ net J3-risc-pos-cmd wosi.stepgen.3.risc-pos-cmd => joint.3.risc-pos-cmd
 net J4-risc-pos-cmd wosi.stepgen.4.risc-pos-cmd => joint.4.risc-pos-cmd
 net J5-risc-pos-cmd wosi.stepgen.5.risc-pos-cmd => joint.5.risc-pos-cmd
 net J6-risc-pos-cmd wosi.stepgen.6.risc-pos-cmd => joint.6.risc-pos-cmd
-net J7-risc-pos-cmd wosi.stepgen.7.risc-pos-cmd
 
 # for usb-homing:
 setp joint.0.home-sw-id                 [JOINT_0]HOME_SW_ID
@@ -159,8 +156,9 @@ net  j1-homing                          joint.1.homing => wosi.stepgen.1.homing
 net  j1-risc-probe-vel                  joint.1.risc-probe-vel => servo_tick.j1-risc-probe-vel-i
 net  j1-risc-probe-pin                  joint.1.risc-probe-pin => wosi.stepgen.1.risc-probe-pin
 net  j1-risc-probe-type                 joint.1.risc-probe-type => wosi.stepgen.1.risc-probe-type
+setp rgantry.0.joint.01.home-offset     [AXIS_1]HOME_OFFSET_GANTRY_SLAVE
 
-# for usb-homing:
+# for usb-homing(AXIS_Z, J3):
 setp joint.2.home-sw-id                 [JOINT_2]HOME_SW_ID
 net  [JOINT_2]HOME_SW_NET               joint.2.home-sw-in
 net  j2-homing                          joint.2.homing => wosi.stepgen.2.homing
@@ -168,7 +166,7 @@ net  j2-risc-probe-vel                  joint.2.risc-probe-vel => servo_tick.j2-
 net  j2-risc-probe-pin                  joint.2.risc-probe-pin => wosi.stepgen.2.risc-probe-pin
 net  j2-risc-probe-type                 joint.2.risc-probe-type => wosi.stepgen.2.risc-probe-type
 
-# for usb-homing:
+# for usb-homing(AXIS_A, J4):
 setp joint.3.home-sw-id                 [JOINT_3]HOME_SW_ID
 net  [JOINT_3]HOME_SW_NET               joint.3.home-sw-in
 net  j3-homing                          joint.3.homing => wosi.stepgen.3.homing
@@ -274,6 +272,7 @@ setp            wosi.stepgen.5.jog-vel   [JOINT_5]JOG_VEL
 # addf sim_spindle servo-thread
 # # end of sim_spindle_encoder.hal
 setp wosi.motion.spindle-joint-id [TRAJ]SPINDLE_JOINT
+setp motion.spindle-joint-id [TRAJ]SPINDLE_JOINT
 
 net bp-tick     <= wosi.bp-tick
 

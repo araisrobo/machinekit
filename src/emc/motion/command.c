@@ -404,6 +404,7 @@ STATIC int is_feed_type(int motion_type)
     case EMC_MOTION_TYPE_ARC:
     case EMC_MOTION_TYPE_FEED:
     case EMC_MOTION_TYPE_PROBING:
+    case EMC_MOTION_TYPE_SPINDLE_SYNC:
         return 1;
     default:
         rtapi_print_msg(RTAPI_MSG_ERR, "Internal error: unhandled motion type %d\n", motion_type);
@@ -1061,27 +1062,28 @@ check_stuff ( "before command_handler()" );
 						emcmotCommand->flags);
             break;
 
-	case EMCMOT_SET_LINE:
-	    /* emcmotDebug->coord_tp up a linear move */
-	    /* requires motion enabled, coordinated mode, not on limits */
-	    rtapi_print_msg(RTAPI_MSG_DBG, "SET_LINE");
-	    if (!GET_MOTION_COORD_FLAG() || !GET_MOTION_ENABLE_FLAG()) {
-		reportError(_("need to be enabled, in coord mode for linear move"));
-		emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_COMMAND;
-		SET_MOTION_ERROR_FLAG(1);
-		break;
-	    } else if (!inRange(emcmotCommand->pos, emcmotCommand->id, "Linear")) {
-		emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
-		abort_and_switchback(); // tpAbort(emcmotQueue);
-		SET_MOTION_ERROR_FLAG(1);
-		break;
-	    } else if (!limits_ok()) {
-		reportError(_("can't do linear move with limits exceeded"));
-		emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
-		abort_and_switchback(); // tpAbort(emcmotQueue);
-		SET_MOTION_ERROR_FLAG(1);
-		break;
-	    }
+        case EMCMOT_SET_LINE:
+	    /* emcmotDebug->tp up a linear move */
+	    /* requires coordinated mode, enable off, not on limits */
+            rtapi_print_msg(RTAPI_MSG_DBG, "SET_LINE");
+            if (!GET_MOTION_COORD_FLAG() || !GET_MOTION_ENABLE_FLAG()) {
+                reportError
+                (_("need to be enabled, in coord mode for linear move"));
+                emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_COMMAND;
+                SET_MOTION_ERROR_FLAG(1);
+                break;
+            } else if (!inRange(emcmotCommand->pos, emcmotCommand->id, "Linear")) {
+                emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
+                abort_and_switchback(); // tpAbort(emcmotQueue);
+                SET_MOTION_ERROR_FLAG(1);
+                break;
+            } else if (!limits_ok()) {
+                reportError(_("can't do linear move with limits exceeded"));
+                emcmotStatus->commandStatus = EMCMOT_COMMAND_INVALID_PARAMS;
+                abort_and_switchback(); // tpAbort(emcmotQueue);
+                SET_MOTION_ERROR_FLAG(1);
+                break;
+            }
             if(emcmotStatus->atspeed_next_feed && is_feed_type(emcmotCommand->motion_type) ) {
                 issue_atspeed = 1;
                 emcmotStatus->atspeed_next_feed = 0;
@@ -1089,41 +1091,38 @@ check_stuff ( "before command_handler()" );
             if(!is_feed_type(emcmotCommand->motion_type) && emcmotStatus->spindle.css_factor) {
                 emcmotStatus->atspeed_next_feed = 1;
             }
-	    /* append it to the emcmotDebug->tp */
-	    emcmotConfig->vtp->tpSetId(&emcmotDebug->tp, emcmotCommand->id);
-	    int res_addline = emcmotConfig->vtp->tpAddLine(&emcmotDebug->tp,
-							   emcmotCommand->pos,
-							   emcmotCommand->motion_type,
-							   emcmotCommand->vel,
-							   emcmotCommand->ini_maxvel,
-							   emcmotCommand->acc,
-							   emcmotCommand->ini_maxjerk,
-							   emcmotStatus->enables_new,
-							   issue_atspeed,
-							   emcmotCommand->turn,
-							   emcmotCommand->tag);
-        if (res_addline != 0) {
-            reportError(_("can't add linear move at line %d, error code %d"),
-                    emcmotCommand->id, res_addline);
-            emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
-            emcmotConfig->vtp->tpAbort(&emcmotDebug->tp);
-            SET_MOTION_ERROR_FLAG(1);
-            break;
-        } else if (res_addline != 0) {
-            //TODO make this hand-shake more explicit
-            //KLUDGE Non fatal error, need to restore state so that the next
-            //line properly handles at_speed
-            if (issue_atspeed) {
-                emcmotStatus->atspeed_next_feed = 1;
-            }
-        } else {
-		SET_MOTION_ERROR_FLAG(0);
-		/* set flag that indicates all joints need rehoming, if any
+
+            /* append it to the emcmotDebug->tp */
+            emcmotConfig->vtp->tpSetId(&emcmotDebug->tp, emcmotCommand->id);
+            int res_addline = emcmotConfig->vtp->tpAddLine(&emcmotDebug->tp,
+                    emcmotCommand->pos,
+                    emcmotCommand->motion_type,
+                    emcmotCommand->vel,
+                    emcmotCommand->ini_maxvel,
+                    emcmotCommand->acc,
+                    emcmotCommand->ini_maxjerk,
+                    emcmotStatus->enables_new,
+                    issue_atspeed,
+                    emcmotCommand->turn,
+                    emcmotCommand->tag);
+            if (res_addline != 0) {
+                reportError(_("can't add linear move at line %d, error code %d"),
+                        emcmotCommand->id, res_addline);
+                emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
+                emcmotConfig->vtp->tpAbort(&emcmotDebug->tp);
+                SET_MOTION_ERROR_FLAG(1);
+                if (issue_atspeed) {
+                    emcmotStatus->atspeed_next_feed = 1;
+                }
+                break;
+            } else {
+                SET_MOTION_ERROR_FLAG(0);
+                /* set flag that indicates all joints need rehoming, if any
 		   joint is moved in joint mode, for machines with no forward
 		   kins */
-		rehomeAll = 1;
-	    }
-	    break;
+                rehomeAll = 1;
+            }
+            break;
 
 	case EMCMOT_SET_CIRCLE:
 	    /* emcmotDebug->tp up a circular move */
@@ -1724,6 +1723,7 @@ check_stuff ( "before command_handler()" );
             emcmotConfig->vtp->tpSetId(emcmotQueue, emcmotCommand->id);
             if (-1 == emcmotConfig->vtp->tpAddSpindleSyncMotion(emcmotQueue,
                                                                 emcmotCommand->pos,
+                                                                emcmotCommand->motion_type,
                                                                 emcmotCommand->vel,
                                                                 emcmotCommand->ini_maxvel,
                                                                 emcmotCommand->acc,
@@ -1787,34 +1787,22 @@ check_stuff ( "before command_handler()" );
 	    *(emcmot_hal_data->spindle_orient) = 0;
 	    emcmotStatus->spindle.orient_state = EMCMOT_ORIENT_NONE;
 
-	    emcmotStatus->spindle.speed = emcmotCommand->vel;
-	    emcmotStatus->spindle.css_factor = emcmotCommand->css_factor;
-	    emcmotStatus->spindle.xoffset = emcmotCommand->xoffset;
-	    if (emcmotCommand->vel >= 0) {
-		emcmotStatus->spindle.direction = 1;
-	    } else {
-		emcmotStatus->spindle.direction = -1;
-	    }
-	    emcmotStatus->spindle.brake = 0; //disengage brake
-	    emcmotStatus->atspeed_next_feed = 1;
+	    emcmotStatus->atspeed_next_feed = !(emcmotQueue->spindle.on);
 
-	    emcmotQueue->spindle.speed = emcmotStatus->spindle.speed * emcmotStatus->net_spindle_scale;
-	    emcmotQueue->spindle.css_factor = emcmotStatus->spindle.css_factor;
-	    emcmotQueue->spindle.xoffset = emcmotStatus->spindle.xoffset;
-	    emcmotQueue->spindle.on = 1;
-	    emcmotQueue->spindle.axis = emcmotCommand->axis;
-	    emcmotQueue->spindle.max_vel = emcmotCommand->ini_maxvel;
-            emcmotQueue->spindle.max_acc = emcmotCommand->acc;
-            emcmotQueue->spindle.max_jerk = emcmotCommand->ini_maxjerk;
-            emcmotConfig->vtp->tpSetSpindle(emcmotQueue); // setup speed_rps, direction, ... etc.
+	    emcmotQueue->next_spindle_updated = 0; // reset flag
+	    emcmotQueue->next_spindle.speed = emcmotCommand->vel; // RPM
+	    emcmotQueue->next_spindle.css_factor = emcmotCommand->css_factor;
+	    emcmotQueue->next_spindle.xoffset = emcmotCommand->xoffset;
+	    emcmotQueue->next_spindle.on = 1;
+	    emcmotQueue->next_spindle.max_vel = emcmotCommand->ini_maxvel;
+	    emcmotQueue->next_spindle.max_acc = emcmotCommand->acc;
+	    emcmotQueue->next_spindle.max_jerk = emcmotCommand->ini_maxjerk;
+            emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
 	    break;
 
 	case EMCMOT_SPINDLE_OFF:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_OFF");
 
-	    emcmotStatus->spindle.speed = 0;
-	    emcmotStatus->spindle.direction = 0;
-	    emcmotStatus->spindle.brake = 1; // engage brake
 	    if (*(emcmot_hal_data->spindle_orient))
 		rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_ORIENT cancelled by SPINDLE_OFF");
 	    if (*(emcmot_hal_data->spindle_locked))
@@ -1823,14 +1811,20 @@ check_stuff ( "before command_handler()" );
 	    *(emcmot_hal_data->spindle_orient) = 0;
 	    emcmotStatus->spindle.orient_state = EMCMOT_ORIENT_NONE;
 
-            emcmotQueue->spindle.speed = emcmotStatus->spindle.speed;
-            emcmotQueue->spindle.on = 0;
-            emcmotQueue->spindle.css_factor = 0;
-            emcmotConfig->vtp->tpSetSpindle(emcmotQueue); // setup speed_rps, direction, ... etc.
+	    emcmotQueue->next_spindle_updated = 0; // reset flag
+	    emcmotQueue->next_spindle.speed = 0; // RPM
+	    emcmotQueue->next_spindle.css_factor = 0;
+	    emcmotQueue->next_spindle.xoffset = emcmotCommand->xoffset;
+	    emcmotQueue->next_spindle.on = 0;
+	    emcmotQueue->next_spindle.max_vel = emcmotCommand->ini_maxvel;
+	    emcmotQueue->next_spindle.max_acc = emcmotCommand->acc;
+	    emcmotQueue->next_spindle.max_jerk = emcmotCommand->ini_maxjerk;
+            emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
 	    break;
 
 	case EMCMOT_SPINDLE_ORIENT:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_ORIENT");
+            reportError(_("EMCMOT_SPINDLE_ORIENT is not verified yet"));
 	    if (*(emcmot_hal_data->spindle_orient)) {
 		rtapi_print_msg(RTAPI_MSG_DBG, "orient already in progress");
 
@@ -1859,28 +1853,47 @@ check_stuff ( "before command_handler()" );
 
 	case EMCMOT_SPINDLE_INCREASE:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_INCREASE");
-	    if (emcmotStatus->spindle.speed > 0) {
-		emcmotStatus->spindle.speed += 100; //FIXME - make the step a HAL parameter
-	    } else if (emcmotStatus->spindle.speed < 0) {
-		emcmotStatus->spindle.speed -= 100;
+	    if (emcmotQueue->spindle.speed > 0) {
+	        emcmotQueue->spindle.speed += 100; //FIXME - make the step a HAL parameter
+	    } else if (emcmotQueue->spindle.speed < 0) {
+	        emcmotQueue->spindle.speed -= 100;
 	    }
-            emcmotQueue->spindle.speed = emcmotStatus->spindle.speed;
-            emcmotConfig->vtp->tpSetSpindle(emcmotQueue); // setup speed_rps, direction, ... etc.
-	    break;
+            emcmotQueue->next_spindle_updated = 0; // reset flag
+            emcmotQueue->next_spindle.speed = emcmotQueue->spindle.speed;
+            /**
+             * if emcmotQueue->depth == 0
+             * then
+             *     update emcmotStatus->spindle.speed from emcmotQueue->next_spindle.speed
+             * else
+             *     update emcmotStatus->spindle.speed from emcmotQueue->spindle.speed
+             **/
+            emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
+            break;
 
 	case EMCMOT_SPINDLE_DECREASE:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_DECREASE");
-	    if (emcmotStatus->spindle.speed > 100) {
-		emcmotStatus->spindle.speed -= 100; //FIXME - make the step a HAL parameter
-	    } else if (emcmotStatus->spindle.speed < -100) {
-		emcmotStatus->spindle.speed += 100;
-	    }
-            emcmotQueue->spindle.speed = emcmotStatus->spindle.speed;
-            emcmotConfig->vtp->tpSetSpindle(emcmotQueue); // setup speed_rps, direction, ... etc.
-	    break;
+            if (emcmotQueue->spindle.speed > 100) {
+                emcmotQueue->spindle.speed -= 100; //FIXME - make the step a HAL parameter
+            } else if (emcmotQueue->spindle.speed < -100) {
+                emcmotQueue->spindle.speed += 100;
+            } else {
+                emcmotQueue->spindle.speed = 0;
+            }
+            emcmotQueue->next_spindle_updated = 0; // reset flag
+            emcmotQueue->next_spindle.speed = emcmotQueue->spindle.speed;
+            /**
+             * if emcmotQueue->depth == 0
+             * then
+             *     update emcmotStatus->spindle.speed from emcmotQueue->next_spindle.speed
+             * else
+             *     update emcmotStatus->spindle.speed from emcmotQueue->spindle.speed
+             **/
+            emcmotConfig->vtp->tpSetSpindle(emcmotQueue, NULL); // setup speed_rps, direction, ... etc.
+            break;
 
 	case EMCMOT_SPINDLE_BRAKE_ENGAGE:
 	    rtapi_print_msg(RTAPI_MSG_DBG, "SPINDLE_BRAKE_ENGAGE");
+            reportError(_("EMCMOT_SPINDLE_BRAKE_ENGAGE is not verified yet"));
 	    emcmotStatus->spindle.speed = 0;
 	    emcmotStatus->spindle.direction = 0;
 	    emcmotStatus->spindle.brake = 1;

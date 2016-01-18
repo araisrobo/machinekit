@@ -969,7 +969,7 @@ int emcJointUpdate(EMC_JOINT_STAT stat[], int numJoints)
     return 0;
 }
 
-static int localSpindleAxis = 5;        // default to AXIS_5
+static int localSpindleAxis = DEFAULT_SPINDLE_AXIS; //!< default to -1 (disable Spindle Axis Mapping
 //FIXME if you can't beat em...
 static struct state_tag_t localEmcTrajTag;
 
@@ -1477,13 +1477,14 @@ int emcTrajProbe(EmcPose pos, int type, double vel, double ini_maxvel, double ac
     return usrmotWriteEmcmotCommand(&emcmotCommand);
 }
 
-int emcTrajSpindleSyncMotion(EmcPose pos, double vel, double ini_maxvel, double acc, double ini_maxjerk, int ssm_mode)
+int emcTrajSpindleSyncMotion(EmcPose pos, int type, double vel, double ini_maxvel, double acc, double ini_maxjerk, int ssm_mode)
 {
     CATCH_NAN(rtapi_isnan(pos.tran.x) || rtapi_isnan(pos.tran.y) || rtapi_isnan(pos.tran.z));
     emcmotCommand.command = EMCMOT_SPINDLE_SYNC_MOTION;
     emcmotCommand.pos = pos;
     emcmotCommand.id = TrajConfig.MotionId;
     emcmotCommand.tag = localEmcTrajTag;
+    emcmotCommand.motion_type = type;
     emcmotCommand.vel = vel;
     emcmotCommand.ini_maxvel = ini_maxvel;
     emcmotCommand.acc = acc;

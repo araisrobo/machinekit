@@ -97,13 +97,16 @@ typedef struct {
 } syncdio_t;
 
 typedef struct {
-    // for RIGID_TAPPING(G33.1), CSS(G33 w/ G96), and THREADING(G33 w/ G97)
+    // CSS                      (G33 w/ G96),
+    // RIGID_TAPPING            (G33.1),
+    // SPINDLE_POSITIONING      (G33.2),
+    // THREADING                (G33 w/ G97)
     PmCartLine xyz;             // original, but elongated, move down
     PmCartesian abc;
     PmCartesian uvw;
+    double s;                   // spindle-start-position
     double spindle_dir;
-    double spindle_reqvel;
-    int mode;   // G33(0), G33.1(1)
+    int mode;                   // G33(0), G33.1(1) G33.2(2)
 } PmSpindleSyncMotion;
 
 enum state_type {
@@ -169,6 +172,13 @@ typedef struct {
     int synchronized;       // spindle sync state
     double uu_per_rev;      // for sync, user units per rev (e.g. 0.0625 for 16tpi)
     int uu_updated;
+    double      spindle_css_factor;
+    double      spindle_xoffset;
+    int         spindle_on;
+    double      spindle_speed;
+    double      spindle_max_vel;
+    double      spindle_max_acc;
+    double      spindle_max_jerk;
 
     double vel_at_blend_start;
     unsigned char enables;  // Feed scale, etc, enable bits for this move
