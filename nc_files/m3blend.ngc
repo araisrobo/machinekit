@@ -1,0 +1,17 @@
+G64 G21
+
+; test G1 motion blending
+; test Spindle Speed pipelining
+M3S90
+F100
+G1X10
+G1X20
+S30
+G1X30
+G1X25
+S100
+G1X15
+M5 ; should stop blending while stopping spindle
+G1X0 
+
+M2

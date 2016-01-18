@@ -23,7 +23,6 @@ typedef struct tp_shared_t {
     // read-only by tp, config items
     hal_s32_t   *num_dio;
     hal_s32_t   *num_aio;
-
     hal_s32_t   *arcBlendGapCycles;
     hal_s32_t   *arcBlendOptDepth;
     hal_bit_t   *arcBlendEnable;
@@ -43,14 +42,20 @@ typedef struct tp_shared_t {
     // read/write by tp:
     // NB: this is the direction field in struct spindle_status
     // (there's another direction field in emcmot_command_t)
-    hal_s32_t  *spindle_direction;	// 0 stopped, 1 forward, -1 reverse
+    hal_s32_t   *spindle_direction;	// 0 stopped, 1 forward, -1 reverse
     hal_float_t *spindleRevs;
     hal_float_t *spindleSpeedIn;
-    hal_float_t *spindle_speed;  // in struct spindle_status
+    hal_float_t *spindle_speed;         // in struct spindle_status
     hal_bit_t   *spindle_index_enable;
-    hal_bit_t   *spindle_is_atspeed; // emcmotStatus->spindle_is_atspeed
-
+    hal_bit_t   *spindle_is_atspeed;    // emcmotStatus->spindle_is_atspeed
+    hal_float_t *net_spindle_scale;     /* net scale factor for spindle */
     hal_bit_t   *spindleSync;
+    hal_s32_t   *spindle_axis;
+
+    hal_float_t *spindle_css_factor;    // in struct spindle_status
+    hal_float_t *spindle_xoffset;       // in struct spindle_status
+    hal_s32_t   *spindle_brake;
+
     hal_float_t *current_vel;
     hal_float_t *dtg[9]; // an EmcPose
 
@@ -89,6 +94,11 @@ static inline hal_float_t get_jerk_limit(tp_shared_t *ts, int n)
 { return *(ts->jerk_limit[n]); }
 static inline void set_jerk_limit(tp_shared_t *ts, int n, hal_float_t val)
 { *(ts->jerk_limit[n]) = val; }
+
+static inline int get_spindle_axis(tp_shared_t *ts)  { return *(ts->spindle_axis); }
+static inline void set_spindle_css_factor(tp_shared_t *ts, hal_float_t val)  { *(ts->spindle_css_factor) = val; }
+static inline void set_spindle_xoffset(tp_shared_t *ts, hal_float_t val)  { *(ts->spindle_xoffset) = val; }
+static inline void set_spindle_brake(tp_shared_t *ts, hal_bit_t val)  { *(ts->spindle_brake) = val; }
 
 static inline hal_float_t get_acc_limit(tp_shared_t *ts, int n)
 { return *(ts->acc_limit[n]); }

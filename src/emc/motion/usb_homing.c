@@ -94,7 +94,7 @@ static void home_start_move(emcmot_joint_t * joint, double vel, int probe_type)
     joint->risc_probe_type = probe_type;
     joint->risc_probe_pin = joint->home_sw_id;
     if (probe_type == RISC_PROBE_INDEX) {
-        joint->risc_probe_pin = joint->id;
+        joint->risc_probe_pin = *(joint->joint_id);
     }
 }
 
@@ -306,16 +306,16 @@ void do_usb_homing(void)
                 // unlock is now complete.
                 if (joint->home_search_vel == 0.0) {
                     if (joint->home_latch_vel == 0.0) {
-                        /* both vels == 0 means home at current position */
-                        if (joint->probed_pos == 0.0)
-                        {/*for joint with (home search and latch vel = 0, and never get probed),
-                           prevent it from moving to HOME_OFFSET*/
-                            joint->probed_pos = joint->pos_fb + joint->motor_offset;
-// TODO:
-//                            if (*(joint->home_abs))
-//                            {   // HAL signal home-abs is true for ABSOLUTE-HOMING
-//                                joint->probed_pos += (-joint->last_enc_pos+joint->home_enc_pos);
-//                            }
+                        /* both search and latch vels == 0 means home at current position */
+                        if (*(joint->home_offset) != 0) {
+                            /* for ABS-ENC-HOMING */
+                            joint->probed_pos = 0;
+                            rtapi_print_msg(RTAPI_MSG_INFO,
+                                    _("usb_homing: j[%d].home_state(%s) for ABS-ENC-HOMING\n"),
+                                    joint_num, home_state_names[joint->home_state]);
+                        } else {
+                            /* must set HOME_OFFSET to 0 for NO-HOMING */
+                            joint->probed_pos = joint->risc_pos_cmd;
                         }
                         joint->home_state = HOME_SET_SWITCH_POSITION;
                         immediate_state = 1;
@@ -592,7 +592,7 @@ void do_usb_homing(void)
                 emcmotStatus->update_pos_ack = 1; // to synchronize prev_pos_cmd with new pos_cmd
 
                 rtapi_print_msg(RTAPI_MSG_DBG,
-                         _("HOME_SET_SWITCH_POSITION: \nj[%d] home_offset(%f) risc_pos_cmd(%f) \nprobed_pos(%f) pos_cmd(%f) pos_fb(%f) \nfree_tp.curr_pos(%f) motor_offset(%f)\n"),
+                         _("HOME_SET_SWITCH_POSITION: j[%d] home_offset(%f) risc_pos_cmd(%f) probed_pos(%f) pos_cmd(%f) pos_fb(%f) free_tp.curr_pos(%f) motor_offset(%f)\n"),
                          joint_num,
                          *(joint->home_offset),
                          joint->risc_pos_cmd,
@@ -728,24 +728,33 @@ void do_usb_homing(void)
                     break;
                 }
 
-                // TODO: implement ABS-HOMING without modifying usb_homing.c
-//                if (*(joint->home_abs) == 0)
-//                {   // HAL signal home-abs is FALSE for INCREMENTAL-HOMING
-//                    joint->free_tp.curr_pos = *(joint->home);
-//                }
-
-                /* plan a move to home position */
-                joint->free_tp.pos_cmd = *(joint->home);
-
-                /* if home_vel is set (>0) then we use that, otherwise we rapid there */
+                /* if home_vel is set (>0) then we use that, otherwise we stop at where we are */
                 if (joint->home_final_vel != 0) {
+                    /* plan a move to home position */
+                    joint->free_tp.pos_cmd = *(joint->home);
                     joint->free_tp.max_vel = rtapi_fabs(joint->home_final_vel);
+                    joint->free_tp.enable = 1;
                 } else {
-                    joint->free_tp.max_vel = joint->vel_limit;
+                    /* do not do final move if home_final_vel is 0 */
+                    joint->free_tp.pos_cmd = joint->pos_cmd;
+                    joint->free_tp.max_vel = 0;
+                    joint->free_tp.enable = 0;
                 }
 
+                rtapi_print_msg(RTAPI_MSG_DBG,
+                        _("HOME_FINAL_MOVE_START: j[%d] free_vel_lim(%f) home(%f) home_offset(%f) risc_pos_cmd(%f) probed_pos(%f) pos_cmd(%f) pos_fb(%f) free_pos_cmd(%f) motor_offset(%f)\n"),
+                        joint_num,
+                        joint->free_vel_lim,
+                        *(joint->home),
+                        *(joint->home_offset),
+                        joint->risc_pos_cmd,
+                        joint->probed_pos,
+                        joint->pos_cmd,
+                        joint->pos_fb,
+                        joint->free_tp.pos_cmd,
+                        joint->motor_offset);
+
                 /* start the move */
-                joint->free_tp.enable = 1;
                 joint->home_state = HOME_FINAL_MOVE_WAIT;
                 break;
 

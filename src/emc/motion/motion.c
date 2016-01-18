@@ -61,6 +61,8 @@ static long traj_period_nsec = 0;	/* trajectory planner period */
 RTAPI_MP_LONG(traj_period_nsec, "trajectory planner period (nsecs)");
 static int num_joints = EMCMOT_MAX_JOINTS;	/* default number of joints present */
 RTAPI_MP_INT(num_joints, "number of joints");
+int spindle_axis = DEFAULT_SPINDLE_AXIS;     /* define axis that maps as spindle */
+RTAPI_MP_INT(spindle_axis, "spindle axis");
 static int num_dio = DEFAULT_DIO;	/* default number of motion synched DIO */
 RTAPI_MP_INT(num_dio, "number of digital inputs/outputs");
 static int num_aio = DEFAULT_AIO;	/* default number of motion synched AIO */
@@ -218,6 +220,13 @@ int rtapi_app_main(void)
 	    _("MOTION: num_joints is %d, must be between 1 and %d\n"), num_joints, EMCMOT_MAX_JOINTS);
 	hal_exit(mot_comp_id);
 	return -1;
+    }
+
+    if ((spindle_axis != -1) && (( spindle_axis < 3) || (spindle_axis > 8))) {
+        rtapi_print_msg(RTAPI_MSG_ERR,
+            _("MOTION: spindle_axis is %d, must be (between 4 and 8) or (%d)\n"),
+              spindle_axis, DEFAULT_SPINDLE_AXIS);
+        return -1;
     }
 
     if (( num_dio < 1 ) || ( num_dio > EMCMOT_MAX_DIO )) {
@@ -393,8 +402,16 @@ static int init_hal_io(void)
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_speed_out_rps), mot_comp_id, "motion.spindle-speed-out-rps")) != 0) goto error;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_speed_out_rps_abs), mot_comp_id, "motion.spindle-speed-out-rps-abs")) != 0) goto error;
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_speed_cmd_rps), mot_comp_id, "motion.spindle-speed-cmd-rps")) != 0) goto error;
+    if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->css_factor), mot_comp_id, "motion.spindle-css-factor")) < 0) goto error;
+    if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->css_error), mot_comp_id, "motion.spindle-css-error")) < 0) goto error;
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->spindle_inhibit), mot_comp_id, "motion.spindle-inhibit")) != 0) goto error;
+    if ((retval = hal_pin_s32_newf(HAL_IN, &(emcmot_hal_data->spindle_joint_id), mot_comp_id, "motion.spindle-joint-id")) < 0) goto error;
+    if ((retval = hal_pin_s32_newf(HAL_IN, &(emcmot_hal_data->spindle_aux_joint_id), mot_comp_id, "motion.spindle-aux-joint-id")) < 0) goto error;
     *(emcmot_hal_data->spindle_inhibit) = 0;
+    *(emcmot_hal_data->css_factor) = 0;
+    *(emcmot_hal_data->css_error) = 0;
+    *(emcmot_hal_data->spindle_joint_id) = -1;
+    *(emcmot_hal_data->spindle_aux_joint_id) = -1;
 
     // spindle orient pins
     if ((retval = hal_pin_float_newf(HAL_OUT, &(emcmot_hal_data->spindle_orient_angle), mot_comp_id, "motion.spindle-orient-angle")) < 0) goto error;
@@ -695,7 +712,6 @@ static int export_joint(int num, joint_hal_t * addr)
     if ((retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_probe_pin), mot_comp_id, "joint.%d.risc-probe-pin", num)) != 0) return retval;
     if ((retval = hal_pin_s32_newf(HAL_OUT, &(addr->risc_probe_type), mot_comp_id, "joint.%d.risc-probe-type", num)) != 0) return retval;
     if ((retval = hal_pin_s32_newf(HAL_IN, &(addr->home_sw_id), mot_comp_id, "joint.%d.home-sw-id", num)) != 0) return retval;
-    if ((retval = hal_pin_float_newf(HAL_IN, &(addr->index_pos_pin), mot_comp_id, "joint.%d.index-pos", num)) != 0) return retval;
     /* for fpga_motion */
     if ((retval = hal_pin_bit_newf(HAL_IN, &(addr->usb_ferror_flag), mot_comp_id, "joint.%d.usb-ferror-flag", num)) != 0) return retval;
     if ((retval = hal_pin_float_newf(HAL_IN, &(addr->risc_pos_cmd), mot_comp_id, "joint.%d.risc-pos-cmd", num)) != 0) return retval;
@@ -823,6 +839,7 @@ static int init_comm_buffers(void)
     emcmotDebug->split = 0;
     emcmotStatus->heartbeat = 0;
     emcmotConfig->numJoints = num_joints;
+    emcmotConfig->spindleAxis = spindle_axis;
     emcmotConfig->numDIO = num_dio;
     emcmotConfig->numAIO = num_aio;
 
@@ -863,8 +880,15 @@ static int init_comm_buffers(void)
 	if ((retval = hal_pin_float_newf(HAL_IN, &(joint->home), mot_comp_id, "joint.%d.home", joint_num)) != 0) return retval;
 	if ((retval = hal_pin_float_newf(HAL_IN, &(joint->home_offset), mot_comp_id, "joint.%d.home-offset", joint_num)) != 0) return retval;
 
+	//!< joint_id: to be used for INDEX homing, usb_homing.c
+        retval = hal_pin_u32_newf(HAL_IN, &(joint->joint_id),
+                                    mot_comp_id, "axis.%d.joint-id", joint_num);
+        if (retval != 0) {
+            return retval;
+        }
+        *(joint->joint_id) = joint_num; /* default to AXIS_ID */
+
 	/* init the config fields with some "reasonable" defaults" */
-        joint->id = joint_num;          //!< to be used for INDEX homing, usb_homing.c
 	joint->type = 0;
 	joint->max_pos_limit = 1.0;
 	joint->min_pos_limit = -1.0;
@@ -1185,6 +1209,7 @@ static int init_shared(tp_shared_t *tps,
 
     // from emcmotStatus
     tps->net_feed_scale = &status->net_feed_scale;
+    tps->net_spindle_scale = &status->net_spindle_scale;
     tps->spindle_direction = &status->spindle.direction;
     tps->spindle_speed = &status->spindle.speed;
     tps->spindleRevs = &status->spindleRevs;
@@ -1192,6 +1217,11 @@ static int init_shared(tp_shared_t *tps,
     tps->spindle_index_enable = &status->spindle_index_enable;
     tps->spindle_is_atspeed = &status->spindle_is_atspeed; // or pin
     tps->spindleSync = &status->spindleSync;
+    tps->spindle_axis = &spindle_axis;
+    tps->spindle_css_factor = &status->spindle.css_factor;
+    tps->spindle_xoffset = &status->spindle.xoffset;
+    tps->spindle_brake = &status->spindle.brake;
+
     tps->current_vel = &status->current_vel;
     tps->requested_vel = &status->requested_vel;
     tps->distance_to_go = &status->distance_to_go;

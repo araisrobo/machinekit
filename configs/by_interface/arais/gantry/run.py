@@ -51,7 +51,7 @@ try:
     if args.config:
         # the point-of-contact for QtQUickVCP
         machineface_dir = os.path.join(home_dir, "proj/remote-ui/Machineface")
-        launcher.start_process("configserver -d -n Meinan %s" % machineface_dir)
+        launcher.start_process("configserver -n GANTRY %s" % machineface_dir)
         launcher.start_process('linuxcnc %s' % (args.ini))
         
     if args.halmeter:

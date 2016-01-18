@@ -36,11 +36,12 @@ typedef int (*tpSetId_t)(TP_STRUCT * tp, int id);
 typedef int (*tpGetExecId_t)(TP_STRUCT * tp);
 typedef struct state_tag_t (*tpGetExecTag_t)(TP_STRUCT * const tp);
 typedef int (*tpSetTermCond_t)(TP_STRUCT * tp, int cond, double tolerance);
-typedef int (*tpSetPos_t)(TP_STRUCT * tp, EmcPose const * const pos);
+typedef int (*tpSetPos_t)(TP_STRUCT * tp, EmcPose * const pos);
 typedef int (*tpAddCurrentPos_t)(TP_STRUCT * const tp, EmcPose const * const disp);
 typedef int (*tpSetCurrentPos_t)(TP_STRUCT * const tp, EmcPose const * const pos);
 typedef int (*tpAddSpindleSyncMotion_t)(TP_STRUCT * tp,
                                         EmcPose end,
+                                        int canon_motion_type,
                                         double vel,
                                         double ini_maxvel,
                                         double acc,
@@ -77,14 +78,14 @@ typedef int (*tpPause_t)(TP_STRUCT * tp);
 typedef int (*tpResume_t)(TP_STRUCT * tp);
 typedef int (*tpTcqInit_t)(TP_STRUCT * tp);
 typedef int (*tpAbort_t)(TP_STRUCT * tp);
-typedef int (*tpGetPos_t)(TP_STRUCT const  * const tp, EmcPose * const pos);
+typedef int (*tpGetPos_t)(TP_STRUCT * const tp, EmcPose * const pos);
 typedef int (*tpIsDone_t)(TP_STRUCT * tp);
 typedef int (*tpQueueDepth_t)(TP_STRUCT * tp);
 typedef int (*tpActiveDepth_t)(TP_STRUCT * tp);
 typedef int (*tpGetMotionType_t)(TP_STRUCT * tp);
 typedef int (*tpGetAccelState_t)(TP_STRUCT * tp);
 typedef int (*tpSetSpindleSync_t)(TP_STRUCT * tp, double sync, int wait);
-typedef int (*tpSetSpindle_t)(TP_STRUCT * tp);
+typedef int (*tpSetSpindle_t)(TP_STRUCT * tp, TC_STRUCT * tc);
 
 typedef int (*tcqFull_t)(TC_QUEUE_STRUCT const * const tcq);
 

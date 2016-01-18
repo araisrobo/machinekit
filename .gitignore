@@ -67,7 +67,9 @@ src/hal/cython/machinekit/*.c
 # mk-build-deps artifact
 /machinekit-build-deps_*.deb
 *.9
+.directory
 # eclipse related settings
 .cproject
 .project
 .pydevproject
+core

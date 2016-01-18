@@ -129,13 +129,13 @@
 #define AHC_DOING_BIT                   18
 
 /**
- *  MACHINE_CTRL,   // [31:28]  JOG_VEL_SCALE
+ *  MACHINE_CTRL,   // [31:28]  SPINDLE_AUX_JOINT_ID
  *                  // [27:24]  SPINDLE_JOINT_ID
  *                  // [23:16]  NUM_JOINTS
- *                  // [l5: 8]  JOG_SEL
- *                                  [15]: MPG(1), CONT(0)
- *                                  [14]: RESERVED
- *                                  [13:8]: J[5:0], EN(1), DISABLE(0)
+ *                  // [l5: 8]  OBSOLETED: JOG_SEL
+ *                              OBSOLETED:     [15]: MPG(1), CONT(0)
+ *                              OBSOLETED:     [14]: RESERVED
+ *                              OBSOLETED:     [13:8]: J[5:0], EN(1), DISABLE(0)
  *                  // [ 7: 4]  ACCEL_STATE, the FSM state of S-CURVE-VELOCITY profile
  *                  // [    3]  HOMING
  *                  // [ 2: 1]  MOTION_MODE: 
@@ -148,11 +148,10 @@
 #define MCTRL_MOTION_MODE_MASK          0x00000006  // MOTION_MODE mask for MACHINE_CTRL
 #define MCTRL_HOMING_MASK               0x00000008  // HOMING_MASK for MACHINE_CTRL
 #define MCTRL_ACCEL_STATE_MASK          0x000000F0  // ACCEL_STATE mask for MACHINE_CTRL
+#define MCTRL_JOG_SEL_MASK              0x0000FF00  // JOG_SEL mask for MACHINE_CTRL
 #define MCTRL_NUM_JOINTS_MASK           0x00FF0000  // NUM_JOINTS mask for MACHINE_CTRL
 #define MCTRL_SPINDLE_ID_MASK           0x0F000000  // SPINDLE_JOINT_ID mask for MACHINE_CTRL
-#define MCTRL_JOG_SEL_MASK              0x0000FF00  // JOG_SEL mask for MACHINE_CTRL
-#define MCTRL_JOG_VEL_SCALE_VALUE_MASK  0x70000000  // JOG_VEL_SCALE mask for MACHINE_CTRL
-#define MCTRL_JOG_VEL_SCALE_SIGN_MASK   0x80000000  // JOG_VEL_SCALE mask for MACHINE_CTRL
+#define MCTRL_SPINDLE_AUX_ID_MASK       0xF0000000  // SPINDLE_AUX_JOINT_ID mask for MACHINE_CTRL
 
 /**
  *  GANTRY_CTRL,    // [31]     GANTRY_EN
@@ -170,6 +169,7 @@ typedef enum {
     RCMD_HOST_PROBE,            // Do host probe
     RCMD_PSO,                   // PSO -- progress synced output
     RCMD_REMOTE_JOG,            // remote control 
+    RCMD_SET_ENC_POS,           // set encoder position
 } rsic_cmd_t;
 
 typedef enum {
@@ -205,10 +205,10 @@ enum machine_parameter_addr {
     ALR_EN_BITS,            // the bitmap of ALARM bits for all joints (DIN[6:1])
                             //             as well as ALARM_EN/ESTOP bit (DIN[0])
 
-    MACHINE_CTRL,           // [31:28]  JOG_VEL_SCALE
+    MACHINE_CTRL,           // [31:28]  SPINDLE_AUX_JOINT_ID
                             // [27:24]  SPINDLE_JOINT_ID
                             // [23:16]  NUM_JOINTS
-                            // [15: 8]  JOG_SEL
+                            // [15: 8]  OBSOLETE: JOG_SEL
                             // [ 7: 4]  ACCEL_STATE
                             // [    3]  HOMING
                             // [ 2: 1]  MOTION_MODE: 

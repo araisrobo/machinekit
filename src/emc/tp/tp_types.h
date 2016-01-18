@@ -92,7 +92,6 @@ typedef struct {
     int orient_state;       // orient_state_t
     int at_speed;
     int on;
-    int axis;               // the axis mapped as spindle
     double max_vel;
     double max_acc;
     double max_jerk;
@@ -100,6 +99,7 @@ typedef struct {
     double tiny_dv;
     double curr_acc;
     double curr_vel_rps;
+    int synchronized;       // set for spindle-synchronized-motions: G97 w/ G33, G96 w/ G33, G33.1, G33.2 ...
 
     int waiting_for_index;
     int waiting_for_atspeed;
@@ -119,7 +119,10 @@ typedef struct tp_shared_t tp_shared_t; // see tp_shared.h
  */
 typedef struct {
     TC_QUEUE_STRUCT queue;
-    tp_spindle_t spindle; //Spindle data
+    tp_spindle_t spindle;       //Spindle data of current TC
+    tp_spindle_t next_spindle;  //Spindle data for upcoming TC
+    int          next_spindle_updated;
+
     tp_shared_t *shared;
 
     EmcPose currentPos;
@@ -158,7 +161,7 @@ typedef struct {
     double tolerance;           /* for subsequent motions, stay within this
                                    distance of the programmed path during
                                    blends */
-    int synchronized;       // spindle sync required for this move
+    int synchronized;           // spindle sync required for this move
     int velocity_mode; 	        /* TRUE if spindle sync is in velocity mode,
 				   FALSE if in position mode */
     double uu_per_rev;          /* user units per spindle revolution */

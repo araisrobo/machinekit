@@ -269,21 +269,14 @@ int tcGetEndpoint(TC_STRUCT const * const tc, EmcPose * const out) {
 }
 
 /**
- * tcUpdateSpindleAxisCSS - for CSS, update spindle position to corresponding spindleAxis
+ * tcUpdateSyncSpindleAxis - for Synchronized Spindle Motions, update spindle displacement to corresponding spindleAxis
  */
-int tcUpdateSpindleAxisCSS(TP_STRUCT const * const tp, TC_STRUCT const * const tc,  EmcPose * const pos)
+int tcUpdateSyncSpindleAxis(TP_STRUCT const * const tp, TC_STRUCT const * const tc,  EmcPose * const pos)
 {
-    if(tp->spindle.css_factor != 0)
-    {   // only update spindle position for G96 G33(CSS) motion
-        switch (tc->motion_type) {
-            case TC_SPINDLE_SYNC_MOTION:
-                // for RIGID_TAPPING(G33.1), CSS(G33 w/ G96), and THREADING(G33 w/ G97)
-                tpUpdateSpindleAxis(tp, pos);
-                break;
-            default:
-                tp_debug_print ("(%s:%d) TODO:...\n", __FUNCTION__, __LINE__);
-                break;
-        }
+    // 若是主軸同步運動，則更新 tcRunCycle 計算出來的新的主軸位置命令
+    if (tc->synchronized) {
+        tp_debug_print ("(%s:%d) css_factor(%f) motion_type(%d) tc->synchronized(%d)\n", __FUNCTION__, __LINE__, tp->spindle.css_factor, tc->motion_type, tc->synchronized);
+        tpGetSpindleAxis(tp, pos);
     }
     return 0;
 }
@@ -320,8 +313,9 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
             // no rotary move allowed while tapping
             abc = tc->coords.spindle_sync.abc;
             uvw = tc->coords.spindle_sync.uvw;
-            pos->s = tc->coords.spindle_sync.spindle_dir * progress;
-            tp_debug_print ("spindle_dir(%f) progress(%f)\n",
+            pos->s = tc->coords.spindle_sync.s + tc->coords.spindle_sync.spindle_dir * progress;
+
+            tp_debug_print ("(%s:%d) spindle_dir(%f) progress(%f)\n", __FUNCTION__, __LINE__,
                     tc->coords.spindle_sync.spindle_dir, progress);
             tp_debug_print ("spindle pos(%f) of_point(%d)\n", pos->s, of_point);
             break;
@@ -368,7 +362,7 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
  * This function will eventually handle state changes associated with altering a terminal condition.
  */
 int tcSetTermCond(TC_STRUCT * const tc, int term_cond) {
-    tp_debug_print("setting term condition %d on tc id %d, type %d\n", term_cond, tc->id, tc->motion_type);
+    tp_debug_print("(%s:%d) term condition %d on tc id %d, type %d\n", __FUNCTION__, __LINE__, term_cond, tc->id, tc->motion_type);
     tc->term_cond = term_cond;
     return 0;
 }
@@ -485,9 +479,9 @@ int tcFlagEarlyStop(TC_STRUCT * const tc,
         return TP_ERR_NO_ACTION;
     }
 
-    if(tc->synchronized != TC_SYNC_POSITION && nexttc->synchronized == TC_SYNC_POSITION) {
-        // we'll have to wait for spindle sync; might as well
-        // stop at the right place (don't blend)
+    if((tc->synchronized == TC_SYNC_POSITION) ^ (nexttc->synchronized == TC_SYNC_POSITION)) {
+        // we'll have to wait for approaching or leaving spindle sync motion; 
+        // might as well stop at the right place (don't blend)
         tp_debug_print("waiting on spindle sync for tc %d\n", tc->id);
         tcSetTermCond(tc, TC_TERM_COND_STOP);
     }
@@ -609,6 +603,15 @@ int tcSetupState(TC_STRUCT * const tc, TP_STRUCT const * const tp)
     tc->tolerance = tp->tolerance;
     tc->synchronized = tp->synchronized;
     tc->uu_per_rev = tp->uu_per_rev;
+
+    tc->spindle_speed =         tp->next_spindle.speed;
+    tc->spindle_css_factor =    tp->next_spindle.css_factor;
+    tc->spindle_xoffset =       tp->next_spindle.xoffset;
+    tc->spindle_on =            tp->next_spindle.on;
+    tc->spindle_max_vel =       tp->next_spindle.max_vel;
+    tc->spindle_max_acc =       tp->next_spindle.max_acc;
+    tc->spindle_max_jerk =      tp->next_spindle.max_jerk;
+
     return TP_ERR_OK;
 }
 
@@ -699,7 +702,7 @@ int tcFinalizeLength(TC_STRUCT * const tc)
     tp_debug_print("Finalizing tc id %d, type %d\n", tc->id, tc->motion_type);
     //TODO function to check for parabolic?
     int parabolic = (tc->blend_prev || tc->term_cond == TC_TERM_COND_PARABOLIC);
-    tp_debug_print("blend_prev = %d, term_cond = %d\n",tc->blend_prev, tc->term_cond);
+    tp_debug_print("(%s:%d) blend_prev = %d, term_cond = %d\n", __FUNCTION__, __LINE__, tc->blend_prev, tc->term_cond);
 
     if (tc->motion_type == TC_CIRCULAR) {
         tc->maxvel = pmCircleActualMaxVel(&tc->coords.circle.xyz, tc->maxvel, tc->maxaccel, parabolic);

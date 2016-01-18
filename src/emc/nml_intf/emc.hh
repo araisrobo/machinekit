@@ -388,6 +388,7 @@ extern int emcOperatorDisplay(int id, const char *fmt, ...) __attribute__((forma
 // implementation functions for EMC_AXIS types
 
 extern int emcAxisSetUnits(int axis, double units);
+extern int emcAxisSetBacklash(int axis, double backlash);
 extern int emcAxisSetMinPositionLimit(int axis, double limit);
 extern int emcAxisSetMaxPositionLimit(int axis, double limit);
 extern int emcAxisSetMaxVelocity(int axis, double vel);
@@ -488,7 +489,7 @@ extern int emcTrajEndProbe(unsigned char probe_type);
 extern int emcTrajProbe(EmcPose pos, int type, double vel,
                         double ini_maxvel, double acc, double ini_maxjerk, unsigned char probe_type);
 extern int emcAuxInputWait(int index, int input_type, int wait_type, int timeout);
-extern int emcTrajSpindleSyncMotion(EmcPose pos, double vel, double ini_maxvel, double acc, double ini_maxjerk, int ssm_mode);
+extern int emcTrajSpindleSyncMotion(EmcPose pos, int type, double vel, double ini_maxvel, double acc, double ini_maxjerk, int ssm_mode);
 
 extern int emcTrajUpdate(EMC_TRAJ_STAT * stat);
 
