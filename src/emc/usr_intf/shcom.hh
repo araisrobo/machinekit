@@ -29,6 +29,9 @@
 #define RAD_PER_DEG TO_RAD	// from posemath.h
 #define DEFAULT_PATH "../../nc_files/"
 
+#define JOGTELEOP 0
+#define JOGJOINT  1
+
 enum LINEAR_UNIT_CONVERSION {
     LINEAR_UNITS_CUSTOM = 1,
     LINEAR_UNITS_AUTO,
@@ -101,9 +104,9 @@ extern int sendManual();
 extern int sendAuto();
 extern int sendMdi();
 extern int sendOverrideLimits(int axis);
-extern int sendJogStop(int axis);
-extern int sendJogCont(int axis, double speed);
-extern int sendJogIncr(int axis, double speed, double incr);
+extern int sendJogStop(int jnum, int jjogmode);
+extern int sendJogCont(int jnum, int jjogmode, double speed);
+extern int sendJogIncr(int jnum, int jjogmode, double speed, double incr);
 extern int sendMistOn();
 extern int sendMistOff();
 extern int sendFloodOn();

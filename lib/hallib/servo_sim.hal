@@ -2,7 +2,7 @@
 
 # first load all the RT modules that will be needed
 # kinematics
-loadrt trivkins
+loadrt [KINS]KINEMATICS
 # motion controller, get name and thread periods from ini file
 # trajectory planner
 loadrt tp

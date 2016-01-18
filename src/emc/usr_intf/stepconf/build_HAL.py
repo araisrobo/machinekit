@@ -42,9 +42,8 @@ class HAL:
         print >>file, _("# If you make changes to this file, they will be")
         print >>file, _("# overwritten when you run stepconf again")
 
-        print >>file, "loadrt trivkins"
-	print >>file, "loadrt tp"
-        print >>file, "loadrt [EMCMOT]EMCMOT base_period_nsec=[EMCMOT]BASE_PERIOD servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[TRAJ]AXES kins=trivkins tp=tp"
+        print >>file, "loadrt [KINS]KINEMATICS"
+        print >>file, "loadrt [EMCMOT]EMCMOT base_period_nsec=[EMCMOT]BASE_PERIOD servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[KINS]JOINTS"
         port3name=port2name=port2dir=port3dir=""
         if self.d.number_pports>2:
              port3name = ' '+self.d.ioaddr3
@@ -73,12 +72,13 @@ class HAL:
         limits_homes = SIG.ALL_LIMIT_HOME in inputs
         pwm = SIG.PWM in outputs
         pump = SIG.PUMP in outputs
-        if self.d.axes == 2:
-            print >>file, "loadrt stepgen step_type=0,0"
-        elif self.d.axes == 1:
-            print >>file, "loadrt stepgen step_type=0,0,0,0"
-        else:
+        if self.d.axes == 0:
             print >>file, "loadrt stepgen step_type=0,0,0"
+        elif self.d.axes in(1,3):
+            print >>file, "loadrt stepgen step_type=0,0,0,0"
+        elif self.d.axes == 2:
+            print >>file, "loadrt stepgen step_type=0,0"
+
 
         if encoder:
             print >>file, "loadrt encoder num_chan=1"
@@ -113,7 +113,7 @@ class HAL:
         if self.d.sim_hardware:
             print >>file, "source sim_hardware.hal"
             if encoder:
-            	print >>file, "addf sim-encoder.make-pulses base-thread"
+                print >>file, "addf sim-encoder.make-pulses base-thread"
         print >>file, "addf stepgen.make-pulses base-thread"
         if encoder: print >>file, "addf encoder.update-counters base-thread"
         if pump: print >>file, "addf charge-pump base-thread"
@@ -128,9 +128,9 @@ class HAL:
         print >>file
         print >>file, "addf stepgen.capture-position servo-thread"
         if self.d.sim_hardware:
+            print >>file, "addf sim-hardware.update servo-thread"
             if encoder:
                 print >>file, "addf sim-encoder.update-speed servo-thread"
-            print >>file, "addf sim-hardware.update servo-thread"
         if encoder: print >>file, "addf encoder.capture-position servo-thread"
         print >>file, "addf motion-command-handler servo-thread"
         print >>file, "addf motion-controller servo-thread"
@@ -242,31 +242,40 @@ class HAL:
             print >>file, "net all-limit-home => lut5.0.in-4"
             print >>file, "net all-limit <= lut5.0.out"
             if self.d.axes == 2:
-                print >>file, "net homing-x <= axis.0.homing => lut5.0.in-0"
-                print >>file, "net homing-z <= axis.1.homing => lut5.0.in-1"
+                print >>file, "net homing-x <= joint.0.homing => lut5.0.in-0"
+                print >>file, "net homing-z <= joint.1.homing => lut5.0.in-1"
             elif self.d.axes == 0:
-                print >>file, "net homing-x <= axis.0.homing => lut5.0.in-0"
-                print >>file, "net homing-y <= axis.1.homing => lut5.0.in-1"
-                print >>file, "net homing-z <= axis.2.homing => lut5.0.in-2"
+                print >>file, "net homing-x <= joint.0.homing => lut5.0.in-0"
+                print >>file, "net homing-y <= joint.1.homing => lut5.0.in-1"
+                print >>file, "net homing-z <= joint.2.homing => lut5.0.in-2"
             elif self.d.axes == 1:
-                print >>file, "net homing-x <= axis.0.homing => lut5.0.in-0"
-                print >>file, "net homing-y <= axis.1.homing => lut5.0.in-1"
-                print >>file, "net homing-z <= axis.2.homing => lut5.0.in-2"
-                print >>file, "net homing-a <= axis.3.homing => lut5.0.in-3"
-
+                print >>file, "net homing-x <= joint.0.homing => lut5.0.in-0"
+                print >>file, "net homing-y <= joint.1.homing => lut5.0.in-1"
+                print >>file, "net homing-z <= joint.2.homing => lut5.0.in-2"
+                print >>file, "net homing-a <= joint.3.homing => lut5.0.in-3"
+            elif self.d.axes == 3:
+                print >>file, "net homing-x <= joint.0.homing => lut5.0.in-0"
+                print >>file, "net homing-y <= joint.1.homing => lut5.0.in-1"
+                print >>file, "net homing-u <= joint.6.homing => lut5.0.in-2"
+                print >>file, "net homing-v <= joint.7.homing => lut5.0.in-3"
 
         if self.d.axes == 2:
-            self.connect_axis(file, 0, 'x')
-            self.connect_axis(file, 1, 'z')
+            self.connect_joint(file, 0, 'x')
+            self.connect_joint(file, 1, 'z')
         elif self.d.axes == 0:
-            self.connect_axis(file, 0, 'x')
-            self.connect_axis(file, 1, 'y')
-            self.connect_axis(file, 2, 'z')
+            self.connect_joint(file, 0, 'x')
+            self.connect_joint(file, 1, 'y')
+            self.connect_joint(file, 2, 'z')
         elif self.d.axes == 1:
-            self.connect_axis(file, 0, 'x')
-            self.connect_axis(file, 1, 'y')
-            self.connect_axis(file, 2, 'z')
-            self.connect_axis(file, 3, 'a')
+            self.connect_joint(file, 0, 'x')
+            self.connect_joint(file, 1, 'y')
+            self.connect_joint(file, 2, 'z')
+            self.connect_joint(file, 3, 'a')
+        elif self.d.axes == 3:
+            self.connect_joint(file, 0, 'x')
+            self.connect_joint(file, 1, 'y')
+            self.connect_joint(file, 2, 'u')
+            self.connect_joint(file, 3, 'v')
 
         print >>file
         print >>file, "net estop-out <= iocontrol.0.user-enable-out"
@@ -377,11 +386,11 @@ class HAL:
 # HELPER FUNCTIONS
 #******************
 
-    def connect_axis(self, file, num, let):
-        axnum = "xyza".index(let)
+    def connect_joint(self, file, num, let):
+        axnum = "xyzabcuvw".index(let)
         lat = self.d.latency
         print >>file
-        print >>file, "setp stepgen.%d.position-scale [AXIS_%d]SCALE" % (num, axnum)
+        print >>file, "setp stepgen.%d.position-scale [JOINT_%d]SCALE" % (num, num)
         print >>file, "setp stepgen.%d.steplen 1" % num
         if self.a.doublestep():
             print >>file, "setp stepgen.%d.stepspace 0" % num
@@ -389,21 +398,21 @@ class HAL:
             print >>file, "setp stepgen.%d.stepspace 1" % num
         print >>file, "setp stepgen.%d.dirhold %d" % (num, self.d.dirhold + lat)
         print >>file, "setp stepgen.%d.dirsetup %d" % (num, self.d.dirsetup + lat)
-        print >>file, "setp stepgen.%d.maxaccel [AXIS_%d]STEPGEN_MAXACCEL" % (num, axnum)
-        print >>file, "net %spos-cmd axis.%d.motor-pos-cmd => stepgen.%d.position-cmd" % (let, axnum, num)
-        print >>file, "net %spos-fb stepgen.%d.position-fb => axis.%d.motor-pos-fb" % (let, num, axnum)
+        print >>file, "setp stepgen.%d.maxaccel [JOINT_%d]STEPGEN_MAXACCEL" % (num, num)
+        print >>file, "net %spos-cmd joint.%d.motor-pos-cmd => stepgen.%d.position-cmd" % (let, num, num)
+        print >>file, "net %spos-fb stepgen.%d.position-fb => joint.%d.motor-pos-fb" % (let, num, num)
         print >>file, "net %sstep <= stepgen.%d.step" % (let, num)
         print >>file, "net %sdir <= stepgen.%d.dir" % (let, num)
-        print >>file, "net %senable axis.%d.amp-enable-out => stepgen.%d.enable" % (let, axnum, num)
+        print >>file, "net %senable joint.%d.amp-enable-out => stepgen.%d.enable" % (let, num, num)
         homesig = self.a.home_sig(let)
         if homesig:
-            print >>file, "net %s => axis.%d.home-sw-in" % (homesig, axnum)
+            print >>file, "net %s => joint.%d.home-sw-in" % (homesig, num)
         min_limsig = self.min_lim_sig(let)
         if min_limsig:
-            print >>file, "net %s => axis.%d.neg-lim-sw-in" % (min_limsig, axnum)
+            print >>file, "net %s => joint.%d.neg-lim-sw-in" % (min_limsig, num)
         max_limsig = self.max_lim_sig(let)
         if max_limsig:
-            print >>file, "net %s => axis.%d.pos-lim-sw-in" % (max_limsig, axnum)
+            print >>file, "net %s => joint.%d.pos-lim-sw-in" % (max_limsig, num)
 
     def sim_hardware_halfile(self,base):
         custom = os.path.join(base, "sim_hardware.hal")
@@ -425,38 +434,70 @@ class HAL:
                 print >>f1
             print >>f1, "loadrt sim_axis_hardware names=sim-hardware"
             print >>f1
-            print >>f1, "net Xjoint-pos-fb      axis.0.joint-pos-fb      sim-hardware.Xcurrent-pos"
-            if not self.d.axes == 2:
-                print >>f1, "net Yjoint-pos-fb      axis.1.joint-pos-fb      sim-hardware.Ycurrent-pos"
-            print >>f1, "net Zjoint-pos-fb      axis.2.joint-pos-fb      sim-hardware.Zcurrent-pos"
-            if self.d.axes == 1:
-                print >>f1, "net Ajoint-pos-fb      axis.3.joint-pos-fb      sim-hardware.Acurrent-pos"
+            print >>f1, "net Xjoint-pos-fb      joint.0.pos-fb      sim-hardware.Xcurrent-pos"
+            if self.d.axes in(0, 1): # XYZ XYZA
+                print >>f1, "net Yjoint-pos-fb      joint.1.pos-fb      sim-hardware.Ycurrent-pos"
+                print >>f1, "net Zjoint-pos-fb      joint.2.pos-fb      sim-hardware.Zcurrent-pos"
+            if self.d.axes == 2: # XZ
+                print >>f1, "net Zjoint-pos-fb      joint.1.pos-fb      sim-hardware.Zcurrent-pos"
+            if self.d.axes == 1: # XYZA
+                print >>f1, "net Ajoint-pos-fb      joint.3.pos-fb      sim-hardware.Acurrent-pos"
+            if self.d.axes == 3: # XYUV
+                print >>f1, "net Yjoint-pos-fb      joint.1.pos-fb      sim-hardware.Ycurrent-pos"
+                print >>f1, "net Ujoint-pos-fb      joint.2.pos-fb      sim-hardware.Ucurrent-pos"
+                print >>f1, "net Vjoint-pos-fb      joint.3.pos-fb      sim-hardware.Vcurrent-pos"
             print >>f1
             print >>f1, "setp sim-hardware.Xmaxsw-upper 1000"
-            print >>f1, "setp sim-hardware.Xmaxsw-lower [AXIS_0]MAX_LIMIT"
-            print >>f1, "setp sim-hardware.Xminsw-upper [AXIS_0]MIN_LIMIT"
+            print >>f1, "setp sim-hardware.Xmaxsw-lower [JOINT_0]MAX_LIMIT"
+            print >>f1, "setp sim-hardware.Xminsw-upper [JOINT_0]MIN_LIMIT"
             print >>f1, "setp sim-hardware.Xminsw-lower -1000"
-            print >>f1, "setp sim-hardware.Xhomesw-pos [AXIS_0]HOME_OFFSET"
+            print >>f1, "setp sim-hardware.Xhomesw-pos [JOINT_0]HOME_OFFSET"
             print >>f1
-            if not self.d.axes == 2:
+            if self.d.axes in(0, 1): # XYZ XYZA
                 print >>f1, "setp sim-hardware.Ymaxsw-upper 1000"
-                print >>f1, "setp sim-hardware.Ymaxsw-lower [AXIS_1]MAX_LIMIT"
-                print >>f1, "setp sim-hardware.Yminsw-upper [AXIS_1]MIN_LIMIT"
+                print >>f1, "setp sim-hardware.Ymaxsw-lower [JOINT_1]MAX_LIMIT"
+                print >>f1, "setp sim-hardware.Yminsw-upper [JOINT_1]MIN_LIMIT"
                 print >>f1, "setp sim-hardware.Yminsw-lower -1000"
-                print >>f1, "setp sim-hardware.Yhomesw-pos [AXIS_1]HOME_OFFSET"
-            print >>f1
-            print >>f1, "setp sim-hardware.Zmaxsw-upper 1000"
-            print >>f1, "setp sim-hardware.Zmaxsw-lower [AXIS_2]MAX_LIMIT"
-            print >>f1, "setp sim-hardware.Zminsw-upper [AXIS_2]MIN_LIMIT"
-            print >>f1, "setp sim-hardware.Zminsw-lower -1000"
-            print >>f1, "setp sim-hardware.Zhomesw-pos [AXIS_2]HOME_OFFSET"
-            print >>f1
-            if self.d.axes == 1:
+                print >>f1, "setp sim-hardware.Yhomesw-pos [JOINT_1]HOME_OFFSET"
+                print >>f1
+                print >>f1, "setp sim-hardware.Zmaxsw-upper 1000"
+                print >>f1, "setp sim-hardware.Zmaxsw-lower [JOINT_2]MAX_LIMIT"
+                print >>f1, "setp sim-hardware.Zminsw-upper [JOINT_2]MIN_LIMIT"
+                print >>f1, "setp sim-hardware.Zminsw-lower -1000"
+                print >>f1, "setp sim-hardware.Zhomesw-pos [JOINT_2]HOME_OFFSET"
+                print >>f1
+            if self.d.axes == 1: #  XYZA
                 print >>f1, "setp sim-hardware.Amaxsw-upper 20000"
-                print >>f1, "setp sim-hardware.Amaxsw-lower [AXIS_3]MAX_LIMIT"
-                print >>f1, "setp sim-hardware.Aminsw-upper [AXIS_3]MIN_LIMIT"
+                print >>f1, "setp sim-hardware.Amaxsw-lower [JOINT_3]MAX_LIMIT"
+                print >>f1, "setp sim-hardware.Aminsw-upper [JOINT_3]MIN_LIMIT"
                 print >>f1, "setp sim-hardware.Aminsw-lower -20000"
-                print >>f1, "setp sim-hardware.Ahomesw-pos [AXIS_3]HOME_OFFSET"
+                print >>f1, "setp sim-hardware.Ahomesw-pos [JOINT_3]HOME_OFFSET"
+                print >>f1
+            if self.d.axes == 2: # XZ
+                print >>f1, "setp sim-hardware.Zmaxsw-upper 1000"
+                print >>f1, "setp sim-hardware.Zmaxsw-lower [JOINT_1]MAX_LIMIT"
+                print >>f1, "setp sim-hardware.Zminsw-upper [JOINT_1]MIN_LIMIT"
+                print >>f1, "setp sim-hardware.Zminsw-lower -1000"
+                print >>f1, "setp sim-hardware.Zhomesw-pos [JOINT_1]HOME_OFFSET"
+                print >>f1
+            if self.d.axes == 3: # XYUV
+                print >>f1, "setp sim-hardware.Ymaxsw-upper 1000"
+                print >>f1, "setp sim-hardware.Ymaxsw-lower [JOINT_1]MAX_LIMIT"
+                print >>f1, "setp sim-hardware.Yminsw-upper [JOINT_1]MIN_LIMIT"
+                print >>f1, "setp sim-hardware.Yminsw-lower -1000"
+                print >>f1, "setp sim-hardware.Yhomesw-pos [JOINT_1]HOME_OFFSET"
+                print >>f1
+                print >>f1, "setp sim-hardware.Umaxsw-upper 1000"
+                print >>f1, "setp sim-hardware.Umaxsw-lower [JOINT_2]MAX_LIMIT"
+                print >>f1, "setp sim-hardware.Uminsw-upper [JOINT_2]MIN_LIMIT"
+                print >>f1, "setp sim-hardware.Uminsw-lower -1000"
+                print >>f1, "setp sim-hardware.Uhomesw-pos [JOINT_2]HOME_OFFSET"
+                print >>f1
+                print >>f1, "setp sim-hardware.Vmaxsw-upper 1000"
+                print >>f1, "setp sim-hardware.Vmaxsw-lower [JOINT_3]MAX_LIMIT"
+                print >>f1, "setp sim-hardware.Vminsw-upper [JOINT_3]MIN_LIMIT"
+                print >>f1, "setp sim-hardware.Vminsw-lower -1000"
+                print >>f1, "setp sim-hardware.Vhomesw-pos [JOINT_3]HOME_OFFSET"
                 print >>f1
             for port in range(0,self.d.number_pports):
                 print >>f1
@@ -489,15 +530,24 @@ class HAL:
             print >>f1, "net fake-both-a            sim-hardware.Abothsw-out"
             print >>f1, "net fake-max-a             sim-hardware.Amaxsw-out"
             print >>f1, "net fake-min-a             sim-hardware.Aminsw-out"
+            print >>f1, "net fake-both-u            sim-hardware.Ubothsw-out"
+            print >>f1, "net fake-max-u             sim-hardware.Umaxsw-out"
+            print >>f1, "net fake-min-u             sim-hardware.Uminsw-out"
+            print >>f1, "net fake-both-v            sim-hardware.Vbothsw-out"
+            print >>f1, "net fake-max-v             sim-hardware.Vmaxsw-out"
+            print >>f1, "net fake-min-v             sim-hardware.Vminsw-out"
 
             print >>f1, "net fake-home-x            sim-hardware.Xhomesw-out"
             print >>f1, "net fake-home-y            sim-hardware.Yhomesw-out"
             print >>f1, "net fake-home-z            sim-hardware.Zhomesw-out"
             print >>f1, "net fake-home-a            sim-hardware.Ahomesw-out"
+            print >>f1, "net fake-home-u            sim-hardware.Uhomesw-out"
+            print >>f1, "net fake-home-v            sim-hardware.Vhomesw-out"
 
             print >>f1, "net fake-both-home-x       sim-hardware.Xbothsw-homesw-out"
             print >>f1, "net fake-max-home-x        sim-hardware.Xmaxsw-homesw-out"
             print >>f1, "net fake-min-home-x        sim-hardware.Xminsw-homesw-out"
+
             print >>f1, "net fake-both-home-y       sim-hardware.Ybothsw-homesw-out"
             print >>f1, "net fake-max-home-y        sim-hardware.Ymaxsw-homesw-out"
             print >>f1, "net fake-min-home-y        sim-hardware.Yminsw-homesw-out"
@@ -509,6 +559,14 @@ class HAL:
             print >>f1, "net fake-both-home-a       sim-hardware.Abothsw-homesw-out"
             print >>f1, "net fake-max-home-a        sim-hardware.Amaxsw-homesw-out"
             print >>f1, "net fake-min-home-a        sim-hardware.Aminsw-homesw-out"
+
+            print >>f1, "net fake-both-home-u       sim-hardware.Ubothsw-homesw-out"
+            print >>f1, "net fake-max-home-u        sim-hardware.Umaxsw-homesw-out"
+            print >>f1, "net fake-min-home-u        sim-hardware.Uminsw-homesw-out"
+
+            print >>f1, "net fake-both-home-v       sim-hardware.Vbothsw-homesw-out"
+            print >>f1, "net fake-max-home-v        sim-hardware.Vmaxsw-homesw-out"
+            print >>f1, "net fake-min-home-v        sim-hardware.Vminsw-homesw-out"
             f1.close()
         else:
             if os.path.exists(custom):
@@ -547,15 +605,15 @@ class HAL:
             i = self.d['pp2_pin%dinv' % num]
         if p == SIG.UNUSED_OUTPUT: return
         if fake:
-            p='fake-'+p
+            signame ='fake-'+p
             ending='-fake'
-            p ='{0:<20}'.format(p)
+            signame ='{0:<20}'.format(signame)
         else:
-            p ='{0:<15}'.format(p)
+            signame ='{0:<15}'.format(p)
         if i: print >>file, "setp parport.%d.pin-%02d-out-invert%s 1" %(port, num, ending)
-        print >>file, "net %s => parport.%d.pin-%02d-out%s" % (p, port, num, ending)
-        if self.a.doublestep():
-            if p in (SIG.XSTEP, SIG.YSTEP, SIG.ZSTEP, SIG.ASTEP):
+        print >>file, "net %s => parport.%d.pin-%02d-out%s" % (signame, port, num, ending)
+        if self.a.doublestep() and not fake:
+            if p in (SIG.XSTEP, SIG.YSTEP, SIG.ZSTEP, SIG.ASTEP, SIG.USTEP, SIG.VSTEP):
                 print >>file, "setp parport.0.pin-%02d-out-reset%s 1" % (num,ending)
 
     def min_lim_sig(self, axis):
