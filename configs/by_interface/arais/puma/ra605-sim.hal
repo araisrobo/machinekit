@@ -10,22 +10,29 @@ loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[KINS]JO
 addf motion-command-handler servo-thread
 addf motion-controller servo-thread
 
-# create HAL signals for position commands from motion module
-net J0pos <= joint.0.motor-pos-cmd
-net J1pos <= joint.1.motor-pos-cmd
-net J2pos <= joint.2.motor-pos-cmd
-net J3pos <= joint.3.motor-pos-cmd
-net J4pos <= joint.4.motor-pos-cmd
-net J5pos <= joint.5.motor-pos-cmd
+# create HAL signals for ra605gui
+net J0pos <= joint.0.pos-cmd
+net J1pos <= joint.1.pos-cmd
+net J2pos <= joint.2.pos-cmd
+net J3pos <= joint.3.pos-cmd
+net J4pos <= joint.4.pos-cmd
+net J5pos <= joint.5.pos-cmd
 
+# create HAL signals for position commands from motion module
+net mot_J0pos <= joint.0.motor-pos-cmd
+net mot_J1pos <= joint.1.motor-pos-cmd
+net mot_J2pos <= joint.2.motor-pos-cmd
+net mot_J3pos <= joint.3.motor-pos-cmd
+net mot_J4pos <= joint.4.motor-pos-cmd
+net mot_J5pos <= joint.5.motor-pos-cmd
 
 # loop position commands back to motion module feedback
-net J0pos => joint.0.motor-pos-fb
-net J1pos => joint.1.motor-pos-fb
-net J2pos => joint.2.motor-pos-fb
-net J3pos => joint.3.motor-pos-fb
-net J4pos => joint.4.motor-pos-fb
-net J5pos => joint.5.motor-pos-fb
+net mot_J0pos => joint.0.motor-pos-fb
+net mot_J1pos => joint.1.motor-pos-fb
+net mot_J2pos => joint.2.motor-pos-fb
+net mot_J3pos => joint.3.motor-pos-fb
+net mot_J4pos => joint.4.motor-pos-fb
+net mot_J5pos => joint.5.motor-pos-fb
 
 # estop loopback
 net estop-loop iocontrol.0.user-enable-out iocontrol.0.emc-enable-in
@@ -36,25 +43,25 @@ net tool-change-loop iocontrol.0.tool-change iocontrol.0.tool-changed
 
 
 setp genserkins.A-0 0
-setp genserkins.A-1 0
-setp genserkins.A-2 17
-setp genserkins.A-3 0
+setp genserkins.A-1 30
+setp genserkins.A-2 340
+setp genserkins.A-3 40
 setp genserkins.A-4 0
 setp genserkins.A-5 0
 
 setp genserkins.ALPHA-0 0 
-setp genserkins.ALPHA-1 1.570796326 
+setp genserkins.ALPHA-1 0
 setp genserkins.ALPHA-2 0 
-setp genserkins.ALPHA-3 1.570796326 
-setp genserkins.ALPHA-4 -1.570796326 
-setp genserkins.ALPHA-5 1.570796326 
+setp genserkins.ALPHA-3 0
+setp genserkins.ALPHA-4 0
+setp genserkins.ALPHA-5 0
 
-setp genserkins.D-0 26.45
-setp genserkins.D-1 -5.5
+setp genserkins.D-0 0
+setp genserkins.D-1 0
 setp genserkins.D-2 0
-setp genserkins.D-3 17.05
+setp genserkins.D-3 338
 setp genserkins.D-4 0 
-setp genserkins.D-5 2.2
+setp genserkins.D-5 86.5
 
 loadusr -W ra605gui
 
