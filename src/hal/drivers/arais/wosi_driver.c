@@ -67,7 +67,7 @@ static FILE *dptrace;
 //MODULE_AUTHOR("Yishin Li");
 //MODULE_DESCRIPTION("HAL for Wishbone Over Serial Interface");
 //MODULE_LICENSE("GPL");
-# define GPIO_IN_NUM    96
+# define GPIO_IN_NUM    128
 # define GPIO_OUT_NUM   96
 
 static const char wosi_id = 0;
@@ -174,11 +174,13 @@ typedef struct
     hal_float_t *feed_scale;
     hal_bit_t *rt_abort; // realtime abort to FPGA
     /* sync input pins (input to motmod) */
-    hal_bit_t *in[96];
-    hal_bit_t *in_n[96];
+    hal_bit_t *in[128];
+    hal_bit_t *in_n[128];
+    hal_bit_t *gpio_rx_en;
     uint32_t prev_in0;
     uint32_t prev_in1;
     uint32_t prev_in2;
+    uint32_t prev_in3;
     hal_float_t *analog_ref_level;
     double prev_analog_ref_level;
     hal_bit_t *sync_in_trigger;
@@ -321,7 +323,7 @@ static void fetchmail(const uint8_t *buf_head)
 {
     int i;
     uint16_t mail_tag;
-    uint32_t *p, din[3]; //, dout[1];
+    uint32_t *p, din[4];
     uint8_t *buf;
     stepgen_t *stepgen;
     uint32_t bp_tick; // served as previous-bp-tick
@@ -359,7 +361,8 @@ static void fetchmail(const uint8_t *buf_head)
         din[1] = *p;
         p += 1;
         din[2] = *p;
-        // digital output
+        p += 1;
+        din[3] = *p;        // digital output
         p += 1;
         *machine_control->dout0 = *p;
 
@@ -405,6 +408,23 @@ static void fetchmail(const uint8_t *buf_head)
                         >> (i - 64)) & 0x01;
                 *(machine_control->in_n[i]) = (~(*(machine_control->in[i])))
                         & 0x01;
+            }
+        }
+
+        // update gpio_in[127:96]
+        // compare if there's any GPIO.DIN bit got toggled
+        if (*(machine_control->gpio_rx_en) == 1) {
+            if (machine_control->prev_in3 != din[3])
+            {
+                // avoid for-loop to save CPU cycles
+                machine_control->prev_in3 = din[3];
+                for (i = 96; i < 128; i++)
+                {
+                    *(machine_control->in[i]) = ((machine_control->prev_in3)
+                            >> (i - 96)) & 0x01;
+                    *(machine_control->in_n[i]) = (~(*(machine_control->in[i])))
+                            & 0x01;
+                }
             }
         }
 
@@ -1700,6 +1720,7 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     {
         assert(*(machine_control->sync_in_index) >= 0);
         assert(*(machine_control->sync_in_index) < GPIO_IN_NUM);
+        assert(0); // TODO: review SYNC_IN
         // begin: trigger sync in and wait timeout
         sync_cmd = SYNC_DIN
                 | PACK_IO_ID((uint32_t)*(machine_control->sync_in_index))
@@ -2379,6 +2400,19 @@ static int export_machine_control(machine_control_t * machine_control)
         }
         *(machine_control->in_n[i]) = 0;
     }
+
+    retval = hal_pin_bit_newf(HAL_IN, &(machine_control->gpio_rx_en), comp_id,
+            "wosi.gpio.in.rx_en");
+    if (retval != 0)
+    {
+        return retval;
+    }
+    *(machine_control->gpio_rx_en) = 0;
+
+    machine_control->prev_in0 = 0;
+    machine_control->prev_in1 = 0;
+    machine_control->prev_in2 = 0;
+    machine_control->prev_in3 = 0;
 
     retval = hal_pin_bit_newf(HAL_IO, &(machine_control->sync_in_trigger),
             comp_id, "wosi.sync.in.trigger");
