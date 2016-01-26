@@ -1240,7 +1240,7 @@ void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_
 
         from_prog(x,y,z,unused,unused,unused,unused,unused,unused);
         rotate_and_offset_pos(x,y,z,unused,unused,unused,unused,unused,unused);
-        VelData linedata = getStraightVelocity(x, y, z, unused, unused, unused, unused, unused, unused);
+        VelData linedata = getStraightVelocity(x, y, z, canonEndPoint.a, canonEndPoint.b, canonEndPoint.c, canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
         max_xyz_vel = linedata.vel;
 
         /* the unit for canon.spindleSpeed is RPM; need to convert to RPS */
