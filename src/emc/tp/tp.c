@@ -449,6 +449,7 @@ int tpClear(TP_STRUCT * const tp)
     tp->next_spindle.speed = 0; // RPM
     tp->next_spindle.css_factor = 0;
     tp->next_spindle.xoffset = 0;
+    tp->next_spindle.yoffset = 0;
     tp->next_spindle.on = 0;
     tp->next_spindle.max_vel = 0;
     tp->next_spindle.max_acc = 0;
@@ -3199,22 +3200,37 @@ STATIC double tpSyncSpindleSpeed (TP_STRUCT * tp, TC_STRUCT * const tc)
     // spindle.css_factor is css_numerator in emccanon.cc
     // rtapi_print_msg (RTAPI_MSG_DBG, "(%s:%d) tc->spindle_css_factor(%f)\n", __FUNCTION__, __LINE__,
     //                                tc->spindle_css_factor);
+    tp->spindle.curr_vel_rps = tc->currentvel / tc->cycle_time;
     if(tp->spindle.css_factor)
     {
         // for G96
-        tp_debug_print ("TODO: add yoffset for VBC, bypass yoffset for MEINAN\n");
-        //        double denom =  sqrt(pow(emcmotStatus->spindle.xoffset - emcmotStatus->carte_pos_cmd.tran.x, 2) +
-        //                             pow(emcmotStatus->g5x_offset.tran.y - emcmotStatus->carte_pos_cmd.tran.y, 2));
-        // rtapi_print_msg (RTAPI_MSG_DBG, "(%s:%d) tp->spindle.xoffset(%f) tp->currentPos.tran.x(%f)\n", __FUNCTION__, __LINE__,
-        //         tp->spindle.xoffset, tp->currentPos.tran.x);
-        double denom =  (tp->spindle.xoffset - tp->currentPos.tran.x);
+        tp_debug_print ("TODO: added yoffset for VBC, bypass yoffset for MEINAN\n");
+        // double denom =  (tp->spindle.xoffset - tp->currentPos.tran.x);
+        double denom = rtapi_sqrt(rtapi_pow(tp->spindle.xoffset - tp->currentPos.tran.x, 2) +
+                                  rtapi_pow(tp->spindle.yoffset - tp->currentPos.tran.y, 2));
         double speed;           // speed for major spindle (spindle-s)
         double maxspeed;        // absolute max spindle speed
+        double csr = get_spindle_css_csr (tp->shared);  // const_speed_radius
         int positive = ((tp->spindle.xoffset - tp->currentPos.tran.x) > 0)? 1: -1;
         // css_factor: unit(mm or inch)/min
         if(denom != 0)
         {
-            speed = tp->spindle.css_factor / (denom * 60.0); // rps
+            if (csr == 0)
+            {   // traditional CSS motion
+                speed = tp->spindle.css_factor / (denom * 60.0); // rps
+            }
+            else
+            {   // adjust spindle speed dynamically to maintain constant tangential velocity
+                // the spindle speed is constant if (r <= const_speed_radius)
+                if (denom > rtapi_fabs(csr))
+                {
+                    speed = (tp->spindle.speed_rps * csr) / denom; // rps
+                }
+                else
+                {
+                    speed = tp->spindle.speed_rps;
+                }
+            }
         }
         else
         {
@@ -3278,6 +3294,9 @@ STATIC double tpSyncSpindleSpeed (TP_STRUCT * tp, TC_STRUCT * const tc)
         tp->spindle.speed_req_rps = *tp->shared->net_spindle_scale * tp->spindle.speed_rps;
         tp->spindle.css_error = 0;
     }
+
+    set_spindle_curr_vel_rps(tp->shared, tp->spindle.curr_vel_rps);
+    set_spindle_css_error(tp->shared, tp->spindle.css_error);
 
     return (tp->spindle.speed_req_rps);
 }
@@ -3718,6 +3737,7 @@ STATIC void tpSpindleCycle(TP_STRUCT * const tp)
     tp->currentPos.s += tp->spindle.curr_vel_rps * tp->cycleTime;
     tpGetSpindleAxis(tp, &tp->currentPos);
 
+    set_spindle_curr_vel_rps(tp->shared, tp->spindle.curr_vel_rps);
     return;
 }
 
@@ -4005,6 +4025,7 @@ int tpSetSpindle(TP_STRUCT * tp, TC_STRUCT * tc)
 
         tp->spindle.css_factor          = tc->spindle_css_factor;
         tp->spindle.xoffset             = tc->spindle_xoffset;
+        tp->spindle.yoffset             = tc->spindle_yoffset;
         tp->spindle.on                  = tc->spindle_on;
         tp->spindle.max_vel             = tc->spindle_max_vel;
         tp->spindle.max_acc             = tc->spindle_max_acc;
@@ -4022,6 +4043,7 @@ int tpSetSpindle(TP_STRUCT * tp, TC_STRUCT * tc)
 
         tp->spindle.css_factor          = tp->next_spindle.css_factor;
         tp->spindle.xoffset             = tp->next_spindle.xoffset;
+        tp->spindle.yoffset             = tp->next_spindle.yoffset;
         tp->spindle.on                  = tp->next_spindle.on;
         tp->spindle.max_vel             = tp->next_spindle.max_vel;
         tp->spindle.max_acc             = tp->next_spindle.max_acc;
@@ -4038,9 +4060,10 @@ int tpSetSpindle(TP_STRUCT * tp, TC_STRUCT * tc)
         tp->spindle.direction = -1;
     }
 
-    set_spindle_speed(tp->shared, tp->spindle.speed);
+    set_spindle_speed(tp->shared, tp->spindle.speed); // rpm
     set_spindle_css_factor(tp->shared, tp->spindle.css_factor);
     set_spindle_xoffset(tp->shared, tp->spindle.xoffset);
+    set_spindle_yoffset(tp->shared, tp->spindle.yoffset);
     set_spindle_direction(tp->shared, tp->spindle.direction);
     set_spindle_brake(tp->shared, !(tp->spindle.on));
 

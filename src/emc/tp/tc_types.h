@@ -175,6 +175,7 @@ typedef struct {
     int uu_updated;
     double      spindle_css_factor;
     double      spindle_xoffset;
+    double      spindle_yoffset;
     int         spindle_on;
     double      spindle_speed;
     double      spindle_max_vel;

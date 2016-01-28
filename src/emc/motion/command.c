@@ -1720,6 +1720,8 @@ check_stuff ( "before command_handler()" );
 	    emcmotQueue->next_spindle.speed = emcmotCommand->vel; // RPM
 	    emcmotQueue->next_spindle.css_factor = emcmotCommand->css_factor;
 	    emcmotQueue->next_spindle.xoffset = emcmotCommand->xoffset;
+	    emcmotQueue->next_spindle.yoffset = emcmotCommand->yoffset;
+
 	    emcmotQueue->next_spindle.on = 1;
 	    emcmotQueue->next_spindle.max_vel = emcmotCommand->ini_maxvel;
 	    emcmotQueue->next_spindle.max_acc = emcmotCommand->acc;

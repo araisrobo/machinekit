@@ -607,6 +607,7 @@ int tcSetupState(TC_STRUCT * const tc, TP_STRUCT const * const tp)
     tc->spindle_speed =         tp->next_spindle.speed;
     tc->spindle_css_factor =    tp->next_spindle.css_factor;
     tc->spindle_xoffset =       tp->next_spindle.xoffset;
+    tc->spindle_yoffset =       tp->next_spindle.yoffset;
     tc->spindle_on =            tp->next_spindle.on;
     tc->spindle_max_vel =       tp->next_spindle.max_vel;
     tc->spindle_max_acc =       tp->next_spindle.max_acc;

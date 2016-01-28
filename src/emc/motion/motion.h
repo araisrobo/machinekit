@@ -288,7 +288,8 @@ extern "C" {
         int ssm_mode;           /* spindle sync motion mode: G33(0):CSS/THREADING, G33.1(1):RIGID_TAP */
 
         double css_factor;      /* for spindle */
-        double xoffset;         /* for spindle */
+        double xoffset;         /* for spindle, the x-offset to spindle-center */
+        double yoffset;         /* for spindle, the y-offset to spindle-center */
     } emcmot_command_t;
 
 /*! \todo FIXME - these packed bits might be replaced with chars
@@ -636,8 +637,11 @@ Suggestion: Split this in to an Error and a Status flag register..
 
     typedef struct {
 	hal_float_t speed;	// spindle speed in RPMs
+        hal_float_t curr_vel_rps; // current speed in RPS
+        hal_float_t css_error;  // the velocity error for CSS motion
 	double css_factor;
-	double xoffset;
+	double xoffset;         // x-offset to spindle-center
+	double yoffset;         // y-offset to spindle-center
 	hal_s32_t direction;	// 0 stopped, 1 forward, -1 reverse
 	int brake;		// 0 released, 1 engaged
 	int locked;             // spindle lock engaged after orient

@@ -122,6 +122,7 @@ typedef struct {
     hal_u32_t *trigger_level;
     hal_bit_t *trigger_result;
     hal_bit_t *enable;		/* RPI: motion inhibit input */
+    hal_float_t *spindle_css_csr; /* csr: const-speed-radius for CSS motion */
     hal_bit_t *spindle_index_enable;
     hal_bit_t *spindle_is_atspeed;
     hal_float_t *spindle_revs;

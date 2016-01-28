@@ -2270,7 +2270,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
     case EMC_SPINDLE_SPEED_TYPE:
 	spindle_speed_msg = (EMC_SPINDLE_SPEED *) cmd;
-	retval = emcSpindleSpeed(spindle_speed_msg->speed, spindle_speed_msg->factor, spindle_speed_msg->xoffset);
+	retval = emcSpindleSpeed(spindle_speed_msg->speed, spindle_speed_msg->factor, spindle_speed_msg->xoffset, spindle_speed_msg->yoffset);
 	break;
 
     case EMC_SPINDLE_ORIENT_TYPE:
@@ -2280,7 +2280,7 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 
    case EMC_SPINDLE_ON_TYPE:
 	spindle_on_msg = (EMC_SPINDLE_ON *) cmd;
-	retval = emcSpindleOn(spindle_on_msg->speed, spindle_on_msg->factor, spindle_on_msg->xoffset);
+	retval = emcSpindleOn(spindle_on_msg->speed, spindle_on_msg->factor, spindle_on_msg->xoffset, spindle_on_msg->yoffset);
 	break;
 
     case EMC_SPINDLE_OFF_TYPE:

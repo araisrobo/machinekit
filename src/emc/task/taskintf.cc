@@ -1529,13 +1529,13 @@ int emcSpindleAbort(void)
     return emcSpindleOff();
 }
 
-int emcSpindleSpeed(double speed, double css_factor, double offset)
+int emcSpindleSpeed(double speed, double css_factor, double xoffset, double yoffset)
 {
 
     if (emcmotStatus.spindle.speed == 0)
 	return 0; //spindle stopped, not updating speed
 
-    return emcSpindleOn(speed, css_factor, offset);
+    return emcSpindleOn(speed, css_factor, xoffset, yoffset);
 }
 
 int emcSpindleOrient(double orientation, int mode) 
@@ -1547,13 +1547,14 @@ int emcSpindleOrient(double orientation, int mode)
 }
 
 
-int emcSpindleOn(double speed, double css_factor, double offset)
+int emcSpindleOn(double speed, double css_factor, double xoffset, double yoffset)
 {
 
     emcmotCommand.command = EMCMOT_SPINDLE_ON;
     emcmotCommand.vel = speed;
     emcmotCommand.css_factor = css_factor;
-    emcmotCommand.xoffset = offset;
+    emcmotCommand.xoffset = xoffset;
+    emcmotCommand.yoffset = yoffset;
     emcmotCommand.axis = localSpindleAxis;
     emcmotCommand.ini_maxvel = axis_max_velocity[localSpindleAxis];
     emcmotCommand.acc = axis_max_acceleration[localSpindleAxis];

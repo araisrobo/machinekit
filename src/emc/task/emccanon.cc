@@ -2055,6 +2055,7 @@ void START_SPINDLE_CLOCKWISE(int line)
 	emc_spindle_on_msg.speed = spindle_dir * css_maximum;
 	emc_spindle_on_msg.factor = spindle_dir * css_numerator;
 	emc_spindle_on_msg.xoffset = TO_EXT_LEN(g5xOffset.x + g92Offset.x + currentToolOffset.tran.x);
+        emc_spindle_on_msg.yoffset = TO_EXT_LEN(g5xOffset.y + g92Offset.y + currentToolOffset.tran.y);
     } else {
 	emc_spindle_on_msg.speed = spindle_dir * spindleSpeed;
 	css_numerator = 0;
@@ -2078,6 +2079,7 @@ void START_SPINDLE_COUNTERCLOCKWISE(int line)
 	emc_spindle_on_msg.speed = spindle_dir * css_maximum;
 	emc_spindle_on_msg.factor = spindle_dir * css_numerator;
 	emc_spindle_on_msg.xoffset = TO_EXT_LEN(g5xOffset.x + g92Offset.x + currentToolOffset.tran.x);
+        emc_spindle_on_msg.yoffset = TO_EXT_LEN(g5xOffset.y + g92Offset.y + currentToolOffset.tran.y);
     } else {
 	emc_spindle_on_msg.speed = spindle_dir * spindleSpeed;
 	css_numerator = 0;
@@ -2103,6 +2105,7 @@ void SET_SPINDLE_SPEED(double r)
 	emc_spindle_speed_msg.speed = spindle_dir * css_maximum;
 	emc_spindle_speed_msg.factor = spindle_dir * css_numerator;
 	emc_spindle_speed_msg.xoffset = TO_EXT_LEN(g5xOffset.x + g92Offset.x + currentToolOffset.tran.x);
+        emc_spindle_speed_msg.yoffset = TO_EXT_LEN(g5xOffset.y + g92Offset.y + currentToolOffset.tran.y);
     } else {
 	emc_spindle_speed_msg.speed = spindle_dir * spindleSpeed;
 	css_numerator = 0;

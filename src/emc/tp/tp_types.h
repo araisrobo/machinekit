@@ -83,8 +83,9 @@ typedef struct {
     double speed_rps;       // spindle speed command in RPS; set at command.c
     double speed_req_rps;   // calculated spindle speed command in RPS
     double css_factor;      // the surface speed for css motion
-    double xoffset;
-    double css_error;       // the surface speed error which is caused by the MAX spindle speed
+    double xoffset;         // x-offset to spindle-center
+    double yoffset;         // y-offset to spindle-center
+    double css_error;       // the surface speed error which is caused by the MAX spindle speed (unit:rps)
     int direction;          // 0 stopped, 1 forward, -1 reverse
     int brake;              // 0 released, 1 engaged
     int locked;             // spindle lock engaged after orient

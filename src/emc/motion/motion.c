@@ -386,8 +386,8 @@ static int init_hal_io(void)
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->trigger_cond), mot_comp_id, "motion.trigger.cond")) != 0) goto error;
     if ((retval = hal_pin_u32_newf(HAL_IN, &(emcmot_hal_data->trigger_level), mot_comp_id, "motion.trigger.level")) != 0) goto error;
 
+    if ((retval = hal_pin_float_newf(HAL_IN, &(emcmot_hal_data->spindle_css_csr), mot_comp_id, "motion.spindle-css-csr")) < 0) goto error;
     if ((retval = hal_pin_bit_newf(HAL_IO, &(emcmot_hal_data->spindle_index_enable), mot_comp_id, "motion.spindle-index-enable")) < 0) goto error;
-
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->spindle_on), mot_comp_id, "motion.spindle-on")) < 0) goto error;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->spindle_forward), mot_comp_id, "motion.spindle-forward")) < 0) goto error;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->spindle_reverse), mot_comp_id, "motion.spindle-reverse")) < 0) goto error;
@@ -402,6 +402,7 @@ static int init_hal_io(void)
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->spindle_inhibit), mot_comp_id, "motion.spindle-inhibit")) < 0) goto error;
     if ((retval = hal_pin_s32_newf(HAL_IN, &(emcmot_hal_data->spindle_joint_id), mot_comp_id, "motion.spindle-joint-id")) < 0) goto error;
     if ((retval = hal_pin_s32_newf(HAL_IN, &(emcmot_hal_data->spindle_aux_joint_id), mot_comp_id, "motion.spindle-aux-joint-id")) < 0) goto error;
+    *(emcmot_hal_data->spindle_css_csr) = 0;
     *(emcmot_hal_data->spindle_inhibit) = 0;
     *(emcmot_hal_data->css_factor) = 0;
     *(emcmot_hal_data->css_error) = 0;
@@ -1539,6 +1540,7 @@ static int init_shared(tp_shared_t *tps,
     // from emcmotStatus
     tps->net_feed_scale = &status->net_feed_scale;
     tps->net_spindle_scale = &status->net_spindle_scale;
+    tps->spindle_css_csr = hal->spindle_css_csr;
     tps->spindle_direction = &status->spindle.direction;
     tps->spindle_speed = &status->spindle.speed;
     tps->spindleRevs = &status->spindleRevs;
@@ -1547,7 +1549,10 @@ static int init_shared(tp_shared_t *tps,
     tps->spindle_is_atspeed = &status->spindle_is_atspeed; // or pin
     tps->spindleSync = &status->spindleSync;
     tps->spindle_axis = &spindle_axis;
+    tps->spindle_curr_vel_rps = &status->spindle.curr_vel_rps;
+    tps->spindle_css_error = &status->spindle.css_error;
     tps->spindle_css_factor = &status->spindle.css_factor;
+    tps->spindle_yoffset = &status->spindle.yoffset;
     tps->spindle_xoffset = &status->spindle.xoffset;
     tps->spindle_brake = &status->spindle.brake;
 

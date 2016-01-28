@@ -2249,36 +2249,9 @@ static void output_to_hal(void)
     *(emcmot_hal_data->coord_error) = GET_MOTION_ERROR_FLAG();
     *(emcmot_hal_data->on_soft_limit) = emcmotStatus->on_soft_limit;
     *(emcmot_hal_data->css_factor) = emcmotStatus->spindle.css_factor;
-    if(emcmotStatus->spindle.css_factor) {
-        double xoffset = emcmotStatus->spindle.xoffset - emcmotStatus->carte_pos_cmd.tran.x;
-	double denom = rtapi_fabs(xoffset);
-        double polarity = (xoffset > 0) ? 1.0 : -1.0;
-	double speed;
-        double maxpositive;
-
-        if(denom > 0) speed = emcmotStatus->spindle.css_factor / denom;
-	else speed = emcmotStatus->spindle.speed;
-
-	speed = speed * emcmotStatus->net_spindle_scale;
-
-        maxpositive = rtapi_fabs(emcmotStatus->spindle.speed);
-        // cap speed to G96 D...
-        if(speed < -maxpositive)
-            speed = -maxpositive;
-        if(speed > maxpositive)
-            speed = maxpositive;
-
-	*(emcmot_hal_data->spindle_speed_out) = speed;
-	*(emcmot_hal_data->spindle_speed_out_rps) = speed/60.;
-	*(emcmot_hal_data->css_error) =
-	            (emcmotStatus->spindle.css_factor / 60.0
-                      - denom * polarity * rtapi_fabs(*(emcmot_hal_data->spindle_speed_out_rps))
-	            ) * emcmotStatus->spindle.direction; // (unit/(2*PI*sec)
-    } else {
-	*(emcmot_hal_data->spindle_speed_out) = emcmotStatus->spindle.speed * emcmotStatus->net_spindle_scale;
-	*(emcmot_hal_data->spindle_speed_out_rps) = emcmotStatus->spindle.speed * emcmotStatus->net_spindle_scale / 60.;
-        *(emcmot_hal_data->css_error) = 0;
-    }
+    *(emcmot_hal_data->spindle_speed_out) = emcmotStatus->spindle.curr_vel_rps * 60.0;
+    *(emcmot_hal_data->spindle_speed_out_rps) = emcmotStatus->spindle.curr_vel_rps;
+    *(emcmot_hal_data->css_error) = emcmotStatus->spindle.css_error;
 
     *(emcmot_hal_data->spindle_speed_out_abs) = rtapi_fabs(*(emcmot_hal_data->spindle_speed_out));
     *(emcmot_hal_data->spindle_speed_out_rps_abs) = rtapi_fabs(*(emcmot_hal_data->spindle_speed_out_rps));

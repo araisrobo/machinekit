@@ -2110,6 +2110,7 @@ void EMC_SPINDLE_ON::update(CMS * cms)
     cms->update(speed);
     cms->update(factor);
     cms->update(xoffset);
+    cms->update(yoffset);
 
 }
 
@@ -2125,6 +2126,7 @@ void EMC_SPINDLE_SPEED::update(CMS * cms)
     cms->update(speed);
     cms->update(factor);
     cms->update(xoffset);
+    cms->update(yoffset);
 
 }
 

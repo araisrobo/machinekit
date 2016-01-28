@@ -510,8 +510,8 @@ extern int emcAuxUpdate(EMC_AUX_STAT * stat);
 // implementation functions for EMC_SPINDLE types
 
 extern int emcSpindleAbort();
-extern int emcSpindleSpeed(double speed, double factor, double xoffset);
-extern int emcSpindleOn(double speed, double factor, double xoffset);
+extern int emcSpindleSpeed(double speed, double factor, double xoffset, double yoffset);
+extern int emcSpindleOn(double speed, double factor, double xoffset, double yoffset);
 extern int emcSpindleOrient(double orientation, int direction);
 extern int emcSpindleWaitOrientComplete(double timout);
 extern int emcSpindleOff();
