@@ -124,7 +124,7 @@ static int loadAxis(int axis, EmcIniFile *axisIniFile)
 
         old_inihal_data.max_acceleration[axis] = maxAcceleration;
 
-        maxJerk = DEFAULT_AXIS_MAX_JERK;
+        maxJerk = maxAcceleration * 10.0;
         axisIniFile->Find(&maxJerk, "MAX_JERK", axisString);
 
         if (0 != emcAxisSetMaxJerk(axis, maxJerk)) {
