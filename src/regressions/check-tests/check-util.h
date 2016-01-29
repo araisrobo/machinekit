@@ -6,6 +6,18 @@ struct affinity {
 	unsigned int request;
 };
 
+#define DP(fmt, args...)                                                \
+    do {                                                                \
+        printf("%s: (%s:%d) ",                                          \
+                         __FILE__, __FUNCTION__, __LINE__ );            \
+        printf(fmt, ##args);                                            \
+    } while (0)
+
+#define DPS(fmt, args...)                                               \
+    do {                                                                \
+        printf(fmt, ##args);                                            \
+    } while (0)
+
 extern int cores;
 
 int mkrandom(void);

@@ -50,18 +50,18 @@ setp genserkins.A-4 0
 setp genserkins.A-5 0
 
 setp genserkins.ALPHA-0 0 
-setp genserkins.ALPHA-1 0
+setp genserkins.ALPHA-1 -1.570796326 
 setp genserkins.ALPHA-2 0 
-setp genserkins.ALPHA-3 0
-setp genserkins.ALPHA-4 0
-setp genserkins.ALPHA-5 0
+setp genserkins.ALPHA-3 -1.570796326 
+setp genserkins.ALPHA-4 1.570796326 
+setp genserkins.ALPHA-5 -1.570796326 
 
 setp genserkins.D-0 0
 setp genserkins.D-1 0
 setp genserkins.D-2 0
 setp genserkins.D-3 338
 setp genserkins.D-4 0 
-setp genserkins.D-5 86.5
+setp genserkins.D-5 86
 
 loadusr -W ra605gui
 

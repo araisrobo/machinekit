@@ -113,9 +113,10 @@ link2 = Collection([
 	Translate([link3], 0, 0.0, 340)])  # place link3 at relative position (x, y, z)
 # move whole assembly over so joint 2 is at origin
 link2 = Translate([link2], 0, 0, 0.0)
+link2 = Rotate([link2], 90,-1,0,0)
 
 # make joint 2 rotate
-link2 = HalRotate([link2],c,"joint2",1,1,0,0)
+link2 = HalRotate([link2],c,"joint2",1,-1,0,0)
 
 # shoulder stuff
 link1 = Collection([

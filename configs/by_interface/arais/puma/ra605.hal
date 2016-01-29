@@ -36,9 +36,9 @@ net tool-change-loop iocontrol.0.tool-change iocontrol.0.tool-changed
 
 
 setp genserkins.A-0 0
-setp genserkins.A-1 0
-setp genserkins.A-2 17
-setp genserkins.A-3 0
+setp genserkins.A-1 30
+setp genserkins.A-2 340
+setp genserkins.A-3 40
 setp genserkins.A-4 0
 setp genserkins.A-5 0
 
@@ -49,12 +49,12 @@ setp genserkins.ALPHA-3 1.570796326
 setp genserkins.ALPHA-4 -1.570796326 
 setp genserkins.ALPHA-5 1.570796326 
 
-setp genserkins.D-0 26.45
-setp genserkins.D-1 -5.5
+setp genserkins.D-0 0
+setp genserkins.D-1 0
 setp genserkins.D-2 0
-setp genserkins.D-3 17.05
+setp genserkins.D-3 338
 setp genserkins.D-4 0 
-setp genserkins.D-5 2.2
+setp genserkins.D-5 86
 
 loadusr -W ra605gui
 

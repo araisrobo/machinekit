@@ -7,20 +7,33 @@ INCLUDES += $(CHECK_TESTS)
 	cp $^ $@
 
 
-TESTS = check_tests
-check_PROGRAMS = ../bin/check_tests 
+TESTS = check_tests check_genserkins
+
+check_PROGRAMS = ../bin/check_tests ../bin/check_genserkins
+
 check_tests_SOURCES = $(addprefix $(CHECK_TESTS)/, \
 	timers.c \
 	check-util.c \
 	check_tests.c)
-
-
 check_tests_CFLAGS = $(CHECK_CFLAGS)
 check_tests_LDADD = ../lib/libmtalk.so.0 \
 	../lib/liblinuxcnchal.so.0 \
 	../lib/liblinuxcncini.so.0
 
+check_genserkins_SOURCES = $(addprefix $(CHECK_TESTS)/, \
+	timers.c \
+	check_genserkins.c)
+check_genserkins_CFLAGS = $(CHECK_CFLAGS)
+check_genserkins_LDADD = ../lib/libmtalk.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/liblinuxcncini.so.0 \
+	../lib/libposemath.so.0 \
+	../lib/librtapi_math.so 
+
 $(call TOOBJSDEPS, $(check_tests_SOURCES)) : EXTRAFLAGS += \
+	$(CHECK_CFLAGS) -DULAPI -DBUILD_SYS_USER_DSO -fPIC -pthread
+
+$(call TOOBJSDEPS, $(check_genserkins_SOURCES)) : EXTRAFLAGS += \
 	$(CHECK_CFLAGS) -DULAPI -DBUILD_SYS_USER_DSO -fPIC -pthread
 
 TARGETS += $(check_PROGRAMS)
@@ -33,11 +46,11 @@ C_CHECKS  += $(check_PROGRAMS)
 	$(check_tests_LDADD)
 	$(Q)$(CC) -o $@ $^  $(CHECK_LIBS) -lpthread
 
-USERSRCS += $(check_tests_SOURCES)
+../bin/check_genserkins: $(call TOOBJS, $(check_genserkins_SOURCES)) \
+	$(check_genserkins_LDADD)
+	$(Q)$(CC) -o $@ $^  $(CHECK_LIBS) -lpthread
 
 
-# /tmp/foo_ring_expanded-c.i:
-# 	$(CC)  -E $(CFLAGS) $(CHECK_CFLAGS) -DULAPI  -DBUILD_SYS_USER_DSO  -I. -Irtapi -x c -std=c11 \
-# 	$(CHECK_TESTS)/check_tests.c | $(CB) > $@
-# TARGETS += /tmp/foo_ring_expanded-c.i
+USERSRCS += $(check_tests_SOURCES) $(check_genserkins_SOURCES)
+
 endif
