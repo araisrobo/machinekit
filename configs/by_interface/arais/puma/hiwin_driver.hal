@@ -1,0 +1,21 @@
+#
+# example usage of the VF-S11 VFD driver
+#
+# $Id: vfdb_vfd.hal,v 1.1 2009-09-19 23:00:27 mah Exp $
+#
+# loadusr -Wn hiwin vfdb_vfd -n hiwin -I vbc.ini -S VFDB -r -d
+# loadusr -Wn hiwin vfdb_vfd -n hiwin -I delta_rs485.ini -S VFDB -r -d
+loadusr -Wn hiwin hiwin_driver -n hiwin -I VBC3.ini -S HIWIN -r -d
+setp hiwin.enable 1
+
+net J0-abs-enc-pos hiwin.0.enc-pos => wosi.stepgen.0.abs-enc-i
+net J1-abs-enc-pos hiwin.1.enc-pos => wosi.stepgen.1.abs-enc-i
+net J2-abs-enc-pos hiwin.2.enc-pos => wosi.stepgen.2.abs-enc-i
+net J3-abs-enc-pos hiwin.3.enc-pos => wosi.stepgen.3.abs-enc-i
+net J4-abs-enc-pos hiwin.4.enc-pos => wosi.stepgen.4.abs-enc-i
+
+setp hiwin.0.enc-pol [JOINT_0]ENC_ABS_POL
+setp hiwin.1.enc-pol [JOINT_1]ENC_ABS_POL
+setp hiwin.2.enc-pol [JOINT_2]ENC_ABS_POL
+setp hiwin.3.enc-pol [JOINT_3]ENC_ABS_POL
+setp hiwin.4.enc-pol [JOINT_4]ENC_ABS_POL

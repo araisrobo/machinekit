@@ -1,0 +1,17 @@
+[Unit]
+Description=Starts Mklauncher for VBC_GEN2
+After=syslog.target network.target avahi-daemon.target
+
+[Service]
+Type=simple
+ExecStart=/bin/bash -a -c "source /home/pi/proj/machinekit/scripts/rip-environment && \
+                           /usr/bin/python /home/pi/proj/machinekit/bin/mklauncher /home/pi/proj/vbc_gen2 & \
+			   sleep 5 && \
+			   source /home/pi/proj/machinekit/scripts/rip-environment && \
+                           /usr/bin/python /home/pi/proj/vbc_gen2/run.py -f -c -s -i VBC3.ini"
+ExecStopPost=/bin/bash -a -c "/home/pi/bin/linuxcnc_stop"
+User=pi
+LimitMEMLOCK=33554432
+
+[Install]
+WantedBy=multi-user.target
