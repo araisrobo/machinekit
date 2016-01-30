@@ -46,7 +46,7 @@ try:
 
     if args.config:
         # the point-of-contact for QtQUickVCP
-        machineface_dir = os.path.join(configs_dir, "../remote-ui/VBCface")
+        machineface_dir = os.path.join(configs_dir, "../../../../../remote-ui/VBCface")
         launcher.start_process("configserver -d -n Meinan %s" % machineface_dir)
 
         os.chdir(configs_dir)
@@ -56,7 +56,7 @@ try:
     if args.startpy:
         os.chdir(configs_dir)
         subprocess.check_call(['sleep', '5']) # important do not delete
-        os.system("python ./scripts/PI_RecvAndSignalProcess.py &")
+        os.system("python ./scripts/update_abs_enc.py &")
 #         launcher.start_process('python scripts/meinan.py')
 #         launcher.start_process('python scripts/css.py')
 

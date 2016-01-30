@@ -7,7 +7,6 @@ from machinekit import hal
 from machinekit import config as c
 
 from config import base
-from config import vbc_param
 from config import motion
 
 from linuxcnc_control import  LinuxcncControl
@@ -32,7 +31,6 @@ base.setup_io()         # connect i/o signals to wosi
 base.setup_analog()     # connect analog signals to wosi
 base.setup_debug()      # connect debug signals to wosi
 base.setup_signals(ini)    # for Machineface.signals
-vbc_param.setup_signals()
 
 # start haltalk server after everything is initialized
 # else binding the remote components on the UI might fail
