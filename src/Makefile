@@ -173,6 +173,13 @@ PYTARGETS :=
 # Add to this list directories to be created during 'make install'
 INSTALL_DIRS :=
 
+# location of regression tests using the check package
+# see http://check.sourceforge.net/
+# apt-get install check
+CHECK_TESTS := regressions/check-tests
+
+CHECKS := # runtests nosetests
+
 # Submakefiles from each of these directories will be included if they exist
 SUBDIRS := \
 	\
@@ -252,6 +259,7 @@ SUBDIRS := \
 	module_helper \
 	\
 	po \
+	$(CHECK_TESTS)
 
 ## Begin: WOSI - wishbone over serial interface
 ifneq ($(WOSI_VER),)
