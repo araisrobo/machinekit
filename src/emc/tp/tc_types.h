@@ -104,8 +104,8 @@ typedef struct {
     // SPINDLE_POSITIONING      (G33.2),
     // THREADING                (G33 w/ G97)
     PmCartLine xyz;             // original, but elongated, move down
-    PmCartesian abc;
-    PmCartesian uvw;
+    PmCartLine abc;
+    PmCartLine uvw;
     double s;                   // spindle-start-position
     double spindle_dir;
     int mode;                   // G33(0), G33.1(1) G33.2(2)
