@@ -1,0 +1,246 @@
+############################## Preload Component ################################################
+# loadrt sub2            names=sub2.gantry
+# loadrt blend           names=blend_y_vel
+# loadrt blender         names=blender
+# load 3 differentiators for accel signals
+# loadrt ddt count=3
+# load additional blocks
+# loadrt hypot count=2
+# Install debounce filters for transfer-signal
+# loadrt debounce cfg="16"
+# Set debounce time: number of servo-period
+# setp debounce.0.delay 125
+loadrt and2  names=and2.0
+loadrt timedelay        names=son_delay
+setp son_delay.on-delay     2
+setp son_delay.off-delay    0
+
+############################## Kinematics & Motion Controller ####################################
+# Kinematics
+
+loadrt [KINS]KINEMATICS
+loadrt tp
+##############################################################################
+# motion controller, get name and thread periods from ini file
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=[EMCMOT]NUM_DIO num_aio=[EMCMOT]NUM_AIO num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
+
+# tick message flow: servo_tick => ring_jcmd => wosi_trans
+# this creates the named ring ring_jcmd as record ring
+newring ring_jcmd 16384 record
+# servo_tick sends tick messages to ring_jcmd
+loadrt servo_tick ring=ring_jcmd
+# wosi_trans:
+#   -I inifile: default to getenv(INI_FILE_NAME)
+#   -r ring: ring buffer name
+loadusr -W wosi_trans -r ring_jcmd
+
+addf son_delay                  servo-thread
+addf motion-command-handler     servo-thread
+addf motion-controller          servo-thread
+addf and2.0                     servo-thread    # and2 for spindle velocity to analog.out
+# attach servo_tick after all joint commands are calculated
+addf servo_tick                 servo-thread
+
+
+# gantry-en: enable gantry compensator
+setp wosi.gantry-en          0
+# should AHC synchronized with S3 or ALWAYS-ON?
+setp wosi.ahc.motion_s3      1
+# send the position commands thru differentiators to
+# generate velocity and accel signals
+# net Xvel-fb     => ddt.0.in hypot.0.in0
+# net Xacc        <= ddt.0.out 
+
+# setp blend_y_vel.select 0.5
+# net Yvel-fb     => blend_y_vel.in1
+# net YYvel-fb    => blend_y_vel.in2
+# net Yvel-fb-avg blend_y_vel.out => ddt.1.in hypot.0.in1
+# net Yacc        <= ddt.1.out 
+
+# net Zvel        => ddt.2.in hypot.1.in0
+# net Zacc        <= ddt.2.out 
+
+net accelState motion.accel-state => wosi.accel-state
+net rev-input       => motion.tp-reverse-input
+
+# TODO: Do we need current-vel for AHC?
+net current-vel   wosi.motion.current-vel <= motion.current-vel
+
+
+
+
+# create HAL signals for position commands from motion module
+# connect position commands from motion module for "servo_tick => wosi_driver"
+net j0-pos-cmd      axis.0.motor-pos-cmd        => servo_tick.j0-pos-cmd
+net j1-pos-cmd      axis.1.motor-pos-cmd        => servo_tick.j1-pos-cmd
+net j2-pos-cmd      axis.2.motor-pos-cmd        => servo_tick.j2-pos-cmd
+net j3-pos-cmd      axis.3.motor-pos-cmd        => servo_tick.j3-pos-cmd
+net j4-pos-cmd      axis.4.motor-pos-cmd        => servo_tick.j4-pos-cmd 
+net j5-pos-cmd      axis.5.motor-pos-cmd        => servo_tick.j5-pos-cmd
+net j6-pos-cmd      axis.6.motor-pos-cmd        => servo_tick.j6-pos-cmd
+net update-pos-ack  motion.update-pos-ack       => servo_tick.update-pos-ack
+
+# loop position commands back to motion module feedback
+net j0-pos-fb   wosi.stepgen.0.position-fb => axis.0.motor-pos-fb
+net j1-pos-fb   wosi.stepgen.1.position-fb => axis.1.motor-pos-fb
+net j2-pos-fb   wosi.stepgen.2.position-fb => axis.2.motor-pos-fb
+net j3-pos-fb   wosi.stepgen.3.position-fb => axis.3.motor-pos-fb
+net j4-pos-fb   wosi.stepgen.4.position-fb => axis.4.motor-pos-fb
+net j5-pos-fb   wosi.stepgen.5.position-fb => axis.5.motor-pos-fb
+net j6-pos-fb   wosi.stepgen.6.position-fb => axis.6.motor-pos-fb
+# net j7-pos-fb   wosi.stepgen.7.position-fb => axis.6.motor-pos-fb
+
+net J0vel-fb  wosi.stepgen.0.vel-fb
+net J1vel-fb  wosi.stepgen.1.vel-fb
+net J2vel-fb  wosi.stepgen.2.vel-fb
+net J3vel-fb  wosi.stepgen.3.vel-fb
+net J4vel-fb  wosi.stepgen.4.vel-fb
+net J5vel-fb  wosi.stepgen.5.vel-fb
+net J6vel-fb  wosi.stepgen.6.vel-fb
+# net J7vel-fb  wosi.stepgen.7.vel-fb
+
+# create signals for tool loading loopback
+net tool-prep-loop iocontrol.0.tool-prepare iocontrol.0.tool-prepared
+net tool-change-loop iocontrol.0.tool-change iocontrol.0.tool-changed
+
+# # FIXME: do we still support this sync-in?
+# # digital sync I/O signals
+# net sync_in_trigger     motion.sync-in-trigger =>  wosi.sync.in.trigger
+# net sync_in_index       motion.sync-in-index =>  wosi.sync.in.index
+# net sync_in_wait_type   motion.sync-in-wait-type =>  wosi.sync.in.wait_type
+# net sync_in_timeout     motion.sync-in-timeout =>  wosi.sync.in.timeout
+
+# estop loopback
+# net estop-loop iocontrol.0.user-enable-out iocontrol.0.emc-enable-in
+# let ESTOP switch control ESTOP behavior
+net din_0  => iocontrol.0.emc-enable-in
+
+# # connect signals from FPGA.
+# export ahc pins
+net ahc-state   => wosi.ahc.state
+
+# TODO: probed pos for gantry joint
+net x-probed-pos   wosi.stepgen.0.probed-pos => axis.0.probed-pos
+net y-probed-pos   wosi.stepgen.1.probed-pos => axis.1.probed-pos
+net z-probed-pos   wosi.stepgen.2.probed-pos => axis.2.probed-pos
+net j3-probed-pos  wosi.stepgen.3.probed-pos => axis.3.probed-pos
+net j4-probed-pos  wosi.stepgen.4.probed-pos => axis.4.probed-pos
+net j5-probed-pos  wosi.stepgen.5.probed-pos => axis.5.probed-pos
+
+
+# SIM: setp joint.3.probed-pos -40
+
+# # loop position commands back to motion module feedback
+net J0-risc-pos-cmd wosi.stepgen.0.risc-pos-cmd => axis.0.risc-pos-cmd
+net J1-risc-pos-cmd wosi.stepgen.1.risc-pos-cmd => axis.1.risc-pos-cmd
+net J2-risc-pos-cmd wosi.stepgen.2.risc-pos-cmd => axis.2.risc-pos-cmd
+net J3-risc-pos-cmd wosi.stepgen.3.risc-pos-cmd => axis.3.risc-pos-cmd
+net J4-risc-pos-cmd wosi.stepgen.4.risc-pos-cmd => axis.4.risc-pos-cmd
+net J5-risc-pos-cmd wosi.stepgen.5.risc-pos-cmd => axis.5.risc-pos-cmd
+# net J7-risc-pos-cmd wosi.stepgen.7.risc-pos-cmd => axis.6.risc-pos-cmd
+
+# for usb-homing:
+setp axis.0.joint-id        0
+setp axis.0.home-sw-id      [JOINT_0]HOME_SW_ID
+net [JOINT_0]HOME_SW_NET    axis.0.home-sw-in
+net j0-homing               axis.0.homing => wosi.stepgen.0.homing
+net a0-risc-probe-vel       axis.0.risc-probe-vel => servo_tick.j0-risc-probe-vel-i
+net j0-risc-probe-pin       axis.0.risc-probe-pin => wosi.stepgen.0.risc-probe-pin
+net j0-risc-probe-type      axis.0.risc-probe-type => wosi.stepgen.0.risc-probe-type
+
+# for usb-homing: 
+setp axis.1.joint-id        1
+setp axis.1.home-sw-id      [JOINT_1]HOME_SW_ID
+net [JOINT_1]HOME_SW_NET    axis.1.home-sw-in
+net j1-homing               axis.1.homing => wosi.stepgen.1.homing
+net a1-risc-probe-vel       axis.1.risc-probe-vel => servo_tick.j1-risc-probe-vel-i
+net j1-risc-probe-pin       axis.1.risc-probe-pin => wosi.stepgen.1.risc-probe-pin
+net j1-risc-probe-type      axis.1.risc-probe-type => wosi.stepgen.1.risc-probe-type
+
+# for usb-homing:
+setp axis.2.joint-id        2
+setp axis.2.home-sw-id      [JOINT_2]HOME_SW_ID
+net [JOINT_2]HOME_SW_NET    axis.2.home-sw-in
+net j2-homing               axis.2.homing => wosi.stepgen.2.homing
+net a2-risc-probe-vel       axis.2.risc-probe-vel => servo_tick.j2-risc-probe-vel-i
+net j2-risc-probe-pin       axis.2.risc-probe-pin => wosi.stepgen.2.risc-probe-pin
+net j2-risc-probe-type      axis.2.risc-probe-type => wosi.stepgen.2.risc-probe-type
+
+# for usb-homing:
+setp axis.3.joint-id        3
+setp axis.3.home-sw-id      [JOINT_3]HOME_SW_ID
+net [JOINT_3]HOME_SW_NET    axis.3.home-sw-in
+net j3-homing               axis.3.homing => wosi.stepgen.3.homing
+net a3-risc-probe-vel       axis.3.risc-probe-vel => servo_tick.j3-risc-probe-vel-i
+net j3-risc-probe-pin       axis.3.risc-probe-pin => wosi.stepgen.3.risc-probe-pin
+net j3-risc-probe-type      axis.3.risc-probe-type => wosi.stepgen.3.risc-probe-type
+
+# for usb-homing:
+setp axis.4.joint-id        4
+setp axis.4.home-sw-id      [JOINT_4]HOME_SW_ID
+net [JOINT_4]HOME_SW_NET    axis.4.home-sw-in
+net j4-homing               axis.4.homing => wosi.stepgen.4.homing
+net a4-risc-probe-vel       axis.4.risc-probe-vel => servo_tick.j4-risc-probe-vel-i
+net j4-risc-probe-pin       axis.4.risc-probe-pin => wosi.stepgen.4.risc-probe-pin
+net j4-risc-probe-type      axis.4.risc-probe-type => wosi.stepgen.4.risc-probe-type
+
+# for usb-homing:
+setp axis.5.joint-id        5
+setp axis.5.home-sw-id      [JOINT_5]HOME_SW_ID
+net [JOINT_5]HOME_SW_NET    axis.5.home-sw-in
+net j5-homing               axis.5.homing => wosi.stepgen.5.homing
+net a5-risc-probe-vel       axis.5.risc-probe-vel => servo_tick.j5-risc-probe-vel-i
+net j5-risc-probe-pin       axis.5.risc-probe-pin => wosi.stepgen.5.risc-probe-pin
+net j5-risc-probe-type      axis.5.risc-probe-type => wosi.stepgen.5.risc-probe-type
+
+# RISC_CMD REQ and ACK
+net update-pos-req      wosi.motion.update-pos-req   =>  motion.update-pos-req
+# net rcmd-seq-num-req    wosi.motion.rcmd-seq-num-req =>  motion.rcmd-seq-num-req
+# net rcmd-seq-num-ack    wosi.motion.rcmd-seq-num-ack <=  motion.rcmd-seq-num-ack
+net rcmd-state          wosi.motion.rcmd-state       =>  motion.rcmd-state
+
+# trigger type 
+# 	0: or
+# 	1: analog only
+# 	2: digital only
+# 	3: and
+# cond(1): probe HIGH
+setp wosi.trigger.din       51 
+setp wosi.trigger.ain       2
+setp wosi.trigger.type      2 
+setp wosi.trigger.cond      1 
+setp wosi.trigger.level     1000 
+setp motion.trigger.din     51 
+setp motion.trigger.ain     2 
+setp motion.trigger.type    2 
+setp motion.trigger.cond    1 
+setp motion.trigger.level   1000 
+
+# net machine_is_on       halui.machine.is-on 
+net teleop_mode         wosi.motion.teleop-mode <= motion.teleop-mode
+net coord_mode          wosi.motion.coord-mode <= motion.coord-mode
+# for G38.X:
+net probing             wosi.motion.probing <= motion.probing
+net trigger_result      wosi.trigger.result => motion.trigger-result
+net rtp_running         wosi.motion.rtp-running => motion.rtp-running
+
+net ahc-doing   wosi.ahc.doing 
+net ahc-level   wosi.ahc.level 
+
+# jog-vel is mm/sec
+setp            wosi.stepgen.0.jog-vel   [JOINT_0]JOG_VEL
+setp            wosi.stepgen.1.jog-vel   [JOINT_1]JOG_VEL
+setp            wosi.stepgen.2.jog-vel   [JOINT_2]JOG_VEL
+setp            wosi.stepgen.3.jog-vel   [JOINT_3]JOG_VEL
+setp            wosi.stepgen.4.jog-vel   [JOINT_4]JOG_VEL
+setp            wosi.stepgen.5.jog-vel   [JOINT_5]JOG_VEL
+setp            wosi.stepgen.6.jog-vel   [JOINT_6]JOG_VEL
+
+net bp-tick         <= wosi.bp-tick
+
+net machine-on      son_delay.out  
+net machine-on      wosi.machine-on => and2.0.in1 
+net break-en                        => and2.0.in0 
+sets break-en 1 
+
+# sets aout_1     0 

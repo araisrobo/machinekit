@@ -1,0 +1,112 @@
+# core HAL config file for simulation - 6 axis
+
+# load RT modules
+loadrt [KINS]KINEMATICS
+# trajectory planner
+loadrt tp
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
+
+# add motion controller functions to servo thread
+addf motion-command-handler servo-thread
+addf motion-controller servo-thread
+
+# create HAL signals for ra605gui
+net J0pos <= joint.0.pos-cmd
+net J1pos <= joint.1.pos-cmd
+net J2pos <= joint.2.pos-cmd
+net J3pos <= joint.3.pos-cmd
+net J4pos <= joint.4.pos-cmd
+net J5pos <= joint.5.pos-cmd
+
+# create HAL signals for position commands from motion module
+net mot_J0pos <= joint.0.motor-pos-cmd
+net mot_J1pos <= joint.1.motor-pos-cmd
+net mot_J2pos <= joint.2.motor-pos-cmd
+net mot_J3pos <= joint.3.motor-pos-cmd
+net mot_J4pos <= joint.4.motor-pos-cmd
+net mot_J5pos <= joint.5.motor-pos-cmd
+
+# loop position commands back to motion module feedback
+net mot_J0pos => joint.0.motor-pos-fb
+net mot_J1pos => joint.1.motor-pos-fb
+net mot_J2pos => joint.2.motor-pos-fb
+net mot_J3pos => joint.3.motor-pos-fb
+net mot_J4pos => joint.4.motor-pos-fb
+net mot_J5pos => joint.5.motor-pos-fb
+
+# estop loopback
+net estop-loop iocontrol.0.user-enable-out iocontrol.0.emc-enable-in
+
+# create signals for tool loading loopback
+net tool-prep-loop iocontrol.0.tool-prepare iocontrol.0.tool-prepared
+net tool-change-loop iocontrol.0.tool-change iocontrol.0.tool-changed
+
+
+setp genserkins.A-0 0
+setp genserkins.A-1 30
+setp genserkins.A-2 340
+setp genserkins.A-3 40
+setp genserkins.A-4 0
+setp genserkins.A-5 0
+
+setp genserkins.ALPHA-0 0 
+setp genserkins.ALPHA-1 -1.570796326 
+setp genserkins.ALPHA-2 0 
+setp genserkins.ALPHA-3 -1.570796326 
+setp genserkins.ALPHA-4 1.570796326 
+setp genserkins.ALPHA-5 -1.570796326 
+
+setp genserkins.D-0 0
+setp genserkins.D-1 0
+setp genserkins.D-2 0
+setp genserkins.D-3 338
+setp genserkins.D-4 0 
+setp genserkins.D-5 86
+
+loadusr -W ra605gui
+
+loadrt scale count=6
+
+addf scale.0 servo-thread
+addf scale.1 servo-thread
+addf scale.2 servo-thread
+addf scale.3 servo-thread
+addf scale.4 servo-thread
+addf scale.5 servo-thread
+
+net J0pos scale.0.in
+net J1pos scale.1.in
+net J2pos scale.2.in
+net J3pos scale.3.in
+net J4pos scale.4.in
+net J5pos scale.5.in
+
+setp scale.0.gain 1
+setp scale.1.gain 1
+setp scale.2.gain 1
+setp scale.3.gain 1
+setp scale.4.gain 1
+setp scale.5.gain 1
+
+net J0scaled scale.0.out ra605gui.joint1
+net J1scaled scale.1.out ra605gui.joint2
+net J2scaled scale.2.out ra605gui.joint3
+net J3scaled scale.3.out ra605gui.joint4
+net J4scaled scale.4.out ra605gui.joint5
+net J5scaled scale.5.out ra605gui.joint6
+
+# amp control
+net xena joint.0.amp-enable-out
+net yena joint.1.amp-enable-out
+net zena joint.2.amp-enable-out
+net aena joint.3.amp-enable-out
+net bena joint.4.amp-enable-out
+net cena joint.5.amp-enable-out
+
+net xflt joint.0.amp-fault-in
+net yflt joint.1.amp-fault-in
+net zflt joint.2.amp-fault-in
+net aflt joint.3.amp-fault-in
+net bflt joint.4.amp-fault-in
+net cflt joint.5.amp-fault-in
+

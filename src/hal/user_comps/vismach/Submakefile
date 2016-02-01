@@ -1,6 +1,7 @@
 
 
 VISMACH_PY :=  \
+	ra605gui.py \
 	pumagui.py \
 	puma560gui.py \
 	rostock.py \
