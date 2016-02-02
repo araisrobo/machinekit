@@ -569,7 +569,11 @@ void STRAIGHT_PROBE(int line_number,
 }
 
 
-void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_mode)
+void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z
+        , double a /*AA*/
+        , double b /*BB*/
+        , double c /*CC*/
+        , double u, double v, double w, int ssm_mode)
 {
     fprintf(_outfile, "%5d ", _line_number++);
     print_nc_line_number();

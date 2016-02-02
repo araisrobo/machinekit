@@ -4575,7 +4575,9 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
            (settings->spindle_turning != CANON_COUNTERCLOCKWISE)),
           _("Spindle not turning in G33"));
     START_SPEED_FEED_SYNCH(block->k_number, 0 /* wait_for_index == 0 */);
-    SPINDLE_SYNC_MOTION(block->line_number, end_x, end_y, end_z, 0); // set ssm_mode flag as G33(0)
+    SPINDLE_SYNC_MOTION(block->line_number, end_x, end_y, end_z,
+                        AA_end, BB_end, CC_end,
+                        u_end, v_end, w_end, 0); // set ssm_mode flag as G33(0)
     STOP_SPEED_FEED_SYNCH();
     settings->current_x = end_x;
     settings->current_y = end_y;
@@ -4585,7 +4587,9 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
            (settings->spindle_turning != CANON_COUNTERCLOCKWISE)),
           _("Spindle not turning in G33.1"));
     START_SPEED_FEED_SYNCH(block->k_number, 0 /* wait_for_index == 0 */);
-    SPINDLE_SYNC_MOTION(block->line_number, end_x, end_y, end_z, 1); // set ssm_mode flag as rigid_tap(1)
+    SPINDLE_SYNC_MOTION(block->line_number, end_x, end_y, end_z,
+                        AA_end, BB_end, CC_end,
+                        u_end, v_end, w_end, 1); // set ssm_mode flag as rigid_tap(1)
     STOP_SPEED_FEED_SYNCH();
     // after the RIGID_TAP cycle we'll be in the same spot
   } else if (move == G_33_2) {
@@ -4614,7 +4618,9 @@ int Interp::convert_straight(int move,   //!< either G_0 or G_1
 
     START_SPEED_FEED_SYNCH(block->k_number, 0 /* position mode */);
     // for G33.2, x = angle, y = rpm, ssm_mode = 2
-    SPINDLE_SYNC_MOTION(block->line_number, angle, block->k_number, 0, 2); // set ssm_mode flag as G33.2(2)
+    SPINDLE_SYNC_MOTION(block->line_number, angle, block->k_number, 0,
+                        0, 0, 0,
+                        0, 0, 0, 2); // set ssm_mode flag as G33.2(2)
     STOP_SPEED_FEED_SYNCH();
 
   } else if (move == G_76) {

@@ -495,8 +495,10 @@ void STRAIGHT_PROBE(int line_number,
 
 }
 void SPINDLE_SYNC_MOTION(int line_number,
-               double x, double y, double z, int ssm_mode) {
-    if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; }
+               double x, double y, double z,
+               double a, double b, double c,
+               double u, double v, double w,int ssm_mode) {
+    if(metric) { x /= 25.4; y /= 25.4; z /= 25.4; u /= 25.4; v /= 25.4; w /= 25.4; }
     maybe_new_line(line_number);
     if(interp_error) return;
     PyObject *result =

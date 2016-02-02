@@ -1219,7 +1219,10 @@ void STRAIGHT_FEED(int line_number,
 }
 
 
-void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_mode)
+void SPINDLE_SYNC_MOTION(int line_number,
+                        double x, double y, double z,
+                        double a, double b, double c,
+                        double u, double v, double w, int ssm_mode)
 {
     double vel, acc;
     EMC_TRAJ_SPINDLE_SYNC_MOTION spindleSyncMotionMsg;
@@ -1237,10 +1240,9 @@ void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_
             // for (G97)
             spindle_speed = spindleSpeed;
         }
-
-        from_prog(x,y,z,unused,unused,unused,unused,unused,unused);
-        rotate_and_offset_pos(x,y,z,unused,unused,unused,unused,unused,unused);
-        VelData linedata = getStraightVelocity(x, y, z, canonEndPoint.a, canonEndPoint.b, canonEndPoint.c, canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
+        from_prog(x,y,z,a,b,c,u,v,w);
+        rotate_and_offset_pos(x,y,z,a,b,c,u,v,w);
+        VelData linedata = getStraightVelocity(x, y, z, a, b, c, u, v, w);
         max_xyz_vel = linedata.vel;
 
         /* the unit for canon.spindleSpeed is RPM; need to convert to RPS */
@@ -1254,9 +1256,7 @@ void SPINDLE_SYNC_MOTION(int line_number, double x, double y, double z, int ssm_
         {
             CANON_ERROR("WARN: constrain spindle speed to %f RPM\n", vel * 60.0);
         }
-        spindleSyncMotionMsg.pos = to_ext_pose(x,y,z,
-                canonEndPoint.a, canonEndPoint.b, canonEndPoint.c,
-                canonEndPoint.u, canonEndPoint.v, canonEndPoint.w);
+        spindleSyncMotionMsg.pos = to_ext_pose(x, y, z, a, b, c, u, v, w);
     }
     else
     {   // G33.2 A[ABSOLUTE_ANGLE] K[RPM]

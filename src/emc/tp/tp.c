@@ -1496,9 +1496,9 @@ int tpAddSpindleSyncMotion(
         unsigned char enables,
         struct state_tag_t tag)
 {
-    PmCartLine line_xyz;
+    PmCartLine line_xyz, line_abc, line_uvw;
     PmCartesian start_xyz, end_xyz;
-    PmCartesian abc, uvw;
+    PmCartesian abc, uvw, end_abc, end_uvw;
     int atspeed;
 
     if (tpErrorCheck(tp)) {
@@ -1554,7 +1554,17 @@ int tpAddSpindleSyncMotion(
     uvw.y = tp->goalPos.v;
     uvw.z = tp->goalPos.w;
 
+    end_abc.x = end.a;
+    end_abc.y = end.b;
+    end_abc.z = end.c;
+
+    end_uvw.x = end.u;
+    end_uvw.y = end.v;
+    end_uvw.z = end.w;
+
     pmCartLineInit(&line_xyz, &start_xyz, &end_xyz);
+    pmCartLineInit(&line_abc, &abc, &end_abc);
+    pmCartLineInit(&line_uvw, &uvw, &end_uvw);
 
     if (vel > 0)        // vel is requested spindle velocity
     {
@@ -1566,7 +1576,18 @@ int tpAddSpindleSyncMotion(
 
     // tc.target: set as revolutions of spindle
     if (ssm_mode < 2) {
-        tc.target = line_xyz.tmag / tp->uu_per_rev;
+        if(line_xyz.tmag != 0)
+        {
+            tc.target = line_xyz.tmag / tp->uu_per_rev;
+        }
+        else if(line_abc.tmag != 0)
+        {
+            tc.target = line_abc.tmag / tp->uu_per_rev;
+        }
+        else if(line_uvw.tmag != 0)
+        {
+            tc.target = line_uvw.tmag / tp->uu_per_rev;
+        }
         // tc.uu_per_rev was set inside tpSetupState()
     } else {
         double start_angle = tp->goalPos.s - rtapi_floor(tp->goalPos.s);
@@ -1586,8 +1607,8 @@ int tpAddSpindleSyncMotion(
     tc.active = 0;
 
     tc.coords.spindle_sync.xyz = line_xyz;
-    tc.coords.spindle_sync.abc = abc;
-    tc.coords.spindle_sync.uvw = uvw;
+    tc.coords.spindle_sync.abc = line_abc;
+    tc.coords.spindle_sync.uvw = line_uvw;
     tc.coords.spindle_sync.s = tp->goalPos.s;  // update start point of spindle
     tc.coords.spindle_sync.mode = ssm_mode;
 
