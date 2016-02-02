@@ -8,8 +8,6 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 
-#include <ck_pr.h>
-
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -47,37 +45,4 @@ __attribute__((constructor)) void _initcores (void)
 {
     cores = num_cores();
     seed = getpid();
-}
-
-int
-aff_iterate(struct affinity *acb)
-{
-	cpu_set_t s;
-	unsigned int c;
-
-	c = ck_pr_faa_uint(&acb->request, acb->delta);
-	CPU_ZERO(&s);
-	CPU_SET(c % cores, &s);
-
-	int ret = sched_setaffinity(gettid(), sizeof(s), &s);
-	if (ret < 0) {
-	    fprintf(stderr, "sched_setaffinity: %s\n", strerror(errno));
-	}
-	return ret;
-}
-
-int
-aff_iterate_core(struct affinity *acb, unsigned int *core)
-{
-	cpu_set_t s;
-
-	*core = ck_pr_faa_uint(&acb->request, acb->delta);
-	CPU_ZERO(&s);
-	CPU_SET((*core) % cores, &s);
-
-	int ret = sched_setaffinity(gettid(), sizeof(s), &s);
-	if (ret < 0) {
-	    fprintf(stderr, "sched_setaffinity: %s\n", strerror(errno));
-	}
-	return ret;
 }
