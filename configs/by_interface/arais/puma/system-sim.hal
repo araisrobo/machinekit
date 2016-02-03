@@ -1,0 +1,195 @@
+############################## Preload Component ################################################
+loadrt spindle_aux names=spindle_t 
+loadrt mult2 count=1
+loadrt and2  names=and2.0,and2.atspeed
+loadrt timedelay        names=son_delay
+setp son_delay.on-delay     2
+setp son_delay.off-delay    0
+
+############################## Kinematics & Motion Controller ####################################
+# Kinematics
+
+loadrt [KINS]KINEMATICS
+loadrt tp
+##############################################################################
+# motion controller, get name and thread periods from ini file
+loadrt [EMCMOT]EMCMOT servo_period_nsec=[EMCMOT]SERVO_PERIOD num_dio=[EMCMOT]NUM_DIO num_aio=[EMCMOT]NUM_AIO spindle_axis=[TRAJ]SPINDLE_AXIS num_joints=[KINS]JOINTS kins=[KINS]KINEMATICS tp=tp
+newinst rgantry rgantry.0 pincount=2
+
+# this creates the named ring ring_jcmd as record ring
+newring ring_jcmd 16384 record
+
+addf son_delay                  servo-thread
+addf rgantry.0.read             servo-thread
+addf motion-command-handler     servo-thread
+addf motion-controller          servo-thread
+addf rgantry.0.write            servo-thread
+addf mult2.0                    servo-thread    # mult2 for spindle velocity to analog.out
+addf and2.0                     servo-thread    # and2 for spindle velocity to analog.out
+addf spindle_t                  servo-thread
+
+
+
+net rev-input       => motion.tp-reverse-input
+
+# y-axis gantry
+net ypos-cmd  rgantry.0.position-cmd     <= axis.1.motor-pos-cmd
+net ypos-fb   rgantry.0.position-fb      => axis.1.motor-pos-fb
+
+
+# create HAL signals for position commands from motion module
+net j0-pos-cmd      axis.0.motor-pos-cmd        => axis.0.motor-pos-fb
+net j1-pos-cmd      rgantry.0.joint.00.pos-cmd  => rgantry.0.joint.00.pos-fb
+net j2-pos-cmd      rgantry.0.joint.01.pos-cmd  => rgantry.0.joint.01.pos-fb
+net j3-pos-cmd      axis.2.motor-pos-cmd        => axis.2.motor-pos-fb
+net j4-pos-cmd      axis.3.motor-pos-cmd        => axis.3.motor-pos-fb
+net j5-pos-cmd      axis.4.motor-pos-cmd        => axis.4.motor-pos-fb
+# net j6-pos-cmd    由 spindle-aux 產生         => axis.5.motor-pos-fb
+
+# create signals for tool loading loopback
+net tool-prep-loop iocontrol.0.tool-prepare iocontrol.0.tool-prepared
+net tool-change-loop iocontrol.0.tool-change iocontrol.0.tool-changed
+
+# estop loopback
+net estop-loop iocontrol.0.user-enable-out iocontrol.0.emc-enable-in
+# let ESTOP switch control ESTOP behavior
+# net din_0  => iocontrol.0.emc-enable-in
+
+# # connect signals from FPGA.
+# TODO: probed pos for gantry joint
+net x-probed-pos    => axis.0.probed-pos
+net y-probed-pos    => axis.1.probed-pos
+net z-probed-pos    => axis.2.probed-pos
+net j4-probed-pos   => axis.3.probed-pos
+net j5-probed-pos   => axis.4.probed-pos
+
+# for usb-homing:
+setp axis.0.joint-id        0
+setp axis.0.home-sw-id      [JOINT_0]HOME_SW_ID
+net [JOINT_0]HOME_SW_NET    axis.0.home-sw-in
+net j0-homing               axis.0.homing
+net a0-risc-probe-vel       axis.0.risc-probe-vel
+net j0-risc-probe-pin       axis.0.risc-probe-pin
+net j0-risc-probe-type      axis.0.risc-probe-type
+
+# for usb-homing: y-axis gantry
+setp axis.1.joint-id                    1
+setp axis.1.home-sw-id                  [JOINT_1]HOME_SW_ID
+setp rgantry.0.homing-abs-enc           [JOINT_1]ENC_ABS
+setp rgantry.0.joint.00.home-sw-id      [JOINT_1]HOME_SW_ID
+setp rgantry.0.joint.01.home-sw-id      [JOINT_2]HOME_SW_ID
+setp rgantry.0.joint.00.home-offset     [AXIS_1]HOME_OFFSET
+setp rgantry.0.joint.01.home-offset     [AXIS_1]HOME_OFFSET_GANTRY_SLAVE
+net  [JOINT_1]HOME_SW_NET               => rgantry.0.joint.00.home-sw-i
+net  [JOINT_2]HOME_SW_NET               => rgantry.0.joint.01.home-sw-i
+net  a1-home-sw axis.1.home-sw-in       <= rgantry.0.home                     
+net  a1-homing                          <= axis.1.homing
+net  a1-homing                          => rgantry.0.homing
+net  a1-risc-probe-vel                  <= axis.1.risc-probe-vel 
+net  a1-risc-probe-vel                  => rgantry.0.risc-probe-vel-i
+net  j1-risc-probe-pin                  <= rgantry.0.joint.00.risc-probe-pin-o 
+net  j2-risc-probe-pin                  <= rgantry.0.joint.01.risc-probe-pin-o 
+net  a1-risc-probe-type                 <= axis.1.risc-probe-type 
+net  a1-risc-probe-type                 => rgantry.0.risc-probe-type-i
+net  j1-risc-probe-type                 <= rgantry.0.joint.00.risc-probe-type-o 
+net  j2-risc-probe-type                 <= rgantry.0.joint.01.risc-probe-type-o 
+
+# for usb-homing:
+setp axis.2.joint-id        3
+setp axis.2.home-sw-id      [JOINT_3]HOME_SW_ID
+net [JOINT_3]HOME_SW_NET    axis.2.home-sw-in
+net j3-homing               axis.2.homing
+net a2-risc-probe-vel       axis.2.risc-probe-vel
+net j3-risc-probe-pin       axis.2.risc-probe-pin
+net j3-risc-probe-type      axis.2.risc-probe-type
+
+# for usb-homing:
+setp axis.3.joint-id        4
+setp axis.3.home-sw-id      [JOINT_4]HOME_SW_ID
+net [JOINT_4]HOME_SW_NET    axis.3.home-sw-in
+net j4-homing               axis.3.homing
+net a3-risc-probe-vel       axis.3.risc-probe-vel
+net j4-risc-probe-pin       axis.3.risc-probe-pin
+net j4-risc-probe-type      axis.3.risc-probe-type
+
+# for usb-homing with AXIS_4/JOINT_5:
+setp axis.4.joint-id        5
+setp axis.4.home-sw-id      [JOINT_5]HOME_SW_ID
+net [JOINT_5]HOME_SW_NET    axis.4.home-sw-in
+net j5-homing               axis.4.homing
+net a4-risc-probe-vel       axis.4.risc-probe-vel
+net j5-risc-probe-pin       axis.4.risc-probe-pin
+net j5-risc-probe-type      axis.4.risc-probe-type
+
+# for usb-homing with AXIS_5/JOINT_6:
+setp axis.5.joint-id        6
+setp axis.5.home-sw-id      [JOINT_6]HOME_SW_ID
+net [JOINT_6]HOME_SW_NET    axis.5.home-sw-in
+net j6-homing               axis.5.homing
+net a5-risc-probe-vel       axis.5.risc-probe-vel
+net j6-risc-probe-pin       axis.5.risc-probe-pin
+net j6-risc-probe-type      axis.5.risc-probe-type
+
+# RISC_CMD REQ and ACK
+net update-pos-req          =>  motion.update-pos-req
+net rcmd-state              =>  motion.rcmd-state
+
+# trigger type 
+# 	0: or
+# 	1: analog only
+# 	2: digital only
+# 	3: and
+# cond(1): probe HIGH
+setp motion.trigger.din     51 
+setp motion.trigger.ain     2 
+setp motion.trigger.type    2 
+setp motion.trigger.cond    1 
+setp motion.trigger.level   1000 
+
+net teleop_mode         <= motion.teleop-mode
+net coord_mode          <= motion.coord-mode
+# for G38.X:
+net probing             <= motion.probing
+net trigger_result      => motion.trigger-result
+net rtp_running         => motion.rtp-running
+
+# spindle_t: motor spindle
+setp spindle_t.max-vel  [JOINT_6]MAX_VELOCITY
+setp spindle_t.max-acc  [JOINT_6]MAX_ACCELERATION
+setp spindle_t.max-jerk [JOINT_6]MAX_JERK
+# at-speed-range: 0.05 means 5% of spindle velocity tolerance
+# at-speed-range: 0.01 means 1% of spindle velocity tolerance
+setp spindle_t.at-speed-range 0.07
+
+net  spindle-on                 spindle_t.on                        <= motion.spindle-on        
+net  spindle-t-aux-radius       spindle_t.aux-radius                # from vbc.hal diameter 
+sets spindle-t-aux-radius       2.36                                # 2.36 inch = 12cm/2.54/2
+net  spindle-t-css-error-cmd    spindle_t.css-error-velocity-cmd    <= motion.spindle-css-error     
+# css-factor: CSS(non-0) CONST-RPM(0)
+net  spindle-css-factor         spindle_t.css-factor                <= motion.spindle-css-factor
+# 接變頻器主軸命令到J6
+net  spindle-t-curr-pos         spindle_t.curr-pos
+net  spindle-t-speed-cmd-rps    spindle_t.vel-req
+# forward VEL-CMD of SPINDLE-T to VFD-B 
+net  spindle-t-speed-out        spindle_t.speed-rpm
+# get vel feedback of SPINDLE-T from VFD-B
+net  spindle-t-speed-cmd-rps    spindle_t.feedback-vel
+
+# check for both spindles are at-speed
+loadrt near names=near_speed
+setp near_speed.scale 1.1
+setp near_speed.difference 10
+# [TRAJ]SPINDLE_AXIS is 4
+net  spindle-s-vel-cmd          axis.4.joint-vel-cmd
+net  spindle-s-vel-cmd          near_speed.in1
+net  spindle-s-vel-cmd          near_speed.in2      # spindle-s-vel-fb
+net  spindle-s-at-speed         near_speed.out
+net  spindle-s-at-speed                             => and2.atspeed.in0
+net  spindle-t-at-speed         spindle_t.at-speed  => and2.atspeed.in1
+net  spindle-at-speed           and2.atspeed.out    => motion.spindle-at-speed
+addf near_speed                 servo-thread
+addf and2.atspeed               servo-thread
+# set const-speed-radius for CSS-motion as 1.5 inch
+setp motion.spindle-css-csr     1.5
+
+net machine-on      son_delay.out  

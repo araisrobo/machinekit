@@ -419,7 +419,9 @@ all axes have covered the same proportion of their required motion.
 The meanings of the parameters is the same as for STRAIGHT_TRAVERSE.*/
 
 extern void SPINDLE_SYNC_MOTION(int lineno,
-                      double x, double y, double z, int ssm_mode);
+                      double x, double y, double z,
+                      double a, double b, double c,
+                      double u, double v, double w,int ssm_mode);
 
 /* Move linear and synced with the previously set pitch.
 Only linear moves are allowed, axes A,B,C are not allowed to move.*/

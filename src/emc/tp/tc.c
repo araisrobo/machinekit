@@ -310,9 +310,12 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
             pmCartLinePoint(&tc->coords.spindle_sync.xyz,
                             tc->coords.spindle_sync.xyz.tmag * (progress / tc->target),
                             &xyz);
-            // no rotary move allowed while tapping
-            abc = tc->coords.spindle_sync.abc;
-            uvw = tc->coords.spindle_sync.uvw;
+            pmCartLinePoint(&tc->coords.spindle_sync.abc,
+                            tc->coords.spindle_sync.abc.tmag * (progress / tc->target),
+                            &abc);
+            pmCartLinePoint(&tc->coords.spindle_sync.uvw,
+                            tc->coords.spindle_sync.uvw.tmag * (progress / tc->target),
+                            &uvw);
             pos->s = tc->coords.spindle_sync.s + tc->coords.spindle_sync.spindle_dir * progress;
 
             tp_debug_print ("(%s:%d) spindle_dir(%f) progress(%f)\n", __FUNCTION__, __LINE__,
