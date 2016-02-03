@@ -66,9 +66,6 @@ net rev-input       => motion.tp-reverse-input
 # TODO: Do we need current-vel for AHC?
 net current-vel   wosi.motion.current-vel <= motion.current-vel
 
-
-
-
 # create HAL signals for position commands from motion module
 # connect position commands from motion module for "servo_tick => wosi_driver"
 net j0-pos-cmd      axis.0.motor-pos-cmd        => servo_tick.j0-pos-cmd
@@ -244,11 +241,11 @@ setp genserkins.A-4 0
 setp genserkins.A-5 0
 
 setp genserkins.ALPHA-0 0 
-setp genserkins.ALPHA-1 -1.570796326 
+setp genserkins.ALPHA-1 1.570796326 
 setp genserkins.ALPHA-2 0 
-setp genserkins.ALPHA-3 -1.570796326 
-setp genserkins.ALPHA-4 1.570796326 
-setp genserkins.ALPHA-5 -1.570796326 
+setp genserkins.ALPHA-3 1.570796326 
+setp genserkins.ALPHA-4 -1.570796326 
+setp genserkins.ALPHA-5 1.570796326 
 
 setp genserkins.D-0 0
 setp genserkins.D-1 0
@@ -256,6 +253,8 @@ setp genserkins.D-2 0
 setp genserkins.D-3 338
 setp genserkins.D-4 0 
 setp genserkins.D-5 86
+
+setp genserkins.max-iterations 2
 
 net bp-tick         <= wosi.bp-tick
 

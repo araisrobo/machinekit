@@ -3,9 +3,8 @@
 #
 # $Id: vfdb_vfd.hal,v 1.1 2009-09-19 23:00:27 mah Exp $
 #
-# loadusr -Wn hiwin vfdb_vfd -n hiwin -I vbc.ini -S VFDB -r -d
-# loadusr -Wn hiwin vfdb_vfd -n hiwin -I delta_rs485.ini -S VFDB -r -d
-loadusr -Wn hiwin hiwin_driver -n hiwin -I RA605.ini -S HIWIN -r -d
+# -d: debug
+loadusr -Wn hiwin hiwin_driver -n hiwin -I RA605.ini -S HIWIN -r
 setp hiwin.enable 1
 
 net J0-abs-enc-pos hiwin.0.enc-pos => wosi.stepgen.0.abs-enc-i
