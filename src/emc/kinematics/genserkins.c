@@ -64,7 +64,7 @@ double j[GENSER_MAX_JOINTS];
 #error GENSER_MAX_JOINTS must be at least 6; fix genserkins.h
 #endif
 
-enum { GENSER_DEFAULT_MAX_ITERATIONS = 100 };
+enum { GENSER_DEFAULT_MAX_ITERATIONS = 1 };
 
 int genser_kin_init(void) {
     genser_struct *genser = KINS_PTR;
@@ -442,8 +442,13 @@ int kinematicsInverse(const EmcPose * world,
 	}
 	retval = compute_jinv(&Jfwd, &Jinv);
 	if (GO_RESULT_OK != retval) {
-	    rtapi_print("ERR kI - compute_jinv (joints: %f %f %f %f %f %f), (iterations=%d)\n", joints[0],joints[1],joints[2],joints[3],joints[4],joints[5], genser->iterations);
-	    return retval;
+            rtapi_print("ERR kI - ret(%d) compute_jinv (joints: %f %f %f %f %f %f), (iterations=%d)\n", retval,joints[0],joints[1],joints[2],joints[3],joints[4],joints[5],genser->iterations);
+	    if (retval == GO_RESULT_OK) {
+	        // bypass singular errors
+	        return (GO_RESULT_OK);
+	    } else {
+	        return retval;
+	    }
 	}
 
 	/* pest is the resulting pose estimate given joint estimate */
