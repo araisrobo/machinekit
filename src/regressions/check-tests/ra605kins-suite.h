@@ -1,8 +1,8 @@
-#ifndef _TEST_GENSERKINS_SUITE
-#define _TEST_GENSERKINS_SUITE
+#ifndef _TEST_RA605KINS_SUITE
+#define _TEST_RA605KINS_SUITE
 
 #undef ULAPI
-#include "genserkins.c"
+#include "ra605kins.c"
 #include "report_kins.h"
 
 // for HIWIN RA605
@@ -32,11 +32,11 @@
 
 int comp_id;
 
-START_TEST(test_hello_genserkins)
+START_TEST(test_hello_ra605kins)
 {
     int i, res;
 
-    comp_id = hal_init("check_genserkins");
+    comp_id = hal_init("check_ra605kins");
     if (comp_id < 0) {
         fprintf(stderr, "ERROR: comp_id(%d)\n", comp_id);
         exit(1);
@@ -51,17 +51,17 @@ START_TEST(test_hello_genserkins)
     for (i = 0; i < GENSER_MAX_JOINTS; i++) {
         if ((res =
                 hal_pin_float_newf(HAL_IO, &(haldata->a[i]), comp_id,
-                    "check_genserkins.A-%d", i)) < 0)
+                    "check_ra605kins.A-%d", i)) < 0)
             goto error;
         *(haldata->a[i])=0;
         if ((res =
                 hal_pin_float_newf(HAL_IO, &(haldata->alpha[i]), comp_id,
-                    "check_genserkins.ALPHA-%d", i)) < 0)
+                    "check_ra605kins.ALPHA-%d", i)) < 0)
             goto error;
         *(haldata->alpha[i])=0;
         if ((res =
                 hal_pin_float_newf(HAL_IO, &(haldata->d[i]), comp_id,
-                    "check_genserkins.D-%d", i)) < 0)
+                    "check_ra605kins.D-%d", i)) < 0)
             goto error;
         *(haldata->d[i])=0;
     }
@@ -77,10 +77,10 @@ START_TEST(test_hello_genserkins)
         exit(1);
     }
     if ((res=
-        hal_param_s32_newf(HAL_RO, &(KINS_PTR->iterations), comp_id, "check_genserkins.last-iterations")) < 0)
+        hal_param_s32_newf(HAL_RO, &(KINS_PTR->iterations), comp_id, "check_ra605kins.last-iterations")) < 0)
         goto error;
     if ((res=
-        hal_param_s32_newf(HAL_RW, &(KINS_PTR->max_iterations), comp_id, "check_genserkins.max-iterations")) < 0)
+        hal_param_s32_newf(HAL_RW, &(KINS_PTR->max_iterations), comp_id, "check_ra605kins.max-iterations")) < 0)
         goto error;
     KINS_PTR->max_iterations = GENSER_DEFAULT_MAX_ITERATIONS;
 
@@ -112,7 +112,9 @@ error:
 }
 END_TEST
 
-START_TEST(test_genserkins)
+
+
+START_TEST(test_ra605kins)
 {
     double joint_pos[6] = {0,};
     EmcPose carte_pos_fb;   /* actual Cartesian position */
@@ -242,7 +244,7 @@ START_TEST(test_genserkins)
 }
 END_TEST
 
-START_TEST(test_goodbye_genserkins)
+START_TEST(test_goodbye_ra605kins)
 {
     ck_assert_int_eq(0, 0);
     if (comp_id > 0) {
@@ -252,20 +254,20 @@ START_TEST(test_goodbye_genserkins)
 }
 END_TEST
 
-Suite * genserkins_suite(void)
+Suite * ra605kins_suite(void)
 {
     Suite *s;
     TCase *tc_core;
-    s = suite_create("genSerKins");
+    s = suite_create("ra605Kins");
 
     tc_core = tcase_create("Core");
-    tcase_add_test(tc_core, test_hello_genserkins);
-    tcase_add_test(tc_core, test_genserkins);
-    tcase_add_test(tc_core, test_goodbye_genserkins);
+    tcase_add_test(tc_core, test_hello_ra605kins);
+    tcase_add_test(tc_core, test_ra605kins);
+    tcase_add_test(tc_core, test_goodbye_ra605kins);
     suite_add_tcase(s, tc_core);
 
     return s;
 }
 
 
-#endif /* _TEST_GENSERKINS_SUITE */
+#endif /* _TEST_RA605KINS_SUITE */

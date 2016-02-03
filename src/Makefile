@@ -1471,6 +1471,12 @@ pumakins-objs := emc/kinematics/pumakins.o
 pumakins-objs += libnml/posemath/_posemath.o
 pumakins-objs += libnml/posemath/sincos.o $(MATHSTUB)
 
+obj-m += ra605kins.o
+ra605kins-objs := emc/kinematics/ra605kins.o
+ra605kins-objs += libnml/posemath/gomath.o
+ra605kins-objs += libnml/posemath/_posemath.o
+ra605kins-objs += libnml/posemath/sincos.o $(MATHSTUB)
+
 obj-m += scarakins.o
 scarakins-objs := emc/kinematics/scarakins.o
 scarakins-objs += libnml/posemath/_posemath.o
@@ -1683,6 +1689,7 @@ $(RTLIBDIR)/lineardeltakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(lineardeltaki
 $(RTLIBDIR)/genhexkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(genhexkins-objs))
 $(RTLIBDIR)/genserkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(genserkins-objs))
 $(RTLIBDIR)/pumakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(pumakins-objs))
+$(RTLIBDIR)/ra605kins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(ra605kins-objs))
 $(RTLIBDIR)/scarakins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(scarakins-objs))
 $(RTLIBDIR)/hal_gm$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hal_gm-objs))
 

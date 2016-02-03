@@ -11,28 +11,29 @@ addf motion-command-handler servo-thread
 addf motion-controller servo-thread
 
 # create HAL signals for ra605gui
-net J0pos <= joint.0.pos-cmd
-net J1pos <= joint.1.pos-cmd
-net J2pos <= joint.2.pos-cmd
-net J3pos <= joint.3.pos-cmd
-net J4pos <= joint.4.pos-cmd
-net J5pos <= joint.5.pos-cmd
+# joint-pos-cmd: joint position command after inverseKinematics()
+net J0pos <= axis.0.joint-pos-cmd
+net J1pos <= axis.1.joint-pos-cmd
+net J2pos <= axis.2.joint-pos-cmd
+net J3pos <= axis.3.joint-pos-cmd
+net J4pos <= axis.4.joint-pos-cmd
+net J5pos <= axis.5.joint-pos-cmd
 
 # create HAL signals for position commands from motion module
-net mot_J0pos <= joint.0.motor-pos-cmd
-net mot_J1pos <= joint.1.motor-pos-cmd
-net mot_J2pos <= joint.2.motor-pos-cmd
-net mot_J3pos <= joint.3.motor-pos-cmd
-net mot_J4pos <= joint.4.motor-pos-cmd
-net mot_J5pos <= joint.5.motor-pos-cmd
+net mot_J0pos <= axis.0.motor-pos-cmd
+net mot_J1pos <= axis.1.motor-pos-cmd
+net mot_J2pos <= axis.2.motor-pos-cmd
+net mot_J3pos <= axis.3.motor-pos-cmd
+net mot_J4pos <= axis.4.motor-pos-cmd
+net mot_J5pos <= axis.5.motor-pos-cmd
 
 # loop position commands back to motion module feedback
-net mot_J0pos => joint.0.motor-pos-fb
-net mot_J1pos => joint.1.motor-pos-fb
-net mot_J2pos => joint.2.motor-pos-fb
-net mot_J3pos => joint.3.motor-pos-fb
-net mot_J4pos => joint.4.motor-pos-fb
-net mot_J5pos => joint.5.motor-pos-fb
+net mot_J0pos => axis.0.motor-pos-fb
+net mot_J1pos => axis.1.motor-pos-fb
+net mot_J2pos => axis.2.motor-pos-fb
+net mot_J3pos => axis.3.motor-pos-fb
+net mot_J4pos => axis.4.motor-pos-fb
+net mot_J5pos => axis.5.motor-pos-fb
 
 # estop loopback
 net estop-loop iocontrol.0.user-enable-out iocontrol.0.emc-enable-in
@@ -42,26 +43,26 @@ net tool-prep-loop iocontrol.0.tool-prepare iocontrol.0.tool-prepared
 net tool-change-loop iocontrol.0.tool-change iocontrol.0.tool-changed
 
 
-setp genserkins.A-0 0
-setp genserkins.A-1 30
-setp genserkins.A-2 340
-setp genserkins.A-3 40
-setp genserkins.A-4 0
-setp genserkins.A-5 0
+setp ra605kins.A-0 0
+setp ra605kins.A-1 30
+setp ra605kins.A-2 340
+setp ra605kins.A-3 40
+setp ra605kins.A-4 0
+setp ra605kins.A-5 0
 
-setp genserkins.ALPHA-0 0 
-setp genserkins.ALPHA-1 -1.570796326 
-setp genserkins.ALPHA-2 0 
-setp genserkins.ALPHA-3 -1.570796326 
-setp genserkins.ALPHA-4 1.570796326 
-setp genserkins.ALPHA-5 -1.570796326 
+setp ra605kins.ALPHA-0 0 
+setp ra605kins.ALPHA-1 -1.570796326 
+setp ra605kins.ALPHA-2 0 
+setp ra605kins.ALPHA-3 -1.570796326 
+setp ra605kins.ALPHA-4 1.570796326 
+setp ra605kins.ALPHA-5 -1.570796326 
 
-setp genserkins.D-0 0
-setp genserkins.D-1 0
-setp genserkins.D-2 0
-setp genserkins.D-3 338
-setp genserkins.D-4 0 
-setp genserkins.D-5 86
+setp ra605kins.D-0 0
+setp ra605kins.D-1 0
+setp ra605kins.D-2 0
+setp ra605kins.D-3 338
+setp ra605kins.D-4 0 
+setp ra605kins.D-5 86
 
 loadusr -W ra605gui
 
@@ -96,17 +97,17 @@ net J4scaled scale.4.out ra605gui.joint5
 net J5scaled scale.5.out ra605gui.joint6
 
 # amp control
-net xena joint.0.amp-enable-out
-net yena joint.1.amp-enable-out
-net zena joint.2.amp-enable-out
-net aena joint.3.amp-enable-out
-net bena joint.4.amp-enable-out
-net cena joint.5.amp-enable-out
+net xena axis.0.amp-enable-out
+net yena axis.1.amp-enable-out
+net zena axis.2.amp-enable-out
+net aena axis.3.amp-enable-out
+net bena axis.4.amp-enable-out
+net cena axis.5.amp-enable-out
 
-net xflt joint.0.amp-fault-in
-net yflt joint.1.amp-fault-in
-net zflt joint.2.amp-fault-in
-net aflt joint.3.amp-fault-in
-net bflt joint.4.amp-fault-in
-net cflt joint.5.amp-fault-in
+net xflt axis.0.amp-fault-in
+net yflt axis.1.amp-fault-in
+net zflt axis.2.amp-fault-in
+net aflt axis.3.amp-fault-in
+net bflt axis.4.amp-fault-in
+net cflt axis.5.amp-fault-in
 

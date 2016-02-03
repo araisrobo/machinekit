@@ -7,9 +7,9 @@ INCLUDES += $(CHECK_TESTS)
 	cp $^ $@
 
 
-TESTS = check_tests check_genserkins
+TESTS = check_tests check_genserkins check_ra605kins
 
-check_PROGRAMS = ../bin/check_tests ../bin/check_genserkins
+check_PROGRAMS = ../bin/check_tests ../bin/check_genserkins ../bin/check_ra605kins
 
 check_tests_SOURCES = $(addprefix $(CHECK_TESTS)/, \
 	timers.c \
@@ -30,10 +30,24 @@ check_genserkins_LDADD = ../lib/libmtalk.so.0 \
 	../lib/libposemath.so.0 \
 	../lib/librtapi_math.so 
 
+check_ra605kins_SOURCES = $(addprefix $(CHECK_TESTS)/, \
+	timers.c \
+	check_ra605kins.c)
+check_ra605kins_CFLAGS = $(CHECK_CFLAGS)
+check_ra605kins_LDADD = ../lib/libmtalk.so.0 \
+	../lib/liblinuxcnchal.so.0 \
+	../lib/liblinuxcncini.so.0 \
+	../lib/libposemath.so.0 \
+	../lib/librtapi_math.so 
+
+
 $(call TOOBJSDEPS, $(check_tests_SOURCES)) : EXTRAFLAGS += \
 	$(CHECK_CFLAGS) -DULAPI -DBUILD_SYS_USER_DSO -fPIC -pthread
 
 $(call TOOBJSDEPS, $(check_genserkins_SOURCES)) : EXTRAFLAGS += \
+	$(CHECK_CFLAGS) -DULAPI -DBUILD_SYS_USER_DSO -fPIC -pthread
+
+$(call TOOBJSDEPS, $(check_ra605kins_SOURCES)) : EXTRAFLAGS += \
 	$(CHECK_CFLAGS) -DULAPI -DBUILD_SYS_USER_DSO -fPIC -pthread
 
 TARGETS += $(check_PROGRAMS)
@@ -50,7 +64,12 @@ C_CHECKS  += $(check_PROGRAMS)
 	$(check_genserkins_LDADD)
 	$(Q)$(CC) -o $@ $^  $(CHECK_LIBS) -lpthread -Wl,-rpath=../lib 
 
+../bin/check_ra605kins: $(call TOOBJS, $(check_ra605kins_SOURCES)) \
+	$(check_ra605kins_LDADD)
+	$(Q)$(CC) -o $@ $^  $(CHECK_LIBS) -lpthread -Wl,-rpath=../lib 
 
-USERSRCS += $(check_tests_SOURCES) $(check_genserkins_SOURCES)
+
+USERSRCS += $(check_tests_SOURCES) $(check_genserkins_SOURCES) \
+ 	    $(check_ra605kins_SOURCES)
 
 endif
