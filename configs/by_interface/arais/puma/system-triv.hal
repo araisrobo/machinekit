@@ -233,29 +233,6 @@ setp            wosi.stepgen.4.jog-vel   [JOINT_4]JOG_VEL
 setp            wosi.stepgen.5.jog-vel   [JOINT_5]JOG_VEL
 # setp            wosi.stepgen.6.jog-vel   [JOINT_6]JOG_VEL
 
-setp genserkins.A-0 0
-setp genserkins.A-1 30
-setp genserkins.A-2 340
-setp genserkins.A-3 40
-setp genserkins.A-4 0
-setp genserkins.A-5 0
-
-setp genserkins.ALPHA-0 0 
-setp genserkins.ALPHA-1 1.570796326 
-setp genserkins.ALPHA-2 0 
-setp genserkins.ALPHA-3 1.570796326 
-setp genserkins.ALPHA-4 -1.570796326 
-setp genserkins.ALPHA-5 1.570796326 
-
-setp genserkins.D-0 0
-setp genserkins.D-1 0
-setp genserkins.D-2 0
-setp genserkins.D-3 338
-setp genserkins.D-4 0 
-setp genserkins.D-5 86
-
-setp genserkins.max-iterations 2
-
 net bp-tick         <= wosi.bp-tick
 
 net machine-on      son_delay.out  
