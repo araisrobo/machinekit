@@ -85,9 +85,9 @@ static int rtapi_default_rt_exception_handler(rtapi_exception_t type,
 	case XK_ETIMEDOUT:
 	case XU_ETIMEDOUT:
 	case RTP_DEADLINE_MISSED:
-	     rtapi_print_msg(level,
-			    "%d: Unexpected realtime delay on RT thread %d ",
-			     type, detail->task_id);
+//	     rtapi_print_msg(level,
+//			    "%d: Unexpected realtime delay on RT thread %d ",
+//			     type, detail->task_id);
 	    log_thread_stats(type, ts);
 	    break;
 
