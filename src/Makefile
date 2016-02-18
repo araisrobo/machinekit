@@ -227,6 +227,7 @@ SUBDIRS := \
 	hal/user_comps/vfdb_vfd \
 	hal/user_comps/delta_rs485 \
 	hal/user_comps/hiwin_driver \
+	hal/user_comps/power_meter \
 	hal/classicladder \
 	hal/utils \
 	hal \
