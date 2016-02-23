@@ -222,6 +222,10 @@ const char *ahc_ch_str ="0"; // ANALOG_0: analog input0
 RTAPI_MP_STRING(ahc_ch_str,
         "auto height control analog channel");
 
+const char *ahc_transfer_id_str ="0"; // pin_id: digital input xx
+RTAPI_MP_STRING(ahc_transfer_id_str,
+        "auto height control digital transfer");
+
 const char *pattern_type_str ="NO_TEST"; // ANALOG_0: analog input0
 RTAPI_MP_STRING(pattern_type_str,
         "indicate test pattern type");
@@ -968,6 +972,11 @@ int rtapi_app_main(void)
         }
     }
     write_machine_param(ALR_EN_BITS, immediate_data);
+    while(wou_flush(&w_param) == -1);
+
+    immediate_data = atoi(ahc_transfer_id_str);
+    printf("------AHC_TRANSFER_ID: %d-----\n", immediate_data);
+    write_machine_param(AHC_TRANSFER_ID, immediate_data);
     while(wou_flush(&w_param) == -1);
 
     // configure alarm output (for E-Stop)

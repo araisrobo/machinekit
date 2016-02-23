@@ -190,6 +190,7 @@ enum machine_parameter_addr {
     WAIT_TIMEOUT,
     AHC_STATE,
     AHC_LEVEL,
+    AHC_TRANSFER_ID,
     GANTRY_CTRL,            // [31]     GANTRY_EN
                             
     JOINT_LSP_LSN,          // format: {JOINT[31:16], LSP_ID[15:8], LSN_ID[7:0]}
