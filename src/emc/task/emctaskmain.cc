@@ -458,7 +458,7 @@ static NML_INTERP_LIST il_temp_queue;
 
 // MDI input queue
 static NML_INTERP_LIST mdi_input_queue;
-#define  MAX_MDI_QUEUE 10
+#define  MAX_MDI_QUEUE 1000
 static int max_mdi_queued_commands = MAX_MDI_QUEUE;
 
 /*
@@ -970,8 +970,6 @@ static void mdi_execute_hook(void)
         (mdi_execute_level < 0)
         && (mdi_execute_wait == 0)
         && (mdi_execute_queue.len() > 0)
-        && (interp_list.len() == 0)
-        && (emcTaskCommand == NULL)
 #ifdef USB_MOTION_ENABLE
         && (emcStatus->motion.traj.update_pos_req == 0)
 #endif
