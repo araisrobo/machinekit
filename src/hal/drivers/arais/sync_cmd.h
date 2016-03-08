@@ -193,6 +193,7 @@ enum machine_parameter_addr {
     ANALOG_REF_LEVEL,       // wait analog signal: M110
     AHC_MAX_OFFSET,
     AHC_ANALOG_CH,
+    AHC_TRANSFER_ID,
     WAIT_TIMEOUT,
     AHC_STATE,
     AHC_LEVEL,

@@ -1349,6 +1349,25 @@ static int load_parameters(FILE *fp)
         }
     }
 
+
+    // AHC_TRANSFER_ID: the joint that is controlled by AHC
+    s = iniFind(fp, "AHC_TRANSFER_ID", "ARAIS");
+    if (s == NULL)
+    {
+        rtapi_print_msg(RTAPI_MSG_ERR,
+                "WOSI: WARN: no AHC_TRANSFER_ID defined, default is 255\n");
+        immediate_data = 255;
+    } else
+    {
+        rtapi_print_msg(RTAPI_MSG_INFO, "WOSI: AHC_TRANSFER_ID=%s\n", s);
+        immediate_data = atoi(s);
+
+    }
+    write_machine_param(AHC_TRANSFER_ID, immediate_data);
+    while (wosi_flush(&w_param) == -1)
+        ;
+    // end of AHC_TRANSFER_ID
+
     // begin of AHC parameters
     // AHC_CH: analog input channel for auto height control
     s = iniFind(fp, "AHC_CH", "ARAIS");
