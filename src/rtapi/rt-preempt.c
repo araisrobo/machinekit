@@ -428,8 +428,8 @@ int _rtapi_wait_hook(void) {
 	rtapi_exception_detail_t detail = {0};
 	detail.task_id = task_id(task);
 
-	if (rt_exception_handler)
-	    rt_exception_handler(RTP_DEADLINE_MISSED, &detail, ts);
+//	if (rt_exception_handler)
+//	    rt_exception_handler(RTP_DEADLINE_MISSED, &detail, ts);
 #endif
     }
     return 0;
