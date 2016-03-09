@@ -2091,7 +2091,9 @@ static int emcTaskIssueCommand(NMLmsg * cmd)
 	        emcTrajLinearMoveMsg->ini_maxvel,
 	        emcTrajLinearMoveMsg->acc,
 	        emcTrajLinearMoveMsg->ini_maxjerk,
-	        emcTrajLinearMoveMsg->indexrotary);
+                emcTrajLinearMoveMsg->indexrotary,
+                emcTrajLinearMoveMsg->dist
+	        );
         break;
 
     case EMC_TRAJ_CIRCULAR_MOVE_TYPE:

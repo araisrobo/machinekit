@@ -210,7 +210,7 @@ STATIC double tpGetFeedScale(TP_STRUCT const * const tp,
         tc_debug_print("aborting\n");
         return 0.0;
     } else if (tc->canon_motion_type == EMC_MOTION_TYPE_TRAVERSE ||
-            tc->synchronized == TC_SYNC_POSITION ) {
+               tc->synchronized == TC_SYNC_POSITION ) {
         return 1.0;
     } else if (tc->is_blending) {
         //KLUDGE: Don't allow feed override to keep blending from overruning max velocity
@@ -632,10 +632,10 @@ int tpSetTermCond(TP_STRUCT * const tp, int cond, double tolerance)
 
     switch (cond) {
         //Purposeful waterfall for now
-        case TC_TERM_COND_PARABOLIC:
+        case TC_TERM_COND_PARABOLIC:    /* EMC_TRAJ_TERM_COND_BLEND, 2 */
         case TC_TERM_COND_TANGENT:
-        case TC_TERM_COND_EXACT:
-        case TC_TERM_COND_STOP:
+        case TC_TERM_COND_EXACT:        /* EMC_TRAJ_TERM_COND_EXACT, 1 */
+        case TC_TERM_COND_STOP:         /* EMC_TRAJ_TERM_COND_STOP, 0 */
             tp->termCond = cond;
             tp->tolerance = tolerance;
             break;
@@ -1674,6 +1674,13 @@ STATIC blend_type_t tpCheckBlendArcType(TP_STRUCT const * const tp,
         return BLEND_NONE;
     }
 
+    // WIP for Robot: always BLEND_LINE_LINE
+    if (tc->motion_type == TC_JOINT)
+    {
+        tp_debug_print("Motion types: prev_tc = %u, tc = %u\n", prev_tc->motion_type,tc->motion_type);
+        return BLEND_LINE_LINE;
+    }
+
     //If we have any rotary axis motion, then don't create a blend arc
     if (tpRotaryMotionCheck(tp, tc) || tpRotaryMotionCheck(tp, prev_tc)) {
         tp_debug_print("One of the segments has rotary motion, aborting blend arc\n");
@@ -1719,6 +1726,9 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
      * the front. We can't do anything with the very last element because its
      * length may change if a new line is added to the queue.*/
 
+    tp_info_print("(%s:%d) tcqLen(%d) get_arcBlendOptDepth(%d)\n", __FUNCTION__, __LINE__,
+            len, get_arcBlendOptDepth(tp->shared));
+
     for (x = 1; x < get_arcBlendOptDepth(tp->shared) + 2; ++x) {
         tp_info_print("(%s:%d)==== Optimization step %d ====\n", __FUNCTION__, __LINE__, x);
 
@@ -1728,7 +1738,7 @@ STATIC int tpRunOptimization(TP_STRUCT * const tp) {
         prev1_tc = tcqItem(&tp->queue, ind-1);
 
         if ( !prev1_tc || !tc) {
-            tp_debug_print(" Reached end of queue in optimization\n");
+            tp_debug_print(" Reached end of queue in optimization tc(%p) prev1_tc(%p)\n", tc, prev1_tc);
             return TP_ERR_OK;
         }
 
@@ -1817,21 +1827,32 @@ STATIC int tpSetupTangent(TP_STRUCT const * const tp,
         tp_debug_print("missing tc or prev tc in tangent check\n");
         return TP_ERR_FAIL;
     }
-    //If we have ABCUVW movement, then don't check for tangency
-    if (tpRotaryMotionCheck(tp, tc) || tpRotaryMotionCheck(tp, prev_tc)) {
-        tp_debug_print("found rotary axis motion\n");
-        return TP_ERR_FAIL;
+
+    if (tc->motion_type != TC_JOINT)
+    {
+        //If we have ABCUVW movement, then don't check for tangency
+        if (tpRotaryMotionCheck(tp, tc) || tpRotaryMotionCheck(tp, prev_tc)) {
+            tp_debug_print("found rotary axis motion\n");
+            return TP_ERR_FAIL;
+        }
+
+        if (get_arcBlendOptDepth(tp->shared) < 2) {
+            tp_debug_print("Optimization depth %d too low for tangent optimization\n",
+                    get_arcBlendOptDepth(tp->shared));
+            return TP_ERR_FAIL;
+        }
     }
 
-    if (get_arcBlendOptDepth(tp->shared) < 2) {
-        tp_debug_print("Optimization depth %d too low for tangent optimization\n",
-                get_arcBlendOptDepth(tp->shared));
-        return TP_ERR_FAIL;
-    }
-
-    if (prev_tc->term_cond == TC_TERM_COND_STOP) {
+    if ((prev_tc->term_cond == TC_TERM_COND_STOP) || (prev_tc->term_cond == TC_TERM_COND_EXACT)) {
         tp_debug_print("Found exact stop condition\n");
         return TP_ERR_FAIL;
+    }
+
+    // always treat as blending for Robot joint type motion
+    if (tc->motion_type == TC_JOINT)
+    {
+        tcSetTermCond(prev_tc, TC_TERM_COND_TANGENT);
+        return TP_ERR_OK;
     }
 
     PmCartesian prev_tan, this_tan;
@@ -1944,7 +1965,7 @@ STATIC int tpHandleBlendArc(TP_STRUCT * const tp, TC_STRUCT * const tc)
         case TP_ERR_FAIL:
             tp_debug_print(" tpSetupTangent failed, aborting blend arc\n");
         case TP_ERR_OK:
-            return res_tan;
+            return res_tan;     // ALWAYS BLEND for ROBOT
             break;
         case TP_ERR_NO_ACTION:
         default:
@@ -2028,7 +2049,7 @@ static void tpAlignSpindleAxis(TP_STRUCT const * const tp, EmcPose * const start
  * currently-active accel and vel settings from the tp struct.
  */
 int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double vel, double ini_maxvel,
-        double acc, double ini_maxjerk, unsigned char enables, char atspeed, int indexrotary, struct state_tag_t tag)
+        double acc, double ini_maxjerk, unsigned char enables, char atspeed, int indexrotary, struct state_tag_t tag, double dist)
 {
     if (tpErrorCheck(tp) < 0) {
         return TP_ERR_FAIL;
@@ -2038,7 +2059,7 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
     // Initialize new tc struct for the line segment
     TC_STRUCT tc = {0};
     tcInit(&tc,
-            TC_LINEAR,
+            ((canon_motion_type == EMC_MOTION_TYPE_JOINT) ? TC_JOINT : TC_LINEAR),
             canon_motion_type,
             tp->cycleTime,
             enables,
@@ -2069,7 +2090,15 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
     // Setup line geometry
     pmLine9Init(&tc.coords.line, &tp->goalPos, &end);
 
-    tc.target = pmLine9Target(&tc.coords.line);
+    if (canon_motion_type == EMC_MOTION_TYPE_JOINT)
+    {
+        tc.target = dist;
+    }
+    else
+    {
+        tc.target = pmLine9Target(&tc.coords.line);
+    }
+
     if (tc.target < TP_POS_EPSILON) {
         rtapi_print_msg(RTAPI_MSG_DBG,"failed to create line id %d, zero-length segment\n",tp->nextId);
         return TP_ERR_ZERO_LENGTH;
@@ -3511,98 +3540,6 @@ STATIC int tpCheckEndCondition(
     } else {
         return TP_ERR_NO_ACTION;
     }
-#if 0
-    if (dx <= TP_POS_EPSILON) {
-        //If the segment is close to the target position, then we assume that it's done.
-        tp_debug_print("close to target, dx = %.12f\n",dx);
-        //Force progress to land exactly on the target to prevent numerical errors.
-        tc->progress = tc->target;
-        tcSetSplitCycle(tc, 0.0, tc->currentvel);
-        if (tc->term_cond == TC_TERM_COND_STOP || tc->term_cond == TC_TERM_COND_EXACT) {
-            tc->remove = 1;
-        }
-        return TP_ERR_OK;
-    } else if (tc->term_cond == TC_TERM_COND_STOP || tc->term_cond == TC_TERM_COND_EXACT) {
-        return TP_ERR_NO_ACTION;
-    }
-
-
-    double v_f = tpGetRealFinalVel(tp, tc, nexttc);
-    double v_avg = (tc->currentvel + v_f) / 2.0;
-
-    //Check that we have a non-zero "average" velocity between now and the
-    //finish. If not, it means that we have to accelerate from a stop, which
-    //will take longer than the minimum 2 timesteps that each segment takes, so
-    //we're safely far form the end.
-
-    //Get dt assuming that we can magically reach the final velocity at
-    //the end of the move.
-    //
-    //KLUDGE: start with a value below the cutoff
-    double dt = TP_TIME_EPSILON / 2.0;
-    if (v_avg > TP_VEL_EPSILON) {
-        //Get dt from distance and velocity (avoid div by zero)
-        dt = rtapi_fmax(dt, dx / v_avg);
-    } else {
-        if ( dx > (v_avg * tp->cycleTime) && dx > TP_POS_EPSILON) {
-            tc_debug_print(" below velocity threshold, assuming far from end\n");
-            return TP_ERR_NO_ACTION;
-        }
-    }
-
-    //Calculate the acceleration this would take:
-
-    double dv = v_f - tc->currentvel;
-    double a_f = dv / dt;
-
-    //If this is a valid acceleration, then we're done. If not, then we solve
-    //for v_f and dt given the max acceleration allowed.
-    double a_max = tpGetScaledAccel(tp,tc);
-
-    //If we exceed the maximum acceleration, then the dt estimate is too small.
-    double a = a_f;
-    int recalc = sat_inplace(&a, a_max);
-
-    //Need to recalculate vf and above
-    if (recalc) {
-        tc_debug_print(" recalculating with a_f = %f, a = %f\n", a_f, a);
-        double disc = pmSq(tc->currentvel / a) + 2.0 / a * dx;
-        if (disc < 0) {
-            //Should mean that dx is too big, i.e. we're not close enough
-            tc_debug_print(" dx = %f, too large, not at end yet\n",dx);
-            return TP_ERR_NO_ACTION;
-        }
-
-        if (disc < TP_TIME_EPSILON * TP_TIME_EPSILON) {
-            tc_debug_print("disc too small, skipping sqrt\n");
-            dt =  -tc->currentvel / a;
-        } else if (a > 0) {
-            tc_debug_print("using positive sqrt\n");
-            dt = -tc->currentvel / a + pmSqrt(disc);
-        } else {
-            tc_debug_print("using negative sqrt\n");
-            dt = -tc->currentvel / a - pmSqrt(disc);
-        }
-
-        tc_debug_print(" revised dt = %f\n", dt);
-        //Update final velocity with actual result
-        v_f = tc->currentvel + dt * a;
-    }
-
-    if (dt < TP_TIME_EPSILON) {
-        //Close enough, call it done
-        tc_debug_print("revised dt small, finishing tc\n");
-        tc->progress = tc->target;
-        tcSetSplitCycle(tc, 0.0, v_f);
-    } else if (dt < tp->cycleTime ) {
-        tc_debug_print(" corrected v_f = %f, a = %f\n", v_f, a);
-        tcSetSplitCycle(tc, dt, v_f);
-    } else {
-        tc_debug_print(" dt = %f, not at end yet\n",dt);
-    }
-
-    return TP_ERR_OK;
-#endif
 }
 
 STATIC int tpHandleRegularCycle(TP_STRUCT * const tp,
