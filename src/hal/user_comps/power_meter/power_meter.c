@@ -39,7 +39,7 @@
 #ifdef DEBUG
 #define DBG(fmt, ...)					\
         do {						\
-            if (param.debug) printf(fmt,  ## __VA_ARGS__);     \
+            if (param.debug) printf(fmt,  ## __VA_ARGS__);	\
         } while(0)
 #else
 #define DBG(fmt, ...)
@@ -79,20 +79,12 @@
 #define CMD_JOG_RUN		0x0003
 
 // status registers for DELTA VFD-B Inverter
-#define REG_FEEFBACK_POS        0x0000                  //
-#define REG_REFERENCE_POS       0x0002                   //
-#define REG_ERROE_POS           0x0006
-#define REG_STATUS3             0x0FAA          // battery warning
-#define REG_TORQUE              0x003A          // torque current
-
-#define SR_MOTOR_SPEED          0x210C          // RPM
-#define SR_TORQUE_RATIO         0x210B          // %
-#define SR_OUTPUT_CURRENT       0x2104          // output curr
-#define SR_OUTPUT_VOLTAGE       0x2106          // %
-#define SR_INVERTER_MODEL	0x0000
-#define SR_RATED_CURRENT	0x0001		// 0.1A
-#define SR_RATED_VOLTAGE	0x0102		// 0.1V
-#define SR_EEPROM_VERSION	0x0006
+#define REG_BAUDRATE            0x0002          // 
+#define REG_PARITY              0x0003          // torque current
+#define REG_HIGH_VOLTAGE        0x00A2          //
+#define REG_LOW_VOLTAGE         0x00A3          //
+#define REG_HIGH_WATT_H         0x00C4          //
+#define REG_LOW_WATT_H          0x00C5          //
 
 /* There's an assumption in the gs2_vfd code, namely that the interesting registers
  * are contiguous and all of them can be read with a single read_holding_registers()
@@ -381,43 +373,48 @@ void usage(int argc, char **argv) {
 #define GETIREGS(reg,into)                                        \
         do {                                                    \
             curr_reg = reg;                                             \
-            if (modbus_read_input_registers(ctx, reg, 2, into) != 2)  \
+            if (modbus_read_input_registers(ctx, reg, 4, into) != 4)  \
             goto failed;                                        \
         } while (0)
 
 int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
 {
     int retval;
-    uint16_t curr_reg;
+    uint16_t curr_reg, rms_low_16, rms_high_16;
+    uint16_t watt_low_16, watt_high_16;
     uint16_t tmp_value[MODBUS_MAX_READ_REGISTERS];
-    int32_t pos32_fb, status3, torque;
+    uint32_t rms32, watt32;
     int n;
     int tmp_slave;
     static int pollcount = 0;
-    float f_val;
     if (pollcount == 0) {
         for (n = 0; n < num_joints; n++)
         {
-            if ((p->slave[n] != 255) && (*(haldata->update_enc_pos[n]))) {
+            if ((p->slave[n] != 255)) {
                 tmp_slave = p->slave[n]; 
                 if (modbus_set_slave(p->ctx, p->slave[n]) < 0) {
                     fprintf(stderr, "%s: ERROR: invalid slave number: %d\n", p->modname, p->slave[n]);
                 }
-                GETIREGS(REG_FEEFBACK_POS, tmp_value);
-                pos32_fb = ((tmp_value[1] << 16) | tmp_value[0]);
-                *(haldata->enc_pos[n]) = *(haldata->enc_pol[n]) * pos32_fb;
-                GETIREGS(REG_STATUS3, tmp_value);
-                status3 = ((tmp_value[1] << 16) | tmp_value[0]);
-                *(haldata->battery_warning[n]) = (status3 && 0x0040);
-                GETIREGS(REG_TORQUE, tmp_value);
-                torque = ((tmp_value[1] << 16) | tmp_value[0]);
-                f_val = *((float*)&torque);
-                *(haldata->torque[n]) = f_val;
-                 
-                // *(haldata->update_enc_pos[n]) = 0;
-                // printf("slave: %d n(%d) -- pos_fb: (%f)%d/0x%8.8x\n", p->slave[n], n, *(haldata->enc_pos[n]), pos32_fb, pos32_fb);
-                // printf("slave: %d n(%d) -- battery:(%d) (%d)\n", p->slave[n], n, status3, *(haldata->battery_warning[n]));
-                // printf("slave: %d n(%d) -- torque:(%f)(%f)\n", p->slave[n], n, f_val, torque);
+                GETREG(REG_BAUDRATE, tmp_value);
+                printf("slave: %d n(%d) -- Address/Baud-Rate: %d/0x%4.4x\n", p->slave[n], n, tmp_value[0], tmp_value[0]);
+                GETREG(REG_PARITY, tmp_value);
+                printf("slave: %d n(%d) -- Parity/Stop-Bit: %d/0x%4.4x\n", p->slave[n], n, tmp_value[0], tmp_value[0]);
+                GETREG(REG_HIGH_VOLTAGE, tmp_value);
+                printf("slave: %d n(%d) -- High/rms: %d/0x%4.4x\n", p->slave[n], n, tmp_value[0], tmp_value[0]);
+                rms_high_16 = tmp_value[0];
+                GETREG(REG_LOW_VOLTAGE, tmp_value);
+                printf("slave: %d n(%d) -- Low/rms: %d/0x%4.4x\n", p->slave[n], n, tmp_value[0], tmp_value[0]);
+                rms_low_16 = tmp_value[0];
+                rms32 = ((rms_high_16 << 16) | rms_low_16);
+                printf("slave: %d n(%d) -- rms:(%d)/0x%8.8x\n", p->slave[n], n, rms32, rms32);
+                GETREG(REG_HIGH_WATT_H, tmp_value);
+                printf("slave: %d n(%d) -- High/watt: %d/0x%4.4x\n", p->slave[n], n, tmp_value[0], tmp_value[0]);
+                watt_high_16 = tmp_value[0];
+                GETREG(REG_LOW_WATT_H, tmp_value);
+                printf("slave: %d n(%d) -- Low/watt: %d/0x%4.4x\n", p->slave[n], n, tmp_value[0], tmp_value[0]);
+                watt_low_16 = tmp_value[0];
+                watt32 = ((watt_high_16 << 16) | watt_low_16);
+                printf("slave: %d n(%d) -- watt:(%d)/0x%8.8x\n", p->slave[n], n, watt32, watt32);
             }
         }
     } else {
@@ -436,7 +433,7 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
     (*haldata->errorcount)++;
     if (p->debug)
         fprintf(stderr, "%s:slave(%d) read_data: modbus_read_registers(0x%4.4x): %s\n",
-                p->progname, tmp_slave, curr_reg, modbus_strerror(errno));
+                p->progname,tmp_slave, curr_reg, modbus_strerror(errno));
     return p->last_errno;
 }
 
@@ -529,7 +526,7 @@ int main(int argc, char **argv)
         if (read_ini(p))
             goto finish;
         if (!p->modname)
-            p->modname = "hiwin";
+            p->modname = "vfdb_vfd";
     } else {
         fprintf(stderr, "%s: ERROR: no inifile - either use '--ini inifile' or set INI_FILE_NAME environment variable\n", p->progname);
         goto finish;

@@ -263,6 +263,10 @@ def setup_io():
             din_not_pin = hal.Signal("din_%d_not" % i)
         else:
             din_not_pin = hal.newsig("din_%d_not" % i, hal.HAL_BIT)
+        # TODO: connect amp-fault-in based on ALR_ID
+        # if ((i == 1) or (i == 2) or (i == 3) or (i == 4) or (i == 5) or (i == 6)):
+        #     # connect din_1~6(ALARM_J0~J6) for stopping motion.enable
+        #     hal.Pin("axis.%d.amp-fault-in" % (i-1)).link(din_not_pin)
         hal.Pin("wosi.gpio.in.%d.not" % i).link(din_not_pin)
 
 def setup_motion(ini):

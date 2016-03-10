@@ -356,6 +356,7 @@ STATIC int is_feed_type(int motion_type)
     case EMC_MOTION_TYPE_FEED:
     case EMC_MOTION_TYPE_PROBING:
     case EMC_MOTION_TYPE_SPINDLE_SYNC:
+    case EMC_MOTION_TYPE_JOINT:
         return 1;
     default:
         rtapi_print_msg(RTAPI_MSG_ERR, "Internal error: unhandled motion type %d\n", motion_type);
@@ -987,9 +988,10 @@ check_stuff ( "before command_handler()" );
                     emcmotStatus->enables_new,
                     issue_atspeed,
                     emcmotCommand->turn,
-                    emcmotCommand->tag);
+                    emcmotCommand->tag,
+                    emcmotCommand->dist); /* distance for EMC_MOTION_TYPE_JOINT */
             if (res_addline != 0) {
-                reportError(_("can't add linear move at line %d, error code %d"),
+                reportError(_("(%s:%d) can't add linear move at line %d, error code %d"), __FILE__, __LINE__,
                         emcmotCommand->id, res_addline);
                 emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
                 emcmotConfig->vtp->tpAbort(&emcmotDebug->tp);
@@ -1570,7 +1572,9 @@ check_stuff ( "before command_handler()" );
 						   emcmotCommand->ini_maxjerk,
 						   emcmotStatus->enables_new,
 						   0, -1,
-						   emcmotCommand->tag)) {
+						   emcmotCommand->tag,
+				                   emcmotCommand->dist))/* distance for EMC_MOTION_TYPE_JOINT */
+        {
 		reportError(_("can't add probe move"));
 		emcmotStatus->commandStatus = EMCMOT_COMMAND_BAD_EXEC;
 		abort_and_switchback(); // tpAbort(emcmotQueue);
