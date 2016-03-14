@@ -35,7 +35,8 @@ typedef enum {
     TC_LINEAR = 1,
     TC_CIRCULAR = 2,
     TC_SPINDLE_SYNC_MOTION = 3,
-    TC_SPHERICAL = 4
+    TC_SPHERICAL = 4,
+    TC_JOINT = 5
 } tc_motion_type_t;
 
 typedef enum {

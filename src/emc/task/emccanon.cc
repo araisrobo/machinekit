@@ -68,6 +68,7 @@ static const double tiny = 1e-7;
 static const double huge = 1e9;
 static double xy_rotation = 0.;
 static int rotary_unlock_for_traverse = -1;
+static int joint_feed_mode = 0; // SET for synchronized joint feed motion for Robot Controller
 
 static StateTag _tag;
 
@@ -138,6 +139,8 @@ struct VelData {
     double tmax;
     double vel;
     double dtot;
+    double acc;
+    double jerk;
 };
 
 struct AccelData{
@@ -1027,6 +1030,74 @@ static VelData getStraightVelocity(CANON_POSITION pos)
             pos.w);
 }
 
+/**
+ * getJointDistVelAccJerk
+ *      - for CANON_JOINT_FEED_EXACT and CANON_JOINT_FEED_CONTINUOUS
+ *      - return out.dtot, distance, based on joint with tmax(dist/max-vel)
+ *      - return out.{vel, acc, jerk} base on feed rate and dtot judgments
+ *      - return
+ */
+static VelData getJointDistVelAccJerk(double x, double y, double z,
+                                      double a, double b, double c,
+                                      double u, double v, double w)
+{
+    double d[9];
+    double t[9];
+    VelData out;
+    int maxj;
+    int i;
+
+/* If we get a move to nowhere (!cartesian_move && !angular_move)
+   we might as well go there at the currentLinearFeedRate...
+*/
+
+    // Compute absolute travel distance for each axis:
+    d[0] = rtapi_fabs(x - canonEndPoint.x);
+    d[1] = rtapi_fabs(y - canonEndPoint.y);
+    d[2] = rtapi_fabs(z - canonEndPoint.z);
+    d[3] = rtapi_fabs(a - canonEndPoint.a);
+    d[4] = rtapi_fabs(b - canonEndPoint.b);
+    d[5] = rtapi_fabs(c - canonEndPoint.c);
+    d[6] = rtapi_fabs(u - canonEndPoint.u);
+    d[7] = rtapi_fabs(v - canonEndPoint.v);
+    d[8] = rtapi_fabs(w - canonEndPoint.w);
+
+    maxj = 0;
+    for (i=0; i<9; i++) {
+      if(!axis_valid(i) || d[i] < tiny) d[i] = 0.0;
+      t[i] = d[i]? rtapi_fabs(d[i] / FROM_EXT_LEN(axis_max_velocity[i])): 0.0;
+      if (t[maxj] < t[i]) {
+        maxj = i;
+      }
+    }
+
+    out.dtot = d[maxj];
+    if (out.dtot != 0.0)
+    {
+        out.vel = FROM_EXT_LEN(axis_max_velocity[maxj]);
+        out.acc = axis_max_acceleration[maxj];
+        out.jerk = axis_max_jerk[maxj];
+    }
+    else
+    {
+        out.vel = 0;
+        out.acc = 0;
+        out.jerk = 0;
+    }
+
+
+    if(debug_velacc)
+    {
+        printf("getStraightVelocity dx %g dy %g dz %g da %g db %g dc %g du %g dv %g dw %g\n",
+                d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8]);
+        printf("getStraightVelocity times tx %g ty %g tz %g ta %g tb %g tc %g tu %g tv %g tw %g\n",
+                t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8]);
+        printf("vel(%g) acc(%g) jerk(%g)\n", out.vel, out.acc, out.jerk);
+    }
+
+    return out;
+}
+
 #include <vector>
 struct pt {
     double x, y, z, a, b, c, u, v, w;
@@ -1044,7 +1115,7 @@ static void flush_segments(void) {
     double x = pos.x, y = pos.y, z = pos.z;
     double a = pos.a, b = pos.b, c = pos.c;
     double u = pos.u, v = pos.v, w = pos.w;
-    
+
     int line_no = pos.line_no;
 
 #ifdef SHOW_JOINED_SEGMENTS
@@ -1052,24 +1123,8 @@ static void flush_segments(void) {
     printf("\n");
 #endif
 
-    VelData linedata = getStraightVelocity(x, y, z, a, b, c, u, v, w);
-    double vel = linedata.vel;
-
-    if (cartesian_move && !angular_move) {
-        if (vel > currentLinearFeedRate) {
-            vel = currentLinearFeedRate;
-        }
-    } else if (!cartesian_move && angular_move) {
-        if (vel > currentAngularFeedRate) {
-            vel = currentAngularFeedRate;
-        }
-    } else if (cartesian_move && angular_move) {
-        if (vel > currentLinearFeedRate) {
-            vel = currentLinearFeedRate;
-        }
-    }
-
-
+    VelData linedata;
+    double vel, acc;
     EMC_TRAJ_LINEAR_MOVE linearMoveMsg;
     linearMoveMsg.feed_mode = feed_mode;
 
@@ -1077,14 +1132,49 @@ static void flush_segments(void) {
     linearMoveMsg.begin = to_ext_pose(canonEndPoint);
     linearMoveMsg.end = to_ext_pose(x, y, z, a, b, c, u, v, w);
 
-    linearMoveMsg.vel = toExtVel(vel);
-    linearMoveMsg.ini_maxvel = toExtVel(linedata.vel);
-    linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
-    AccelData lineaccdata = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
-    double acc = lineaccdata.acc;
-    linearMoveMsg.acc = toExtAcc(acc);
+    if ((canonMotionMode == CANON_JOINT_FEED_EXACT) || (canonMotionMode == CANON_JOINT_FEED_CONTINUOUS))
+    {   // for joint_feed motions (G64 R1, Robot mode enable)
+        linedata = getJointDistVelAccJerk(x, y, z, a, b, c, u, v, w);
+        vel = linedata.vel;
+        if (vel > currentLinearFeedRate) {
+            vel = currentLinearFeedRate;
+        }
+        linearMoveMsg.vel = toExtVel(vel);
+        // TODO: 依據各軸是 LINEAR or ANGULAR 來判斷是呼叫 TO_EXT_LEN or TO_EXT_ANG?
+        acc = linedata.acc;
+        linearMoveMsg.ini_maxvel = TO_EXT_LEN(linedata.vel);
+        linearMoveMsg.acc = TO_EXT_LEN(linedata.acc);
+        linearMoveMsg.ini_maxjerk = TO_EXT_LEN(linedata.jerk);
+        linearMoveMsg.type = EMC_MOTION_TYPE_JOINT;
+        linearMoveMsg.dist = TO_EXT_LEN(linedata.dtot);
+    }
+    else
+    {   // for cartesian motion (traditional CNC)
+        linedata = getStraightVelocity(x, y, z, a, b, c, u, v, w);
+        vel = linedata.vel;
 
-    linearMoveMsg.type = EMC_MOTION_TYPE_FEED;
+        if (cartesian_move && !angular_move) {
+            if (vel > currentLinearFeedRate) {
+                vel = currentLinearFeedRate;
+            }
+        } else if (!cartesian_move && angular_move) {
+            if (vel > currentAngularFeedRate) {
+                vel = currentAngularFeedRate;
+            }
+        } else if (cartesian_move && angular_move) {
+            if (vel > currentLinearFeedRate) {
+                vel = currentLinearFeedRate;
+            }
+        }
+        linearMoveMsg.vel = toExtVel(vel);
+        linearMoveMsg.ini_maxvel = toExtVel(linedata.vel);
+        linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
+        AccelData lineaccdata = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
+        acc = lineaccdata.acc;
+        linearMoveMsg.acc = toExtAcc(acc);
+        linearMoveMsg.type = EMC_MOTION_TYPE_FEED;
+    }
+
     linearMoveMsg.indexrotary = -1;
     if ((vel && acc) || synched) {
         interp_list.set_line_number(line_no);
@@ -1108,51 +1198,14 @@ static void get_last_pos(double &lx, double &ly, double &lz) {
     }
 }
 
-static bool
-linkable(double x, double y, double z, 
-         double a, double b, double c, 
-         double u, double v, double w) {
-    struct pt &pos = chained_points.back();
-    if(canonMotionMode != CANON_CONTINUOUS || canonNaivecamTolerance == 0)
-        return false;
-    //FIXME make this length controlled elsewhere?
-    if(chained_points.size() > 100) return false;
-
-    //If ABCUVW motion, then the tangent calculation fails?
-    // TODO is there a fundamental reason that we can't handle 9D motion here?
-    if(a != pos.a) return false;
-    if(b != pos.b) return false;
-    if(c != pos.c) return false;
-    if(u != pos.u) return false;
-    if(v != pos.v) return false;
-    if(w != pos.w) return false;
-
-    if(x==canonEndPoint.x && y==canonEndPoint.y && z==canonEndPoint.z) return false;
-    
-    for(std::vector<struct pt>::iterator it = chained_points.begin();
-            it != chained_points.end(); it++) {
-        PM_CARTESIAN M(x-canonEndPoint.x, y-canonEndPoint.y, z-canonEndPoint.z),
-                     B(canonEndPoint.x, canonEndPoint.y, canonEndPoint.z),
-                     P(it->x, it->y, it->z);
-        double t0 = dot(M, P-B) / dot(M, M);
-        if(t0 < 0) t0 = 0;
-        if(t0 > 1) t0 = 1;
-
-        double D = mag(P - (B + t0 * M));
-        if(D > canonNaivecamTolerance) return false;
-    }
-    return true;
-}
-
+/* artek: always push pos to chained_points[] and flush it */
 static void
 see_segment(int line_number,
         StateTag tag,
 	    double x, double y, double z, 
             double a, double b, double c,
-            double u, double v, double w) {
-    if(!chained_points.empty() && !linkable(x, y, z, a, b, c, u, v, w)) {
-        flush_segments();
-    }
+            double u, double v, double w)
+{
     pt pos = {x, y, z, a, b, c, u, v, w, line_number, tag};
     chained_points.push_back(pos);
     flush_segments();
@@ -1172,44 +1225,64 @@ void STRAIGHT_TRAVERSE(int line_number,
     flush_segments();
 
     EMC_TRAJ_LINEAR_MOVE linearMoveMsg;
-
     linearMoveMsg.feed_mode = 0;
-    if (rotary_unlock_for_traverse != -1)
-        linearMoveMsg.type = EMC_MOTION_TYPE_INDEXROTARY;
-    else
-        linearMoveMsg.type = EMC_MOTION_TYPE_TRAVERSE;
-
     from_prog(x,y,z,a,b,c,u,v,w); // convert from prog unit(inch or mm) to internal unit(mm)
     rotate_and_offset_pos(x,y,z,a,b,c,u,v,w);
 
-    VelData veldata = getStraightVelocity(x, y, z, a, b, c, u, v, w);
-    AccelData accdata = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
-    linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
-    linearMoveMsg.begin = to_ext_pose(canonEndPoint);
+    if ((canonMotionMode == CANON_JOINT_FEED_EXACT) || (canonMotionMode == CANON_JOINT_FEED_CONTINUOUS))
+    {
+        VelData linedata = getJointDistVelAccJerk(x, y, z, a, b, c, u, v, w);
+        vel = linedata.vel;
+        if (vel > currentLinearFeedRate) {
+            vel = currentLinearFeedRate;
+        }
+        linearMoveMsg.vel = toExtVel(vel);
+        // TODO: 依據各軸是 LINEAR or ANGULAR 來判斷是呼叫 TO_EXT_LEN or TO_EXT_ANG?
+        acc = linedata.acc;
+        linearMoveMsg.ini_maxvel = TO_EXT_LEN(linedata.vel);
+        linearMoveMsg.acc = TO_EXT_LEN(linedata.acc);
+        linearMoveMsg.ini_maxjerk = TO_EXT_LEN(linedata.jerk);
+        linearMoveMsg.type = EMC_MOTION_TYPE_JOINT;
+        linearMoveMsg.dist = TO_EXT_LEN(linedata.dtot);
+    }
+    else
+    {
+        if (rotary_unlock_for_traverse != -1)
+            linearMoveMsg.type = EMC_MOTION_TYPE_INDEXROTARY;
+        else
+            linearMoveMsg.type = EMC_MOTION_TYPE_TRAVERSE;
 
-    vel = veldata.vel;
-    acc = accdata.acc;
-    linearMoveMsg.end = to_ext_pose(x,y,z,a,b,c,u,v,w);
-    linearMoveMsg.vel = linearMoveMsg.ini_maxvel = toExtVel(vel);
-    linearMoveMsg.acc = toExtAcc(acc);
+        VelData veldata = getStraightVelocity(x, y, z, a, b, c, u, v, w);
+        AccelData accdata = getStraightAcceleration(x, y, z, a, b, c, u, v, w);
+        linearMoveMsg.ini_maxjerk = TO_EXT_LEN(getStraightJerk(x, y, z, a, b, c, u, v, w));
+        linearMoveMsg.begin = to_ext_pose(canonEndPoint);
+
+        vel = veldata.vel;
+        acc = accdata.acc;
+        linearMoveMsg.end = to_ext_pose(x,y,z,a,b,c,u,v,w);
+        linearMoveMsg.vel = linearMoveMsg.ini_maxvel = toExtVel(vel);
+        linearMoveMsg.acc = toExtAcc(acc);
+
+    }
+
     linearMoveMsg.indexrotary = rotary_unlock_for_traverse;
 
     int old_feed_mode = feed_mode;
-    if(feed_mode)
-	STOP_SPEED_FEED_SYNCH();
-
+    if(feed_mode) {
+        STOP_SPEED_FEED_SYNCH();
+    }
     if(vel && acc)  {
         tag_and_send(linearMoveMsg, _tag);
     }
-
-    if(old_feed_mode)
-	START_SPEED_FEED_SYNCH(currentLinearFeedRate, 1);
+    if(old_feed_mode) {
+        START_SPEED_FEED_SYNCH(currentLinearFeedRate, 1);
+    }
 
     canonUpdateEndPoint(x, y, z, a, b, c, u, v, w);
 }
 
 void STRAIGHT_FEED(int line_number,
-                   double x, double y, double z, 
+                   double x, double y, double z,
                    double a, double b, double c,
                    double u, double v, double w)
 {
@@ -1226,7 +1299,6 @@ void SPINDLE_SYNC_MOTION(int line_number,
 {
     double vel, acc;
     EMC_TRAJ_SPINDLE_SYNC_MOTION spindleSyncMotionMsg;
-    double unused=0;
     double max_xyz_vel;
     double xyz_vel;
     double spindle_speed;
@@ -1270,7 +1342,7 @@ void SPINDLE_SYNC_MOTION(int line_number,
         vel = spindle_dir * y / 60.0; // spindle positioning velocity (RPS) passed as y parameter(RPM)
     }
 
-    
+
     acc = axis_max_acceleration[emcGetSpindleAxis()];
     // spindle velocity unit: rps
     spindleSyncMotionMsg.vel = (vel); //spindle velocity (rps)
@@ -1281,7 +1353,7 @@ void SPINDLE_SYNC_MOTION(int line_number,
     spindleSyncMotionMsg.type = EMC_MOTION_TYPE_SPINDLE_SYNC;
 
     flush_segments();
-    
+
     canon_debug("x(%f) y(%f) z(%f)\n", x, y, z);
     canon_debug("vel(%f) acc(%f) jerk(%f)\n", vel, acc, spindleSyncMotionMsg.ini_maxjerk);
     canon_debug("spindle_speed(%f) spindle_dir(%d)\n", spindle_speed, spindle_dir);
@@ -1309,7 +1381,7 @@ void SPINDLE_SYNC_MOTION(int line_number,
 */
 
 void STRAIGHT_PROBE(int line_number,
-                    double x, double y, double z, 
+                    double x, double y, double z,
                     double a, double b, double c,
                     double u, double v, double w,
                     unsigned char probe_type)
@@ -1372,12 +1444,26 @@ void SET_MOTION_CONTROL_MODE(CANON_MOTION_MODE mode, double tolerance)
     canon_debug("canonMotionMode = %d\n", mode);
     canonMotionTolerance =  FROM_PROG_LEN(tolerance);
 
+    joint_feed_mode = 0; // default to disable joint_feed_mode
+
     switch (mode) {
     case CANON_CONTINUOUS:
         setTermCondMsg.cond = EMC_TRAJ_TERM_COND_BLEND;
         setTermCondMsg.tolerance = TO_EXT_LEN(canonMotionTolerance);
         break;
+
     case CANON_EXACT_PATH:
+        setTermCondMsg.cond = EMC_TRAJ_TERM_COND_EXACT;
+        break;
+
+    case CANON_JOINT_FEED_CONTINUOUS:
+        joint_feed_mode = 1;
+        setTermCondMsg.cond = EMC_TRAJ_TERM_COND_BLEND;
+        setTermCondMsg.tolerance = TO_EXT_LEN(canonMotionTolerance);
+        break;
+
+    case CANON_JOINT_FEED_EXACT:
+        joint_feed_mode = 1;
         setTermCondMsg.cond = EMC_TRAJ_TERM_COND_EXACT;
         break;
 
@@ -1497,7 +1583,7 @@ arc(int lineno, double x0, double y0, double x1, double y1, double dx, double dy
         double cx = x1+i, cy=y1+j;
         ARC_FEED(lineno, x1, y1, cx, cy, r<0 ? 1 : -1,
                  p.z, p.a, p.b, p.c, p.u, p.v, p.w);
-    } else { 
+    } else {
         STRAIGHT_FEED(lineno, x1, y1, p.z, p.a, p.b, p.c, p.u, p.v, p.w);
     }
 }
@@ -1546,7 +1632,7 @@ void NURBS_FEED(int lineno, std::vector<CONTROL_POINT> nurbs_control_points, uns
     unsigned int n = nurbs_control_points.size() - 1;
     double umax = n - k + 2;
     unsigned int div = nurbs_control_points.size()*4;
-    std::vector<unsigned int> knot_vector = knot_vector_creator(n, k);	
+    std::vector<unsigned int> knot_vector = knot_vector_creator(n, k);
     PLANE_POINT P0, P0T, P1, P1T;
 
     P0 = nurbs_point(0,k,nurbs_control_points,knot_vector);
@@ -1580,85 +1666,6 @@ static PM_CARTESIAN circshift(PM_CARTESIAN & vec, int steps)
     Z = (Z + steps + s) % s;
     return PM_CARTESIAN(vec[X],vec[Y],vec[Z]);
 }
-
-#if 0
-static CANON_POSITION get_axis_max_velocity()
-{
-    CANON_POSITION maxvel;
-    maxvel.x = axis_valid(0) ? FROM_EXT_LEN(axis_max_velocity[0]) : 0.0;
-    maxvel.y = axis_valid(1) ? FROM_EXT_LEN(axis_max_velocity[1]) : 0.0;
-    maxvel.z = axis_valid(2) ? FROM_EXT_LEN(axis_max_velocity[2]) : 0.0;
-
-    maxvel.a = axis_valid(3) ? FROM_EXT_ANG(axis_max_velocity[3]) : 0.0;
-    maxvel.b = axis_valid(4) ? FROM_EXT_ANG(axis_max_velocity[4]) : 0.0;
-    maxvel.c = axis_valid(5) ? FROM_EXT_ANG(axis_max_velocity[5]) : 0.0;
-
-    maxvel.u = axis_valid(6) ? FROM_EXT_LEN(axis_max_velocity[6]) : 0.0;
-    maxvel.v = axis_valid(7) ? FROM_EXT_LEN(axis_max_velocity[7]) : 0.0;
-    maxvel.w = axis_valid(8) ? FROM_EXT_LEN(axis_max_velocity[8]) : 0.0;
-    return maxvel;
-}
-
-static CANON_POSITION get_axis_max_acceleration()
-{
-    CANON_POSITION maxacc;
-    maxacc.x = axis_valid(0) ? FROM_EXT_LEN(axis_max_acceleration[0]) : 0.0;
-    maxacc.y = axis_valid(1) ? FROM_EXT_LEN(axis_max_acceleration[1]) : 0.0;
-    maxacc.z = axis_valid(2) ? FROM_EXT_LEN(axis_max_acceleration[2]) : 0.0;
-
-    maxacc.a = axis_valid(3) ? FROM_EXT_ANG(axis_max_acceleration[3]) : 0.0;
-    maxacc.b = axis_valid(4) ? FROM_EXT_ANG(axis_max_acceleration[4]) : 0.0;
-    maxacc.c = axis_valid(5) ? FROM_EXT_ANG(axis_max_acceleration[5]) : 0.0;
-
-    maxacc.u = axis_valid(6) ? FROM_EXT_LEN(axis_max_acceleration[6]) : 0.0;
-    maxacc.v = axis_valid(7) ? FROM_EXT_LEN(axis_max_acceleration[7]) : 0.0;
-    maxacc.w = axis_valid(8) ? FROM_EXT_LEN(axis_max_acceleration[8]) : 0.0;
-    return maxacc;
-}
-
-static double axis_motion_time(const CANON_POSITION & start, const CANON_POSITION & end)
-{
-
-    CANON_POSITION disp = end - start;
-    CANON_POSITION times; 
-    CANON_POSITION maxvel = get_axis_max_velocity();
-
-    canon_debug(" in axis_motion_time\n");
-    // For active axes, find the time required to reach the displacement in each axis
-    int ind = 0;
-    for (ind = 0; ind < 9; ++ind) {
-        double v = maxvel[ind];
-        if (v > 0.0) {
-            times[ind] = rtapi_fabs(disp[ind]) / v;
-        } else {
-            times[ind]=0;
-        }
-        canon_debug("  ind = %d, maxvel = %f, disp = %f, time = %f\n", ind, v, disp[ind], times[ind]);
-    }
-
-    return times.max();
-}
-
-// NOTE: not exactly times, comment TODO
-static double axis_acc_time(const CANON_POSITION & start, const CANON_POSITION & end)
-{
-
-    CANON_POSITION disp = end - start;
-    CANON_POSITION times; 
-    CANON_POSITION maxacc = get_axis_max_acceleration();
-
-    for (int i = 0; i < 9; ++i) {
-        double a = maxacc[i];
-        if (a > 0.0) {
-            times[i] = rtapi_fabs(disp[i]) / a;
-        } else {
-            times[i]=0;
-        }
-    }
-
-    return times.max();
-}
-#endif
 
 void ARC_FEED(int line_number,
               double first_end, double second_end,

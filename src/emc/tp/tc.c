@@ -332,6 +332,18 @@ int tcGetPosReal(TC_STRUCT const * const tc, int of_point, EmcPose * const pos)
                     progress * tc->coords.line.abc.tmag / tc->target,
                     &abc);
             break;
+        case TC_JOINT:
+            pmCartLinePoint(&tc->coords.line.xyz,
+                    progress * tc->coords.line.xyz.tmag / tc->target,
+                    &xyz);
+            // rtapi_print("%s %d\n", __FUNCTION__, __LINE__);
+            pmCartLinePoint(&tc->coords.line.uvw,
+                    progress * tc->coords.line.uvw.tmag / tc->target,
+                    &uvw);
+            pmCartLinePoint(&tc->coords.line.abc,
+                    progress * tc->coords.line.abc.tmag / tc->target,
+                    &abc);
+            break;
         case TC_CIRCULAR:
             angle = pmCircleAngleFromProgress(&tc->coords.circle.xyz,
                     &tc->coords.circle.fit,

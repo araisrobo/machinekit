@@ -780,7 +780,7 @@ class EMC_TRAJ_LINEAR_MOVE:public EMC_TRAJ_CMD_MSG {
     int type;
     EmcPose begin;		// begin point
     EmcPose end;                // end point
-    double vel, ini_maxvel, acc, ini_maxjerk;
+    double vel, ini_maxvel, acc, ini_maxjerk, dist;
     int feed_mode;
     int indexrotary;
 };

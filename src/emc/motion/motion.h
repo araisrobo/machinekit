@@ -283,6 +283,7 @@ extern "C" {
         double arcBlendTangentKinkRatio;
         double maxFeedScale;
         struct state_tag_t tag;
+        double dist;            /* distance for EMC_MOTION_TYPE_JOINT */
 
         int usbmotEnable;       /* enable USB-FPGA motion control device */
         int ssm_mode;           /* spindle sync motion mode: G33(0):CSS/THREADING, G33.1(1):RIGID_TAP */
