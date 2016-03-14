@@ -170,6 +170,7 @@ typedef enum {
     RCMD_PSO,                   // PSO -- progress synced output
     RCMD_REMOTE_JOG,            // remote control 
     RCMD_SET_ENC_POS,           // set encoder position
+    RCMD_BLENDER,               // set blender
 } rsic_cmd_t;
 
 typedef enum {

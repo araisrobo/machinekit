@@ -252,6 +252,10 @@ typedef struct
     hal_bit_t *probing;
     hal_bit_t *trigger_result; // 0: disable 1:enable
 
+    hal_u32_t *blender_joint_id;
+    hal_float_t *blender_vel_req;
+    double prev_blender_vel_req;
+
     hal_bit_t prev_probing;
     double prev_trigger_level;
 
@@ -1972,6 +1976,18 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             stepgen->risc_probing = 1;
         }
 
+        if ((n == *machine_control->blender_joint_id) && (*machine_control->blender_vel_req != machine_control->prev_blender_vel_req))
+        {
+            // Blender for mode2,3
+            int32_t dbuf[3];
+            dbuf[0] = RCMD_BLENDER;
+            dbuf[1] = (*machine_control->blender_joint_id & 0xF);
+            dbuf[2] = (*machine_control->blender_vel_req) * stepgen->pos_scale * dt
+                      *FIXED_POINT_SCALE; // fixed-point 16.16
+            send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 3);
+            machine_control->prev_blender_vel_req = *machine_control->blender_vel_req;
+        }
+
         if ((*machine_control->probing != machine_control->prev_probing))
         {
             // HOST_PROBING G38.X
@@ -2742,6 +2758,23 @@ static int export_machine_control(machine_control_t * machine_control)
     {
         return retval;
     }
+
+    retval = hal_pin_u32_newf(HAL_IN, &(machine_control->blender_joint_id), comp_id,
+            "wosi.blender.joint_id");
+    if (retval != 0)
+    {
+        return retval;
+    }
+    *(machine_control->blender_joint_id) = 0;
+
+    retval = hal_pin_float_newf(HAL_IN, &(machine_control->blender_vel_req), comp_id,
+            "wosi.blender.vel_req");
+    if (retval != 0)
+    {
+        return retval;
+    }
+    *(machine_control->blender_vel_req) = 0;
+    (machine_control->prev_blender_vel_req) = 0;
 
     retval = hal_pin_bit_newf(HAL_IN, &(machine_control->pso_req), comp_id,
             "wosi.motion.pso_req");
