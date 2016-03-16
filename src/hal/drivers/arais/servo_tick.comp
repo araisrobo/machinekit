@@ -178,7 +178,8 @@ int rtapi_app_main(void)
 	return -1;
     }
     hal_ready(comp_id);
-    rtapi_print_msg(RTAPI_MSG_ERR,
+    
+    rtapi_print_msg(RTAPI_MSG_DBG,
 		    "%s: attached to %s reader=%d writer=%d\n",
 		    name, ring, rb.header->reader, rb.header->writer);
 
