@@ -59,7 +59,8 @@ typedef int (*tpAddLine_t)(TP_STRUCT * tp,
 			   unsigned char enables,
 			   char atspeed,
 			   int indexrotary,
-			    struct state_tag_t tag);
+			   struct state_tag_t tag,
+			   double dist);
 typedef int (*tpAddCircle_t)(TP_STRUCT * tp,
 			     EmcPose end,
 			     PmCartesian center,

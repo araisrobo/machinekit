@@ -1,6 +1,0 @@
-G21
-G21 G90 G0 X0 Y90 Z0 A0         ; step-0, init
-G21 G90 G0 X-90 Y90 Z90 A-90    ; step-1, vertical
-G21 G90 G0 X0 Y0 Z90 A0         ; step-2, horizontal
-G21 G90 G0 X0 Y90 Z0 A0         ; step-0, init
-M2

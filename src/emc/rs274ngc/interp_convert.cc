@@ -1559,7 +1559,8 @@ already in force.
 
 int Interp::convert_control_mode(int g_code,     //!< g_code being executed (G_61, G61_1, || G_64)
 				double tolerance,    //tolerance for the path following in G64
-				double naivecam_tolerance,    //tolerance for the naivecam
+                                double naivecam_tolerance,    //tolerance for the naivecam
+                                double robot_joint_feed_mode,    //enable:1, disable:0
                                 setup_pointer settings) //!< pointer to machine settings                 
 {
   if (g_code == G_61) {
@@ -1569,19 +1570,34 @@ int Interp::convert_control_mode(int g_code,     //!< g_code being executed (G_6
     SET_MOTION_CONTROL_MODE(CANON_EXACT_STOP, 0);
     settings->control_mode = CANON_EXACT_STOP;
   } else if (g_code == G_64) {
-	if (tolerance >= 0) {
-	    SET_MOTION_CONTROL_MODE(CANON_CONTINUOUS, tolerance);
-	} else {
-	    SET_MOTION_CONTROL_MODE(CANON_CONTINUOUS, 0);
-	}
-	if (naivecam_tolerance >= 0) {
-	    SET_NAIVECAM_TOLERANCE(naivecam_tolerance);
-	} else if (tolerance >= 0) {
-	    SET_NAIVECAM_TOLERANCE(tolerance);   // if no naivecam_tolerance specified use same for both
-	} else {
-	    SET_NAIVECAM_TOLERANCE(0);
-	}
-    settings->control_mode = CANON_CONTINUOUS;
+      if (tolerance >= 0) {
+          if(robot_joint_feed_mode == 1) {
+              SET_MOTION_CONTROL_MODE(CANON_JOINT_FEED_CONTINUOUS, tolerance);
+              settings->control_mode = CANON_JOINT_FEED_CONTINUOUS;
+          } else {
+              SET_MOTION_CONTROL_MODE(CANON_CONTINUOUS, tolerance);
+          }
+      } else {
+          if(robot_joint_feed_mode == 1) {
+              SET_MOTION_CONTROL_MODE(CANON_JOINT_FEED_EXACT, 0);
+              settings->control_mode = CANON_JOINT_FEED_EXACT;
+          } else {
+              SET_MOTION_CONTROL_MODE(CANON_CONTINUOUS, 0);
+          }
+      }
+
+      if (naivecam_tolerance >= 0) {
+          SET_NAIVECAM_TOLERANCE(naivecam_tolerance);
+      } else if (tolerance >= 0) {
+          SET_NAIVECAM_TOLERANCE(tolerance);   // if no naivecam_tolerance specified use same for both
+      } else {
+          SET_NAIVECAM_TOLERANCE(0);
+      }
+
+      if(robot_joint_feed_mode != 1) {
+          settings->control_mode = CANON_CONTINUOUS;
+      }
+      _setup.parameters[5000] = settings->control_mode;
   } else 
     ERS(NCE_BUG_CODE_NOT_G61_G61_1_OR_G64);
   return INTERP_OK;
@@ -2321,7 +2337,7 @@ int Interp::convert_g(block_pointer block,       //!< pointer to a block of RS27
     }
     if ((block->g_modes[GM_CONTROL_MODE] != -1) && ONCE(STEP_CONTROL_MODE)) {
 	status = convert_control_mode(block->g_modes[GM_CONTROL_MODE],
-				      block->p_number, block->q_number, settings);
+				      block->p_number, block->q_number, block->r_number, settings);
 	CHP(status);
     }
     if ((block->g_modes[GM_DISTANCE_MODE] != -1) && ONCE(STEP_DISTANCE_MODE)) {

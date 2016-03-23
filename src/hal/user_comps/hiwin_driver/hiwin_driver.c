@@ -39,7 +39,7 @@
 #ifdef DEBUG
 #define DBG(fmt, ...)					\
         do {						\
-            if (param.debug) printf(fmt,  ## __VA_ARGS__);	\
+            if (param.debug) printf(fmt,  ## __VA_ARGS__);     \
         } while(0)
 #else
 #define DBG(fmt, ...)
@@ -436,7 +436,7 @@ int read_data(modbus_t *ctx, haldata_t *haldata, param_pointer p)
     (*haldata->errorcount)++;
     if (p->debug)
         fprintf(stderr, "%s:slave(%d) read_data: modbus_read_registers(0x%4.4x): %s\n",
-                p->progname,tmp_slave, curr_reg, modbus_strerror(errno));
+                p->progname, tmp_slave, curr_reg, modbus_strerror(errno));
     return p->last_errno;
 }
 
@@ -529,7 +529,7 @@ int main(int argc, char **argv)
         if (read_ini(p))
             goto finish;
         if (!p->modname)
-            p->modname = "vfdb_vfd";
+            p->modname = "hiwin";
     } else {
         fprintf(stderr, "%s: ERROR: no inifile - either use '--ini inifile' or set INI_FILE_NAME environment variable\n", p->progname);
         goto finish;
