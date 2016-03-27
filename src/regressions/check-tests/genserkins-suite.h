@@ -143,6 +143,13 @@ START_TEST(test_genserkins)
     ret = kinematicsInverse(&carte_pos_fb, joint_pos, &fflags, &iflags);
     DREPORT_INV(ret, joint_pos);
 
+    joint_pos[0] = 0; joint_pos[1] = 0;  joint_pos[2] = 90;
+    joint_pos[3] = 0; joint_pos[4] = 0;   joint_pos[5] = 0;
+    ret = kinematicsForward(joint_pos, &carte_pos_fb, &fflags, &iflags);
+    DREPORT_FWD(ret, joint_pos, carte_pos_fb);
+    ret = kinematicsInverse(&carte_pos_fb, joint_pos, &fflags, &iflags);
+    DREPORT_INV(ret, joint_pos);
+
     joint_pos[0] = 0; joint_pos[1] = 0;   joint_pos[2] = 90;
     joint_pos[3] = 0; joint_pos[4] = 0;   joint_pos[5] = 0;
     ret = kinematicsForward(joint_pos, &carte_pos_fb, &fflags, &iflags);

@@ -92,28 +92,26 @@ int kinematicsForward(const double * joint,
     /* Calculate terms to be used in definition of... */
     /* first column of rotation matrix.               */
     t1 = c4 * c5 * c6 - s4 * s6;
-    t2 = s23 * s5 * c6;
+    t2 = -s23 * s5 * c6;
     t3 = -s4 * c5 * c6 - c4 * s6;
-    t4 = c23 * t1 - t2;
-    t5 = c23 * s5 * c6;
+    t4 = c23 * t1 + t2;
 
     /* Define first column of rotation matrix */
     hom.rot.x.x = c1 * t4 - s1 * t3;
     hom.rot.x.y = s1 * t4 + c1 * t3;
-    hom.rot.x.z = -s23 * t1 - t5;
+    hom.rot.x.z = s23 * t1 + c6 * c23 * s5;
 
     /* Calculate terms to be used in definition of...  */
     /* second column of rotation matrix.               */
     t1 = -c4 * c5 * s6 - s4 * c6;
-    t2 = s23 * s5 * s6;
+    t2 = -s23 * s5 * s6;
     t3 = s4 * c5 * s6 - c4 * c6;
-    t4 = c23 * t1 + t2;
-    t5 = c23 * s5 * s6;
+    t4 = c23 * t1 - t2;
 
     /* Define second column of rotation matrix */
     hom.rot.y.x = c1 * t4 - s1 * t3;
     hom.rot.y.y = s1 * t4 + c1 * t3;
-    hom.rot.y.z = -s23 * t1 + t5;
+    hom.rot.y.z = s23 * t1 - c23 * s5 * s6;
 
     /* Calculate term to be used in definition of... */
     /* third column of rotation matrix.              */
@@ -121,22 +119,22 @@ int kinematicsForward(const double * joint,
     t2 = s4 * s5;
 
     /* Define third column of rotation matrix */
-    hom.rot.z.x = -c1 * t1 - s1 * t2;
-    hom.rot.z.y = -s1 * t1 + c1 * t2;
+    hom.rot.z.x = c1 * t1 + s1 * t2;
+    hom.rot.z.y = s1 * t1 - c1 * t2;
     hom.rot.z.z = s23 * c4 * s5 - c23 * c5;
 
     /* Calculate term to be used in definition of...  */
     /* position vector.                               */
 
     // t2 = s4 * s5; (previous defined)
-    t4 = A(3) - c4 * D(5) * s5;
-    t3 = c5 * D(5) + D(3);
-    t1 = c23 * t4 - s23 * t3 + A(2) * c2 + A(1);
+    t1 = c4 * D(5) * s5 + A(3);
+    t2 = (c23) * (t1) + (c5 * D(5) + D(3)) * s23 + A(2) * c2 + A(1);
+    t3 = D(5) * s4 * s5;
 
     /* Define position vector */
-    hom.tran.x = c1 * t1 - D(5) * s1 * t2;
-    hom.tran.y = s1 * t1 + D(5) * c1 * t2;
-    hom.tran.z = -s23 * t4 - A(2) * s2 - c23 * t3;
+    hom.tran.x = c1 * t2 + s1 * t3;
+    hom.tran.y = s1 * t2 - c1 * t3;
+    hom.tran.z = s23 * t1 - (c5 * D(5) + D(3)) * c23 + A(2) * s2;
 
     /* Calculate terms to be used to...   */
     /* determine flags.                   */

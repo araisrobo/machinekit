@@ -11,7 +11,7 @@
 #define RA605_D1 0
 
 #define RA605_A1 30
-#define RA605_ALPHA1 -PI_2
+#define RA605_ALPHA1 PI_2
 #define RA605_D2 0
 
 #define RA605_A2 340
@@ -19,15 +19,15 @@
 #define RA605_D3 0
 
 #define RA605_A3 40
-#define RA605_ALPHA3 -PI_2
+#define RA605_ALPHA3 PI_2
 #define RA605_D4 338
 
 #define RA605_A4 0
-#define RA605_ALPHA4 PI_2
+#define RA605_ALPHA4 -PI_2
 #define RA605_D5 0
 
 #define RA605_A5 0
-#define RA605_ALPHA5 -PI_2
+#define RA605_ALPHA5 PI_2
 #define RA605_D6 86
 
 int comp_id;
@@ -124,18 +124,18 @@ START_TEST(test_ra605kins)
 
     ck_assert_int_eq(0, 0);
 
-    joint_pos[5] = 0;
-    joint_pos[1] = -90;
+    joint_pos[0] = 0; joint_pos[1] = 90; joint_pos[2] = 0;
+    joint_pos[3] = 0; joint_pos[4] = 0;   joint_pos[5] = 0;
     ret = kinematicsForward(joint_pos, &carte_pos_fb, &fflags, &iflags);
     DREPORT_FWD(ret, joint_pos, carte_pos_fb);
 
-    joint_pos[5] = 10;
-    joint_pos[1] = -90;
+    joint_pos[0] = 0; joint_pos[1] = 90;  joint_pos[2] = 90;
+    joint_pos[3] = 0; joint_pos[4] = 0;   joint_pos[5] = 0;
     ret = kinematicsForward(joint_pos, &carte_pos_fb, &fflags, &iflags);
     DREPORT_FWD(ret, joint_pos, carte_pos_fb);
 
-    joint_pos[5] = 89;
-    joint_pos[1] = -90;
+    joint_pos[0] = 0; joint_pos[1] = 0;  joint_pos[2] = 90;
+    joint_pos[3] = 0; joint_pos[4] = 0;   joint_pos[5] = 0;
     ret = kinematicsForward(joint_pos, &carte_pos_fb, &fflags, &iflags);
     DREPORT_FWD(ret, joint_pos, carte_pos_fb);
 
