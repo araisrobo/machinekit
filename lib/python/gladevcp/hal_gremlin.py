@@ -251,14 +251,3 @@ class HAL_Gremlin(gremlin.Gremlin, _EMC_ActionBase):
                      + str(seq) + " of\n" + filename + "\n" + error_str + "\n"
         print(errortext)
         self.emit("gcode-error", errortext)
-        dialog = gtk.Dialog("G-Code error",
-                           None,
-                           gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-                           (gtk.STOCK_OK, gtk.RESPONSE_ACCEPT))
-        dialog.vbox.pack_start(errortext)
-        label.show()
-        response = dialog.run()
-        if response == gtk.RESPONSE_ACCEPT:
-            pass
-
-        dialog.destroy()

@@ -152,6 +152,8 @@ int wosi_trans_run()
             // ring empty
             underrun++;
             wosi_receive();
+            rtapi_print_msg(RTAPI_MSG_DBG, "%s: ERROR: record_read failed: %d, underrun(%d)\n",
+                            param.modname, retval, underrun);
             continue;
         }
 

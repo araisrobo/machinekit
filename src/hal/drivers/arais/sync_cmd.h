@@ -170,6 +170,7 @@ typedef enum {
     RCMD_PSO,                   // PSO -- progress synced output
     RCMD_REMOTE_JOG,            // remote control 
     RCMD_SET_ENC_POS,           // set encoder position
+    RCMD_BLENDER,               // set blender
 } rsic_cmd_t;
 
 typedef enum {
@@ -193,13 +194,14 @@ enum machine_parameter_addr {
     ANALOG_REF_LEVEL,       // wait analog signal: M110
     AHC_MAX_OFFSET,
     AHC_ANALOG_CH,
+    AHC_TRANSFER_ID,
     WAIT_TIMEOUT,
     AHC_STATE,
     AHC_LEVEL,
     GANTRY_CTRL,            // [31]     GANTRY_EN
                             
     JOINT_LSP_LSN,          // format: {JOINT[31:16], LSP_ID[15:8], LSN_ID[7:0]}
-    JOINT_JOGP_JOGN,        // format jog: {JOINT[31:16], JOGP_ID[15:8], LOGN_ID[7:0]}
+    JOINT_JOGP_JOGN,        // format jog: {JOINT[31:16], JOGP_ID[15:8], JOGN_ID[7:0]}
     ALR_OUTPUT_0,           // DOUT_0 value, dout[31:0], when ESTOP is pressed
     ALR_OUTPUT_1,           // DOUT_1 value, dout[63:32], when ESTOP is pressed
     ALR_EN_BITS,            // the bitmap of ALARM bits for all joints (DIN[6:1])
@@ -268,7 +270,7 @@ enum motion_parameter_addr {
     // OUTPUT: end
     MAX_PARAM_ITEM
 };
-#define NUM_PID_PARAMS 14   // pid params: from P_GAIN to MAXOUTPUT
+#define NUM_PID_PARAMS 9    // pid params: from PPG to VFFG
 #define OUT_DEV_TYPE_MASK   0xF0000000  // [31:28] TYPE: ANALOG/PWM/PULSE
 #define OUT_DEV_CH_MASK     0x0F000000  // [27:24] CHANNEL: DAC channel
 #define OUT_RANGE_MAX_MASK  0x0000FFFF  // [15: 0] MAX_OUT
