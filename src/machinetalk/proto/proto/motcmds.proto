@@ -18,6 +18,7 @@ enum MotionType {
     _EMC_MOTION_TYPE_PROBING = 5;
     _EMC_MOTION_TYPE_INDEXROTARY = 6;
     _EMC_MOTION_TYPE_SPINDLE_SYNC_MOTION = 7;
+    _EMC_MOTION_TYPE_JOINT = 8;
 };
 
 enum  cmd_code_t  {
@@ -90,9 +91,17 @@ enum  cmd_code_t  {
     EMCMOT_SPINDLE_DECREASE = 4054;	/* spindle slower */
     EMCMOT_SPINDLE_BRAKE_ENGAGE = 4055;	/* engage the spindle brake */
     EMCMOT_SPINDLE_BRAKE_RELEASE = 4056;/* release the spindle brake */
-    EMCMOT_SET_MOTOR_OFFSET = 4057;	/* set the offset between joint and motor */
-    EMCMOT_SET_JOINT_COMP = 4058;	/* set a compensation triplet for a joint (nominal, forw., rev.) */
-    EMCMOT_SET_OFFSET = 4059;           /* set tool offsets */
+    EMCMOT_SPINDLE_ORIENT = 4057;       /* orient the spindle */
+    EMCMOT_SET_MOTOR_OFFSET = 4058;	/* set the offset between joint and motor */
+    EMCMOT_SET_JOINT_COMP = 4059;	/* set a compensation triplet for a joint (nominal, forw., rev.) */
+    EMCMOT_SET_OFFSET = 4060;           /* set tool offsets */
+    EMCMOT_SET_MAX_FEED_OVERRIDE = 4061;
+    EMCMOT_SETUP_ARC_BLENDS = 4062;
+    EMCMOT_SET_JOINT_JERK_LIMIT = 4063;	/* set the max joint jerk */
+    EMCMOT_SET_AXIS_JERK_LIMIT = 4064;  /* set the max axis jerk */
+    EMCMOT_SET_JERK = 4065;             /* set the max jerk for moves (tooltip) */
+    EMCMOT_SETUP_USBMOT = 4066;         /* setup the USB-FPGA motion control parameters */
+    EMCMOT_END_PROBE = 4067;            /* after probe*/
 };
 
 enum cmd_status_t {
