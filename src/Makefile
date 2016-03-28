@@ -526,7 +526,6 @@ HEADERS := \
     hal/lib/hal_rcomp.h \
     hal/lib/hal_ring.h \
     hal/lib/vtable.h \
-    hal/drivers/hal_gpiomap.h \
     hal/drivers/hal_spi.h \
     libnml/buffer/locmem.hh \
     libnml/buffer/memsem.hh \
@@ -1282,6 +1281,13 @@ obj-$(CONFIG_HAL_SPI) += hal_spi.o
 hal_spi-objs := hal/drivers/hal_spi.o
 endif
 
+ifdef TARGET_PLATFORM_SOCFPGA
+ifeq ($(BUILD_SYS),user-dso)
+obj-$(CONFIG_HM2_SOC) += hm2_soc.o
+hm2_soc-objs := hal/drivers/mesa-hostmot2/hm2_soc.o
+endif
+endif
+
 ifdef TARGET_PLATFORM_BEAGLEBONE
 ifeq ($(BUILD_SYS),user-dso)
 obj-$(CONFIG_HAL_GPIO) += hal_bb_gpio.o
@@ -1302,12 +1308,6 @@ hal_arm335xQEP-objs := hal/drivers/hal_arm335xQEP.o $(MATHSTUB)
 
 endif
 
-ifeq ($(BUILD_SYS),user-dso)
-obj-m += gpiomap.o
-gpiomap-objs := hal/drivers/hal_gpiomap.o
-obj-m += gpiouse.o
-gpiouse-objs := hal/drivers/hal_gpiouse.o
-endif
 
 # hal_pru_generic driver
 ifdef TARGET_PLATFORM_BEAGLEBONE
@@ -1369,8 +1369,9 @@ hostmot2-objs +=			  \
     hal/drivers/mesa-hostmot2/tp_pwmgen.o \
 	hal/drivers/mesa-hostmot2/sserial.o   \
     hal/drivers/mesa-hostmot2/stepgen.o   \
-	hal/drivers/mesa-hostmot2/bspi.o	  \
-	hal/drivers/mesa-hostmot2/uart.o	  \
+    hal/drivers/mesa-hostmot2/bspi.o  \
+    hal/drivers/mesa-hostmot2/uart.o  \
+    hal/drivers/mesa-hostmot2/pktuart.o  \
     hal/drivers/mesa-hostmot2/watchdog.o  \
     hal/drivers/mesa-hostmot2/pins.o	  \
     hal/drivers/mesa-hostmot2/dpll.o  \
@@ -1542,21 +1543,90 @@ EXTRA_CFLAGS += -fPIC
 RTOBJS := $(sort $(foreach mod,$(obj-m),$(call TORTOBJS,$(mod))))
 
 RTDEPS := $(sort $(patsubst $(OBJDIR)/%.o,$(DEPDIR)/%.d, $(RTOBJS)))
-IS_POWERPC = test `uname -m` = ppc -o `uname -m` = ppc64
+
+# this arcane step warrants some explanation.
+
+# this is about linking userland RT modules to be loaded by rtapi_app
+# Those modules are supposed to behave the same as kernel RT modules as far as
+# symbol visibility goes. Other than in plain C, in-kernel symbol
+# export is explicitly controlled by the EXPORT_SYMBOL(sym) macro.
+# only variables and functions tagged such will be visible to the rest of the kernel
+# and other modules.
+# See http://stackoverflow.com/questions/9836467/whats-meaning-of-export-symbol-in-linux-kernel-code
+# for an explanation and use.
+#
+# userland RT modules need to follow the same visibility rules as kernel modules
+# to prevent accidential spillover of symbols between components (which does not happen
+# in kernel space).
+#
+# The kernel behavior of EXPORT_SYMBOL is emulated as follows:
+# rtapi_export.h defines
+# #define EXPORT_SYMBOL(x) __attribute__((section(".rtapi_export"))) \
+#    char rtapi_exported_##x[] = #x;
+#
+# This means any symbol 'foo' exported as EXPORT_SYMBOL(foo) will:
+# - have a variable defined which looks like so:
+#   char rtapi_exported_foo = "foo";
+# - have put this variable put in the .rtapi_export section of the object file.
+#   (see http://wiki.osdev.org/ELF_Tutorial#The_String_Table)
+# - this string table is different from the default string table named .srtab.
+#
+# Hence, the .rtapi_export section of a RT module is a pure string table; no other
+# variables live there. The strings in this table is the set of symbols exported by
+# this module.
+#
+# Now, during linking, all symbols which are NOT in this set need to be removed.
+#
+# to do so, first the .rtapi_export section (the string table) is extracted and stored
+# in a file - one can reproduce with:
+#
+# objcopy -j .rtapi_export -O binary objects/posix/hal_lib.tmp /dev/stdout | strings
+# rtapi_info_author
+# rtapi_info_description
+# rtapi_info_license
+# rtapi_app_main
+# rtapi_app_exit
+# hal_init
+# hal_xinit
+# hal_xinitf
+# hal_ready
+# ....
+#
+# In the second objcopy step, all symbols not in this set are removed. This is done
+# by determining the list of symbols to be kept, and generating a list of lines like
+# -G <symbol>
+# which is the objcopy option for removing all other symbols not in this list:
+# -G symbolname
+# --keep-global-symbol=symbolname
+#   Keep only symbol symbolname global.  Make all other symbols local to the file, so that they are not
+#   visible externally.  This option may be given more than once.
+# This objcopy step is in-place, i.e. overwriting the .tmp file.
+#
+# The final linking step uses the -Bsymbolic flag - what this does is:
+#
+# This element's presence in a shared object library alters the dynamic linker's symbol resolution
+# algorithm for references within the library. Instead of starting a symbol search with the
+# executable file, the dynamic linker starts from the shared object itself. If the shared object
+# fails to supply the referenced symbol, the dynamic linker then searches the executable
+# file and other shared objects as usual.
+# (from https://www.technovelty.org/c/what-exactly-does-bsymblic-do.html)
+#
+# this is important for symbol resolution when the .so is loaded within rtapi_app:
+# it means that symbols referenced are resolved within the object first, instead of looking
+# at any symbols exported (maybe by accident) by rtap_app proper.
+#
 modules: $(patsubst %.o,$(RTLIBDIR)/%.so,$(obj-m))
 $(RTLIBDIR)/%.so:
 	$(ECHO) Linking $@
 	@mkdir -p $(dir $@)
-	$(Q)$(LD) -r -o $(OBJDIR)/$*.tmp \
-	    $^
-	@if ! $(IS_POWERPC); then $(OBJCOPY) -j .rtapi_export -O binary \
-	    $(OBJDIR)/$*.tmp $(OBJDIR)/$*.exp; fi
-	@if ! $(IS_POWERPC); then $(OBJCOPY) \
-	    -G __x86.get_pc_thunk.bx -G __i686.get_pc_thunk.bx \
-	    `xargs -r0n1 echo -G < $(OBJDIR)/$*.exp | grep -ve '^-G $$' | \
-	        sort -u` $(OBJDIR)/$*.tmp; fi
-	$(Q)$(CC) -shared -Bsymbolic $(LDFLAGS) -o $@ $(OBJDIR)/$*.tmp \
-	$(EXTRA_LDFLAGS)
+	@# link all objects files into a single .so
+	$(Q)$(LD) -d -r -o $(OBJDIR)/$*.tmp $^
+	@# use the .rtapi_export string table to generate a ld version script
+	@# explicitly defining the EXPORT_SYMBOL syms as global, and everything else as local:
+	$(Q)objcopy -j .rtapi_export -O binary $(OBJDIR)/$*.tmp $(OBJDIR)/$*.exported
+	$(Q)(echo '{ global : ';  tr -s '\0' <$(OBJDIR)/$*.exported | xargs -r0 printf '%s;\n' | grep .; echo 'local : * ; };') > $(OBJDIR)/$*.ver
+	@# link the final object using this version script:
+	$(Q)$(CC) -shared -Bsymbolic $(LDFLAGS) -Wl,--version-script,$(OBJDIR)/$*.ver -o $@ $^ $(EXTRA_LDFLAGS)
 
 $(sort $(RTDEPS)): $(DEPDIR)/%.d: %.c
 	@mkdir -p $(dir $@)
@@ -1627,8 +1697,6 @@ $(RTLIBDIR)/probe_parport$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(probe_parport-o
 
 ifeq ($(BUILD_SYS),user-dso)
 $(RTLIBDIR)/probe_parport$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(probe_parport-objs))
-$(RTLIBDIR)/gpiomap$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(gpiomap-objs))
-$(RTLIBDIR)/gpiouse$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(gpiouse-objs))
 endif
 
 ifeq ($(USERMODE_PCI),yes)
@@ -1640,6 +1708,13 @@ ifeq ($(BUILD_SYS),user-dso)
 $(RTLIBDIR)/hm2_eth$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_eth-objs))
 endif
 $(RTLIBDIR)/hm2_test$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_test-objs))
+endif
+
+ifdef TARGET_PLATFORM_SOCFPGA
+ifeq ($(BUILD_SYS),user-dso)
+$(RTLIBDIR)/hostmot2$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hostmot2-objs))
+$(RTLIBDIR)/hm2_soc$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_soc-objs))
+endif
 endif
 
 ifdef TARGET_PLATFORM_BEAGLEBONE
