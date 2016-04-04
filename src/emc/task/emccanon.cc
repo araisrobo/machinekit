@@ -40,7 +40,7 @@
 #include "emc.hh"		// EMC NML
 #include "emc_nml.hh"
 #include "canon.hh"
-#include "canon_position.hh"		// data type for a machine position
+#include "canon_position.hh"	// data type for a machine position
 #include "interpl.hh"		// interp_list
 #include "emcglb.h"		// TRAJ_MAX_VELOCITY
 #include "modal_state.hh"
@@ -1088,11 +1088,11 @@ static VelData getJointDistVelAccJerk(double x, double y, double z,
 
     if(debug_velacc)
     {
-        printf("getStraightVelocity dx %g dy %g dz %g da %g db %g dc %g du %g dv %g dw %g\n",
+        printf("getJointDistVelAccJerk dx %g dy %g dz %g da %g db %g dc %g du %g dv %g dw %g\n",
                 d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8]);
-        printf("getStraightVelocity times tx %g ty %g tz %g ta %g tb %g tc %g tu %g tv %g tw %g\n",
+        printf("getJointDistVelAccJerk times tx %g ty %g tz %g ta %g tb %g tc %g tu %g tv %g tw %g\n",
                 t[0], t[1], t[2], t[3], t[4], t[5], t[6], t[7], t[8]);
-        printf("vel(%g) acc(%g) jerk(%g)\n", out.vel, out.acc, out.jerk);
+        printf("maxj(%d) dtot(%g) vel(%g) acc(%g) jerk(%g)\n", maxj, out.dtot, out.vel, out.acc, out.jerk);
     }
 
     return out;
