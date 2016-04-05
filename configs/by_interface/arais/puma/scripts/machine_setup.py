@@ -38,7 +38,7 @@ else:
 
 print "about to issue MDI commands ..."
 e.g("G21")
-e.g("F6000")
+e.g("F4000")
 # e.g("F12000")
 e.g("G64 R1")   # CANON_JOINT_EXACT
 # e.g("G64 P0 R1")  # CANON_JOINT_CONTINUOUS
