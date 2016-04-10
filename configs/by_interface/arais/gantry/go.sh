@@ -3,6 +3,9 @@
 export FLAVOR=posix
 linuxcnc_stop 
 sudo cp /dev/null /var/log/linuxcnc.log 
+sudo cp /dev/null /var/log/messages
+sudo cp /dev/null /var/log/syslog
+
 mklauncher . &
 python run.py -f -c -iGANTRY.ini      # w/o debug
 # python run.py -f -c -d -iGANTRY.ini # with debug
