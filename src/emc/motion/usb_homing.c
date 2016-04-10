@@ -126,7 +126,7 @@ void do_usb_homing_sequence(void)
         break;
 
     case HOME_SEQUENCE_START:
-        /* a request to home all joints */
+        /* a request to home all axes, the num_joints is actually num_axes */
         for(i=0; i < num_joints; i++) {
             joint = &joints[i];
             if(joint->home_state != HOME_IDLE) {
@@ -150,7 +150,8 @@ void do_usb_homing_sequence(void)
         /* and drop into next state */
 
     case HOME_SEQUENCE_START_JOINTS:
-        /* start all joints whose sequence number matches home_sequence */
+        /* start all axes whose sequence number matches home_sequence */
+        /* the num_joints is actually num_axes */
         for(i=0; i < num_joints; i++) {
             joint = &joints[i];
             if(joint->home_sequence == home_sequence) {
@@ -180,6 +181,7 @@ void do_usb_homing_sequence(void)
         break;
 
     case HOME_SEQUENCE_WAIT_JOINTS:
+        /* the num_joints is actually num_axes */
         for(i=0; i < num_joints; i++) {
             joint = &joints[i];
             if(joint->home_sequence != home_sequence) {
@@ -237,7 +239,8 @@ void do_usb_homing(void)
         emcmotStatus->update_pos_ack = 0;
     }
 
-    /* loop thru joints, treat each one individually */
+    /* loop thru axes, treat each one individually */
+    /* the num_joints is actually num_axes */
     for (joint_num = 0; joint_num < num_joints; joint_num++)
     {
         /* point to joint struct */
