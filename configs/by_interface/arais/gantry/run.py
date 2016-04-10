@@ -21,7 +21,7 @@ parser.add_argument('-c', '--config', help='Starts the config server', action='s
 parser.add_argument('-f', '--fpga', help='Starts the FPGA bitstream loader', action='store_true')
 parser.add_argument('-l', '--local', help='Enable local mode only', action='store_true')
 parser.add_argument('-g', '--gladevcp', help='Starts the GladeVCP user interface', action='store_true')
-parser.add_argument('-s', '--halscope', help='Starts the halscope', action='store_true')
+parser.add_argument('-s', '--startpy', help='Starts python scripts after launching linuxcnc server', action='store_true')
 parser.add_argument('-m', '--halmeter', help='Starts the halmeter', action='store_true')
 parser.add_argument('-d', '--debug', help='Enable debug mode', action='store_true')
 parser.add_argument('-i', '--ini', type=str, help='Specify .ini file', default='MEINAN.ini', action='store')
@@ -51,7 +51,14 @@ try:
     if args.config:
         # the point-of-contact for QtQUickVCP
         machineface_dir = os.path.join(home_dir, "proj/remote-ui/Machineface")
-        launcher.start_process("configserver -n GANTRY %s" % machineface_dir)
+        # machineface_dir = os.path.join(home_dir, "proj/remote-ui/RA605face")
+
+        if args.debug:
+            launcher.start_process("configserver -d -n GANTRY %s" % machineface_dir)
+        else:
+            launcher.start_process("configserver -n GANTRY %s" % machineface_dir)
+
+        os.chdir(configs_dir)
         launcher.start_process('linuxcnc %s' % (args.ini))
         
     if args.halmeter:
