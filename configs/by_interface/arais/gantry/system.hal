@@ -85,6 +85,7 @@ net j3-pos-cmd      axis.2.motor-pos-cmd        => servo_tick.j3-pos-cmd
 net j4-pos-cmd      axis.3.motor-pos-cmd        => servo_tick.j4-pos-cmd 
 net j5-pos-cmd      axis.4.motor-pos-cmd        => servo_tick.j5-pos-cmd
 net j6-pos-cmd      axis.5.motor-pos-cmd        => servo_tick.j6-pos-cmd
+# TODO: 目前的 update-pos-ack for rgantry 有問題
 net update-pos-ack  motion.update-pos-ack       => servo_tick.update-pos-ack
 net update-pos-ack                              => rgantry.0.update-pos-ack-i
 
@@ -166,7 +167,7 @@ setp rgantry.0.joint.00.home-offset     [AXIS_1]HOME_OFFSET
 setp rgantry.0.joint.01.home-offset     [AXIS_1]HOME_OFFSET_GANTRY_SLAVE
 net  [JOINT_1]HOME_SW_NET               => rgantry.0.joint.00.home-sw-i
 net  [JOINT_2]HOME_SW_NET               => rgantry.0.joint.01.home-sw-i
-net  a1-home-sw axis.1.home-sw-in       <= rgantry.0.home                     
+net  a1-home-sw axis.1.home-sw-in       <= rgantry.0.home-sw-o
 net  a1-homing                          <= axis.1.homing
 net  a1-homing                          => wosi.stepgen.1.homing
 net  a1-homing                          => wosi.stepgen.2.homing

@@ -48,7 +48,8 @@ pin out float joint.##.offset       [pincount] "(debugging) Per-joint offset val
 pin in  float position-cmd "Commanded position from motion";
 pin out float position-fb "Position feedback to motion";
 pin in  bit   homing "Axis homing state from motion";
-pin out bit   home "Combined home signal, true if all joint home inputs are true";
+pin out s32   home-state "the state of HOMING FSM for rgantry";
+pin out bit   home-sw-o "Combined home signal, true if all joint home-sw-i inputs are true";
 pin in  bit   homing-abs-enc "Homing with absolute encoders";
 
 pin in  bit   update-pos-ack-i "the ACK signal of updating joint position";
@@ -108,32 +109,71 @@ option MAXCOUNT 7;
 #define RISC_PROBE_HIGH 1
 #endif
 
+typedef enum {
+    // Gantry HOME States
+    GH_IDLE = 0,
+    GH_SWITCH_SEARCH,           // switch search for all joints
+    GH_INDEX_SEARCH_SLAVE,      // index search for slave joint
+    GH_INDEX_BACK_TO_SWITCH,    // move back to switch position for all joints
+    GH_INDEX_SEARCH_MASTER,     // index search for master joint
+    GH_DONE,                    // search complete
+} g_home_state_t;
+
 FUNCTION(read)
 {
     hal_s32_t i;
-        
-    if ((homing == 0) || (risc_probe_vel_i ==0)) {
-        // use master joint status as 
-        home = joint_home_sw_i(0);
-    } else {
+
+    position_fb = joint_pos_fb(0);
+
+    if (homing == 0) {
+        home_state = GH_IDLE;
+    }
+
+    switch (home_state)
+    {
+    case GH_IDLE:
+        // use master joint switch status
+        home_sw_o = joint_home_sw_i(0);
+        if (homing && (risc_probe_vel_i != 0))
+        {
+            switch (risc_probe_type_i)
+            {
+            case RISC_PROBE_HIGH:
+            case RISC_PROBE_LOW:
+                home_state = GH_SWITCH_SEARCH;
+                break;
+            default:
+                rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) Unknown risc_probe_type_i(%d)", __FILE__, __LINE__,
+                        risc_probe_type_i);
+            }
+        }
+        break;
+
+    case GH_SWITCH_SEARCH:
         // scan all joints for home value
+        home_sw_o = joint_home_sw_i(0);
         for (i = 0; i < localpincount; i++) {
             if (risc_probe_type_i == RISC_PROBE_HIGH) {
                 /**
-                 * 及仁的 HOME SWITCH 是 LOW ACTIVE, 
-                 * RISC_PROBE_HIGH 意味著目前電壓是 LOW, 要找鑾成 HIGH 的位置
+                 * 及仁的 HOME SWITCH 是 LOW ACTIVE,
+                 * RISC_PROBE_HIGH 意味著目前電壓是 LOW, 要找變成 HIGH 的位置
                  * 電壓是 LOW 的 joint_home_sw_i(i) 的值是 TRUE，
-                 * 要等每一軸的 joint_home_sw_i(i) 都鑾成 FALSE 
-                 */ 
-                home |= joint_home_sw_i(i);
+                 * 要等每一軸的 joint_home_sw_i(i) 都鑾成 FALSE
+                 */
+                home_sw_o |= joint_home_sw_i(i);
             } else if (risc_probe_type_i == RISC_PROBE_LOW) {
                 // 等每一軸的 joint_home_sw_i(i) 都鑾成 TRUE
-                home &= joint_home_sw_i(i);
+                home_sw_o &= joint_home_sw_i(i);
             }
+            joint_risc_probe_type_o(i) = risc_probe_type_i;
+            joint_risc_probe_vel_o(i) = risc_probe_vel_i;
+            joint_risc_probe_pin_o(i) = joint_home_sw_id(i);
         }
+        if (risc_probe_vel_i == 0) {
+            home_state = GH_IDLE;
+        }
+        break;
     }
-
-    position_fb = joint_pos_fb(0);
 
 return 0;
 }
@@ -142,6 +182,7 @@ FUNCTION(write)
 {
     hal_s32_t i;
 
+    // 這一段有問題：若不是要更新 gantry 相關軸的 position, 卻可能改變 gantry 的 offset
     if (update_pos_ack_i)
     {   // update joint offset value against master joint
         for (i = 0; i < localpincount; i++) {
@@ -166,9 +207,9 @@ FUNCTION(write)
          * joint.##.risc-probe-pin-o [pincount] "Per-joint pin-id for RISC-PROBE command"; 
          * based on home-sw-id and risc-probe-type (INDEX-HOMING)
          */ 
-        joint_risc_probe_type_o(i) = risc_probe_type_i;
-        joint_risc_probe_vel_o(i) = risc_probe_vel_i;
-        joint_risc_probe_pin_o(i) = joint_home_sw_id(i);
+//        joint_risc_probe_type_o(i) = risc_probe_type_i;
+//        joint_risc_probe_vel_o(i) = risc_probe_vel_i;
+//        joint_risc_probe_pin_o(i) = joint_home_sw_id(i);
     }
 
     return 0;
