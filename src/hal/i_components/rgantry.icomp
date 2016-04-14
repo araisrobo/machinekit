@@ -39,6 +39,11 @@
  *
  ******************************************************************************/
 
+/**
+ * instcomp(icomp) reference:
+ * http://machinekit-docs.readthedocs.org/en/latest/src/hal/instcomp/
+ **/
+
 component rgantry "Machinekit HAL component for driving multiple joints from a single axis";
 pin out float joint.##.pos-cmd      [pincount] "Per-joint commanded position";
 pin in  float joint.##.pos-fb       [pincount] "Per-joint position feedback";
@@ -52,10 +57,13 @@ pin out s32   home-state "the state of HOMING FSM for rgantry";
 pin out bit   home-sw-o "Combined home signal, true if all joint home-sw-i inputs are true";
 pin in  bit   homing-abs-enc "Homing with absolute encoders";
 
-pin in  bit   update-pos-ack-i "the ACK signal of updating joint position";
+pin in  bit   update-pos-ack-i "TODO: obsolete this input? the ACK signal of updating joint position";
+pin in  s32   rcmd-state-i "RISC-CMD-STATE";
+pin out bit   update-pos-ack-o "the ACK signal of updating joint position";
 pin in  s32   risc-probe-type-i "risc-probe-type from usb_homing.c";
 pin in  float risc-probe-vel-i "risc-probe-vel from usb_homing.c";
 pin in  s32   joint.##.home-sw-id [pincount] "Per-joint home switch gpio-id for RISC probing";
+pin in  s32   joint.##.id [pincount] "Per-joint id for RISC INDEX probing";
 pin out s32   joint.##.risc-probe-pin-o [pincount] "Per-joint pin-id for RISC-PROBE command"; /* based on home-sw-id and risc-probe-type */
 pin out s32   joint.##.risc-probe-type-o [pincount] "Per-joint RISC-PROBE-TYPE";
 pin out float joint.##.risc-probe-vel-o [pincount] "Per-joint RISC-PROBE-VEL";
@@ -102,20 +110,18 @@ option MAXCOUNT 7;
 
 ;;
 
-#ifdef USB_MOTION_ENABLE        /* enable usb motion device */
-#include "sync_cmd.h"
-#else
-#define RISC_PROBE_LOW 0
-#define RISC_PROBE_HIGH 1
-#endif
+#include "hal/drivers/arais/sync_cmd.h"
 
 typedef enum {
     // Gantry HOME States
     GH_IDLE = 0,
     GH_SWITCH_SEARCH,           // switch search for all joints
     GH_INDEX_SEARCH_SLAVE,      // index search for slave joint
+    GH_INDEX_UPDATE_SLAVE,      // update index position for slave joint
     GH_INDEX_BACK_TO_SWITCH,    // move back to switch position for all joints
+    GH_INDEX_WAIT_AT_SWITCH,    // to synchronize RCMD-FSM
     GH_INDEX_SEARCH_MASTER,     // index search for master joint
+    GH_INDEX_UPDATE_MASTER,     // update index position for master joint
     GH_DONE,                    // search complete
 } g_home_state_t;
 
@@ -129,11 +135,13 @@ FUNCTION(read)
         home_state = GH_IDLE;
     }
 
+    // use master joint switch for default home-sw-o
+    home_sw_o = joint_home_sw_i(0);
+
     switch (home_state)
     {
     case GH_IDLE:
-        // use master joint switch status
-        home_sw_o = joint_home_sw_i(0);
+        update_pos_ack_o = 0;
         if (homing && (risc_probe_vel_i != 0))
         {
             switch (risc_probe_type_i)
@@ -141,6 +149,19 @@ FUNCTION(read)
             case RISC_PROBE_HIGH:
             case RISC_PROBE_LOW:
                 home_state = GH_SWITCH_SEARCH;
+                for (i = 0; i < localpincount; i++) {
+                    joint_risc_probe_type_o(i) = risc_probe_type_i;
+                    joint_risc_probe_vel_o(i) = risc_probe_vel_i;
+                    joint_risc_probe_pin_o(i) = joint_home_sw_id(i);
+                }
+                break;
+            case RISC_PROBE_INDEX:
+                home_state = GH_INDEX_SEARCH_SLAVE;
+                for (i = 0; i < localpincount; i++) {
+                    joint_risc_probe_type_o(i) = risc_probe_type_i;
+                    joint_risc_probe_vel_o(i) = risc_probe_vel_i;
+                    joint_risc_probe_pin_o(i) = joint_id(1); // INDEX_PROBE for SLAVE_JOINT
+                }
                 break;
             default:
                 rtapi_print_msg (RTAPI_MSG_ERR, "(%s:%d) Unknown risc_probe_type_i(%d)", __FILE__, __LINE__,
@@ -150,30 +171,101 @@ FUNCTION(read)
         break;
 
     case GH_SWITCH_SEARCH:
-        // scan all joints for home value
-        home_sw_o = joint_home_sw_i(0);
+        update_pos_ack_o = 0;
+        // scan all joints for home-sw-o value
         for (i = 0; i < localpincount; i++) {
             if (risc_probe_type_i == RISC_PROBE_HIGH) {
                 /**
                  * 及仁的 HOME SWITCH 是 LOW ACTIVE,
                  * RISC_PROBE_HIGH 意味著目前電壓是 LOW, 要找變成 HIGH 的位置
                  * 電壓是 LOW 的 joint_home_sw_i(i) 的值是 TRUE，
-                 * 要等每一軸的 joint_home_sw_i(i) 都鑾成 FALSE
+                 * 要等每一軸的 joint_home_sw_i(i) 都變成 FALSE
                  */
                 home_sw_o |= joint_home_sw_i(i);
             } else if (risc_probe_type_i == RISC_PROBE_LOW) {
-                // 等每一軸的 joint_home_sw_i(i) 都鑾成 TRUE
+                // 等每一軸的 joint_home_sw_i(i) 都變成 TRUE
                 home_sw_o &= joint_home_sw_i(i);
             }
-            joint_risc_probe_type_o(i) = risc_probe_type_i;
-            joint_risc_probe_vel_o(i) = risc_probe_vel_i;
-            joint_risc_probe_pin_o(i) = joint_home_sw_id(i);
         }
         if (risc_probe_vel_i == 0) {
+            /* TODO: 更新 offset, based on SWITCH-POS offset, not POS-FB offset */
             home_state = GH_IDLE;
         }
         break;
-    }
+
+    case GH_INDEX_SEARCH_SLAVE:
+        update_pos_ack_o = 0;
+        if (rcmd_state_i == RCMD_UPDATE_POS_REQ) {
+            home_state = GH_INDEX_UPDATE_SLAVE;
+            // stop INDEX probing
+            for (i = 0; i < localpincount; i++) {
+                joint_risc_probe_vel_o(i) = 0;
+            }
+        }
+        break;
+
+    case GH_INDEX_UPDATE_SLAVE:
+        // stop INDEX probing
+        // TODO: update slave index position
+        update_pos_ack_o = 1;
+        if (rcmd_state_i == RCMD_IDLE) {
+            home_state = GH_INDEX_BACK_TO_SWITCH;
+            for (i = 0; i < localpincount; i++) {
+                // check slave switch status, prepare for back-off switch probing
+                if (joint_home_sw_i(i)) { // 電壓是 LOW 的 joint_home_sw_i(i) 的值是 TRUE
+                    joint_risc_probe_type_o(i) = RISC_PROBE_HIGH; // 目前電壓是 LOW, 要找變成 HIGH 的位置
+                } else {
+                    joint_risc_probe_type_o(i) = RISC_PROBE_LOW;  // 目前電壓是 HIGH, 要找變成 LOW 的位置
+                }
+                joint_risc_probe_vel_o(i) = -risc_probe_vel_i;  // back-off to switch
+                joint_risc_probe_pin_o(i) = joint_home_sw_id(i); // SWITCH_PROBE for master and slave joints
+            }
+        }
+        break;
+
+    case GH_INDEX_BACK_TO_SWITCH:
+        update_pos_ack_o = 0;
+        if (rcmd_state_i == RCMD_UPDATE_POS_REQ) {
+            home_state = GH_INDEX_WAIT_AT_SWITCH;
+            for (i = 0; i < localpincount; i++) {
+                joint_risc_probe_vel_o(i) = 0;
+            }
+        }
+        break;
+
+    case GH_INDEX_WAIT_AT_SWITCH:
+        update_pos_ack_o = 1;
+        if (rcmd_state_i == RCMD_IDLE) {
+            home_state = GH_INDEX_SEARCH_MASTER;
+            for (i = 0; i < localpincount; i++) {
+                joint_risc_probe_type_o(i) = risc_probe_type_i;
+                joint_risc_probe_vel_o(i) = risc_probe_vel_i;
+                joint_risc_probe_pin_o(i) = joint_id(0); // INDEX_PROBE for MASTER_JOINT
+            }
+        }
+        break;
+
+    case GH_INDEX_SEARCH_MASTER:
+        update_pos_ack_o = 0;
+        if (rcmd_state_i == RCMD_UPDATE_POS_REQ) {
+            home_state = GH_INDEX_UPDATE_MASTER;
+            // stop INDEX probing
+            for (i = 0; i < localpincount; i++) {
+                joint_risc_probe_vel_o(i) = 0;
+            }
+        }
+        break;
+
+    case GH_INDEX_UPDATE_MASTER:
+        // stop INDEX probing
+        // TODO: update master index position
+        update_pos_ack_o = 1;
+        if (rcmd_state_i == RCMD_IDLE) {
+            home_state = GH_IDLE;
+        }
+        break;
+
+    } // end of switch()
 
 return 0;
 }

@@ -97,6 +97,7 @@ if test -n "$SYSLOG_TO_STDERR"; then
 fi
 
 # set the default instance, if not already set
+unset INSTANCE  # Ubuntu has default $INSTANCE as Unity
 INSTANCE=`printf '%d' $INSTANCE`
 if [ "$INSTANCE_NAME" != "" ]  ; then
     NAME_CMD=--instance_name="$INSTANCE_NAME"
