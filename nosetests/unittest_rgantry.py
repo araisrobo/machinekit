@@ -280,6 +280,7 @@ class TestRgantry(TestCase):
         assert self.risc_probe_type_i.get() == RISC_PROBE_INDEX
         assert self.homing.get() == True
         assert self.home_state.get() == GH_INDEX_SEARCH_SLAVE
+        assert self.update_pos_ack_o.get() == False
         assert self.j1_risc_probe_type_o.get() == RISC_PROBE_INDEX
         assert self.j2_risc_probe_type_o.get() == RISC_PROBE_INDEX
         assert self.j1_risc_probe_pin_o.get() == SLAVE_JID
@@ -294,6 +295,7 @@ class TestRgantry(TestCase):
         assert self.risc_probe_type_i.get() == RISC_PROBE_INDEX
         assert self.homing.get() == True
         assert self.home_state.get() == GH_INDEX_UPDATE_SLAVE
+        assert self.update_pos_ack_o.get() == True
         assert self.j1_risc_probe_type_o.get() == RISC_PROBE_INDEX
         assert self.j2_risc_probe_type_o.get() == RISC_PROBE_INDEX
         assert self.j1_risc_probe_pin_o.get() == SLAVE_JID
