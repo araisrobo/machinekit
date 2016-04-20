@@ -1,0 +1,8 @@
+o<ahc_check> sub  
+    F#<_hal[arhmi.cut-vel]>  
+    M64P32 ; net m4.is.on, send to start AHC
+    M65P4  ; PROBR-EN
+    M66 P32 L3 Q0.01 ; need this to check m4.is.on to start AHC
+
+o<ahc_check> endsub  
+M2  
