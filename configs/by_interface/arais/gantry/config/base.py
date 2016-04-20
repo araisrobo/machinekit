@@ -232,7 +232,7 @@ def setup_estop_loopback():
     # create signal for estop loopback
     hal.net('iocontrol.0.user-enable-out', 'iocontrol.0.emc-enable-in')
 
-def setup_io():
+def setup_io(ini):
     ### connect i/o signals to wosi
     for i in range(0,96):
         dout_pin = hal.newsig("dout_%d" % i, hal.HAL_BIT)
@@ -266,6 +266,29 @@ def setup_io():
         else:
             din_not_pin = hal.newsig("din_%d_not" % i, hal.HAL_BIT)
         hal.Pin("wosi.gpio.in.%d.not" % i).link(din_not_pin)
+
+    joints = ini.find("ARAIS", "JOINTS")
+    for i in range(0,int(joints)):
+        alr_id = ini.find("JOINT_%d" % (i) , "ALR_ID")
+        if alr_id != "255":
+            din_not_pin = hal.Signal("din_%s_not" % alr_id)
+            hal.Pin("axis.%d.amp-fault-in" % (i)).link(din_not_pin)
+            # print "net din_%s_not axis.%d.amp-fault " % (alr_id, i) 
+        lsp_id = ini.find("JOINT_%d" % (i) , "LSP_ID")
+        if int(lsp_id) != 255 and int(lsp_id) < 128:
+            din_not_pin = hal.Signal("din_%s_not" % lsp_id)
+            hal.Pin("axis.%d.pos-lim-sw-in" % (i)).link(din_not_pin)
+        elif int(lsp_id) != 255 and int(lsp_id) > 128:
+            din_pin = hal.Signal("din_%s" % (int(lsp_id)-128))
+            hal.Pin("axis.%d.pos-lim-sw-in" % (i)).link(din_pin)
+
+        lsn_id = ini.find("JOINT_%d" % (i) , "LSN_ID")
+        if int(lsn_id) != 255 and int(lsn_id) < 128:
+            din_not_pin = hal.Signal("din_%s_not" % lsn_id)
+            hal.Pin("axis.%d.neg-lim-sw-in" % (i)).link(din_not_pin)
+        elif int(lsn_id) != 255 and int(lsn_id) > 128:
+            din_pin = hal.Signal("din_%s" % (int(lsn_id)-128))
+            hal.Pin("axis.%d.neg-lim-sw-in" % (i)).link(din_pin)
 
 def setup_motion(ini):
     joints = ini.find("ARAIS", "JOINTS")

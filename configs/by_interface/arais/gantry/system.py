@@ -27,7 +27,7 @@ else:
 
 # testing
 base.setup_motion(ini)     # create motion-signals for motion-pins
-base.setup_io()         # connect i/o signals to wosi
+base.setup_io(ini)         # connect i/o signals to wosi
 base.setup_analog()     # connect analog signals to wosi
 base.setup_debug()      # connect debug signals to wosi
 base.setup_signals(ini)    # for Machineface.signals
