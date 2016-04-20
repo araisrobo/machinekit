@@ -249,6 +249,8 @@ def setup_io(ini):
             hal.Pin("wosi.machine-on").link(dout_pin) 
         elif (i == 32):  # dout_32 is for spindle-on
             hal.Pin("motion.spindle-on").link(dout_pin)
+        elif (i == 5) or (i == 6):  # dout_32 is for spindle-on
+            pass
         else:            # default to M64Pxx operations
             hal.Pin("motion.digital-out-%02d" % i).link(dout_pin)
 
@@ -274,21 +276,21 @@ def setup_io(ini):
             din_not_pin = hal.Signal("din_%s_not" % alr_id)
             hal.Pin("axis.%d.amp-fault-in" % (i)).link(din_not_pin)
             # print "net din_%s_not axis.%d.amp-fault " % (alr_id, i) 
-        lsp_id = ini.find("JOINT_%d" % (i) , "LSP_ID")
-        if int(lsp_id) != 255 and int(lsp_id) < 128:
-            din_not_pin = hal.Signal("din_%s_not" % lsp_id)
-            hal.Pin("axis.%d.pos-lim-sw-in" % (i)).link(din_not_pin)
-        elif int(lsp_id) != 255 and int(lsp_id) > 128:
-            din_pin = hal.Signal("din_%s" % (int(lsp_id)-128))
-            hal.Pin("axis.%d.pos-lim-sw-in" % (i)).link(din_pin)
+        # lsp_id = ini.find("JOINT_%d" % (i) , "LSP_ID")
+        # if int(lsp_id) != 255 and int(lsp_id) < 128:
+        #     din_not_pin = hal.Signal("din_%s_not" % lsp_id)
+        #     hal.Pin("axis.%d.pos-lim-sw-in" % (i)).link(din_not_pin)
+        # elif int(lsp_id) != 255 and int(lsp_id) > 128:
+        #     din_pin = hal.Signal("din_%s" % (int(lsp_id)-128))
+        #     hal.Pin("axis.%d.pos-lim-sw-in" % (i)).link(din_pin)
 
-        lsn_id = ini.find("JOINT_%d" % (i) , "LSN_ID")
-        if int(lsn_id) != 255 and int(lsn_id) < 128:
-            din_not_pin = hal.Signal("din_%s_not" % lsn_id)
-            hal.Pin("axis.%d.neg-lim-sw-in" % (i)).link(din_not_pin)
-        elif int(lsn_id) != 255 and int(lsn_id) > 128:
-            din_pin = hal.Signal("din_%s" % (int(lsn_id)-128))
-            hal.Pin("axis.%d.neg-lim-sw-in" % (i)).link(din_pin)
+        # lsn_id = ini.find("JOINT_%d" % (i) , "LSN_ID")
+        # if int(lsn_id) != 255 and int(lsn_id) < 128:
+        #     din_not_pin = hal.Signal("din_%s_not" % lsn_id)
+        #     hal.Pin("axis.%d.neg-lim-sw-in" % (i)).link(din_not_pin)
+        # elif int(lsn_id) != 255 and int(lsn_id) > 128:
+        #     din_pin = hal.Signal("din_%s" % (int(lsn_id)-128))
+        #     hal.Pin("axis.%d.neg-lim-sw-in" % (i)).link(din_pin)
 
 def setup_motion(ini):
     joints = ini.find("ARAIS", "JOINTS")
