@@ -1,0 +1,8 @@
+# install sqlite3
+sudo apt-get install sqlite3
+
+# run python unittest
+python brush_data_test.py
+
+# if there's anything wrong:
+halcmd unload brush_data
