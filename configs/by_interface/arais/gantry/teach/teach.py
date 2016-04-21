@@ -161,10 +161,53 @@ class LineStart(Motion):
         return ''.join(cmd)
 
 class Drill(Motion):
+    def __init__(self, cur_pos, drill_rpm, drill_feed, drill_depth, drill_work_height, plate_thk, confirm_din):   # Constructor of the class
+        super(Drill,self).__init__(cur_pos)
+        self.drill_rpm = drill_rpm
+        self.drill_feed = drill_feed
+        self.drill_depth = drill_depth
+        self.drill_work_height = drill_work_height
+        self.plate_thk = plate_thk
+        self.confirm_din = confirm_din
     def description(self):
-        return 'Drill ', self.cur_pos
+        return 'Drill %s' % (self.get_non_z_str())
+    def set_tool_id(self, drill_id):
+        self.drill_tool_id = drill_id
     def convert(self, id):
-        return 'G1 Z[TODO] ;Drill TO Gcode...'
+        global configs
+        global stat
+        gcode_buf = ""
+        
+        if (self.drill_tool_id != stat.tool_id):
+            cmd = (stat.gcode_pending,# change to drill tool
+                   "M6 T%s\n" % (self.drill_tool_id),
+                   "G10 L2 P1 Z0\n",
+                   "G10 L20 P1 Z%f\n"% (abs(self.drill_work_height)+configs.home_orig-self.plate_thk - configs.offset)) 
+            gcode_buf = ''.join(cmd)
+            stat.tool_id = self.drill_tool_id
+            # stat.gcode_pending = "M6 T%s\n" % (self.tap_tool_id) +\
+            #                       "G10 L2 P1 Z0\n" +\
+            #                       "G10 L20 P1 Z%f\n"% (abs(self.tapping_work_height)+configs.home_orig-self.plate_thk - configs.offset)
+
+        """ 1st pass: drill """
+        cmd = (gcode_buf,
+               "(begin: id[%d], %s, drill)\n" % (id, self.description()),
+               "G90\n",
+               "G0 X%f Y%f\n" % (self.cur_pos["X"], self.cur_pos["Y"]),
+               "G0 Z%f\n" % (configs.work_height), 
+#               "M66P%dL3Q10000\n" % self.confirm_din,
+               "G91\n",
+               "M3 S%f\n" % (self.drill_rpm), 
+               "F%f\n" % (self.drill_feed),
+               "G1 Z-%f\n" % (self.drill_depth), 
+#               "G0 Z%f\n" % (self.drill_depth),
+               "G90\n",
+               "G0 Z%f\n" % (configs.safe_height),
+               "M5\n",
+               "(end: id[%d], %s, drill)\n" % (id, self.description()) 
+               )
+        
+        return ''.join(cmd)
 
 class ChangeTool(Motion):
     def description(self):
@@ -514,7 +557,10 @@ class HandlerClass:
         
     def on_drill_clicked (self, w):
         cur_pos = self.get_cur_pos()
-        newMotion = Drill(cur_pos)
+        newMotion = Drill(cur_pos,self.drill_rpm, self.drill_feed, self.drill_depth,\
+                          self.drill_compensate, self.plate_thk, confirm_din=60)
+        self.drill.append(newMotion)
+        newMotion.set_tool_id(self.drill_id) # drill_id(1)
         self.motionList.append([newMotion, len(self.motionList), newMotion.description()])
 
     def on_rigid_tap_clicked (self, w=None):
@@ -571,13 +617,14 @@ class HandlerClass:
         for motion in self.motionList:
             id = motion[self.cId]
             self.g_code = "".join((self.g_code, motion[self.cMotionObject].convert(id), '\n'))
-        a = self.builder.get_object('hal_action_open1')
-        teached_g_code = os.path.join(os.path.expanduser("../../nc_files"), "teached.ngc")
+            print self.g_code
+        # a = self.builder.get_object('hal_action_open1')
+        teached_g_code = os.path.join(os.path.expanduser("../nc_files"), "teached.ngc")
         fout = open(teached_g_code,'w')
         fout.writelines(self.g_code)
         fout.close()
-        a.fixed_file = teached_g_code
-        a.activate()
+        # a.fixed_file = teached_g_code
+        # a.activate()
         
         stat.tool_id = 0
 
@@ -605,7 +652,11 @@ class HandlerClass:
                 while db.has_key(str(count)):
                     newMotion = db[str(count)]
                     self.motionList.append([newMotion, count, newMotion.description()])
-                    self.rigid_tap.append(newMotion)
+                    self.drill.append(newMotion)
+                    # try:
+                    #     self.drill.append(newMotion)
+                    # except:
+                    #     self.rigid_tap.append(newMotion)
                     count = count +1
                 db.close();
                 #set the project file
@@ -1140,6 +1191,7 @@ class HandlerClass:
 #        self.drill_depth = float(self.builder.get_object("drill_depth").get_text())
 #        self.drill_feed = float(self.builder.get_object("drill_feed").get_text())
 #        self.drill_rpm = float(self.builder.get_object("drill_rpm").get_text())
+        self.drill = []
         self.rigid_tap = []
 #        self.tap = []
 #         self.builder.get_object('scrolledwindow2').hide()
