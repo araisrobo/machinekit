@@ -249,7 +249,9 @@ def setup_io(ini):
             hal.Pin("wosi.machine-on").link(dout_pin) 
         elif (i == 32):  # dout_32 is for spindle-on
             hal.Pin("motion.spindle-on").link(dout_pin)
-        elif (i == 5) or (i == 6):  # dout_32 is for spindle-on
+        elif (i == 5) or (i == 6):
+            # dout_5 is odd up/down
+            # dout_6 is even up/down
             pass
         else:            # default to M64Pxx operations
             hal.Pin("motion.digital-out-%02d" % i).link(dout_pin)

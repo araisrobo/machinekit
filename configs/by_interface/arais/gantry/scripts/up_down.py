@@ -10,9 +10,7 @@ from linuxcnc_control import  LinuxcncControl
 from machinekit import hal
 class OddPosition(object):
 
-    def __init__(self, i, postion, width, offset):
-        # self.pos = postion
-        # self.width = width 
+    def __init__(self, i, position, width, offset):
         self.pos_max = (position + (offset * i)) + width 
         self.pos_min = (position + (offset * i)) - width
         if (self.pos_min >  self.pos_max):
@@ -21,7 +19,7 @@ class OddPosition(object):
             self.pos_min = tmp_pos
 
 
-def plasma_hal(ini):
+def gantry_hal(ini):
     # adcs = []
     # for i in range(0,16):
     #     tmp_scale = ini.find("ARAIS", "ADC%d_SCALE" % i)
@@ -35,8 +33,14 @@ def plasma_hal(ini):
 
     tmp_pin = h.newpin("odd-platen", hal.HAL_BIT, hal.HAL_OUT)
     hal.Signal("dout_5").link(tmp_pin)
+    h['odd-platen'] = False
     tmp_pin = h.newpin("even-platen", hal.HAL_BIT, hal.HAL_OUT)
     hal.Signal("dout_6").link(tmp_pin)
+    h['even-platen'] = False
+    tmp_pin = h.newpin("check-Ypos", hal.HAL_BIT, hal.HAL_IN)
+    # hal.Pin("motion.digital-in-28").link(tmp_pin)
+    hal.Signal("dout_28").link(tmp_pin)
+    h['check-Ypos'] = False
     h.ready() # mark the component as 'ready'
 
 e = LinuxcncControl(1)
@@ -54,43 +58,43 @@ else:
     print "No valid INI_FILE_NAME, please launch Machinekit"
     exit(1)
 
-# h = hal.Component("gantry")
-# plasma_hal(ini)
-positions = []
-# tmp_scale = ini.find("ARAIS", "ADC%d_SCALE" % i)
-# tmp_offset = ini.find("ARAIS", "ADC%d_OFFSET" % i)
-# TODO: set from inifile
+h = hal.Component("gantry")
+gantry_hal(ini)
 # position: HOMING 完最靠近我們的奇數圓桿中心Y座標
 # width: 圓桿中心到兩根圓桿中間的寬度
 # offset: 奇數圓桿到奇數圓桿的距離
 # odd_num: 奇數圓桿的數量
-position = -566
-width = 30
-offset = 160
-odd_num = 6
+position = ini.find("SCRIPTS", "ODD_POSITION")
+width = ini.find("SCRIPTS", "ODD_WIDTH")
+offset = ini.find("SCRIPTS", "ODD_OFFSET") 
+odd_num = ini.find("SCRIPTS", "ODD_NUMBER")
+dwell = ini.find("SCRIPTS", "DWELL")
 set_odd = True 
-# pos = OddPosition(float(position), float(width)) 
+positions = []
 for i in range(0, int(odd_num)):
-    pos = OddPosition(i,float(position), float(width), float(offset)) 
+    pos = OddPosition(float(i),float(position), float(width), float(offset)) 
     positions.append(pos)
     
 while True:
     e.s.poll()
     set_odd = True  
-    for i in range(0, int(odd_num)):
-        if (e.s.position[1] < positions[i].pos_max and \
-            e.s.position[1] > positions[i].pos_min):
-            set_odd = False 
-    if set_odd == False and h['odd-platen']:
-        h['even-platen'] = True 
-        time.sleep(0.5)
-        h['odd-platen'] = False
-        print "In Odd section Y_pos(%f)" % e.s.position[1]
-    elif set_odd == True and (not h['odd-platen']):
-        h['odd-platen'] = True 
-        time.sleep(0.5)
-        h['even-platen'] = False
-        print "Out Odd section Y_pos(%f)" % e.s.position[1]
+    #  M64P_ => 虛擬的 OUT_28 在執行 GCODE 時，輸出是否要更新平台升降，
+    # 避免Y軸移動的過程經過太多區塊平台上上下下
+    if h['check-Ypos']:
+        for i in range(0, int(odd_num)):
+            if (e.s.position[1] < positions[i].pos_max and \
+                e.s.position[1] > positions[i].pos_min):
+                set_odd = False 
+        if set_odd == False and h['odd-platen']:
+            h['even-platen'] = True 
+            time.sleep(float(dwell))
+            h['odd-platen'] = False
+            # print "In Odd section Y_pos(%f)" % e.s.position[1]
+        elif set_odd == True and (not h['odd-platen']):
+            h['odd-platen'] = True 
+            time.sleep(float(dwell))
+            h['even-platen'] = False
+            # print "Out Odd section Y_pos(%f)" % e.s.position[1]
 
     time.sleep(0.1)
 
