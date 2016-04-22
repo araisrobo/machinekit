@@ -87,7 +87,8 @@ class Motion(object):
         raise NotImplementedError("Subclass must implement abstract method")
     def get_non_z_str(self):
         str = ""
-        for k in "XYABCUVW":
+        # for k in "XYABCUVW":
+        for k in "XY":
             if k in self.cur_pos: # to check if key in dict
                 str += "%s%.3f " % (k, self.cur_pos[k])
         return (str)
@@ -180,29 +181,25 @@ class Drill(Motion):
         
         if (self.drill_tool_id != stat.tool_id):
             cmd = (stat.gcode_pending,# change to drill tool
-                   "M6 T%s\n" % (self.drill_tool_id),
-                   "G10 L2 P1 Z0\n",
-                   "G10 L20 P1 Z%f\n"% (abs(self.drill_work_height)+configs.home_orig-self.plate_thk - configs.offset)) 
+                   # "M6 T%s\n" % (self.drill_tool_id),
+                   # "G10 L2 P1 Z0\n",
+                   # "G10 L20 P1 Z%f\n"% (abs(self.drill_work_height)+configs.home_orig-self.plate_thk - configs.offset)) 
+                   "#<work_height>=-10\n") 
             gcode_buf = ''.join(cmd)
             stat.tool_id = self.drill_tool_id
-            # stat.gcode_pending = "M6 T%s\n" % (self.tap_tool_id) +\
-            #                       "G10 L2 P1 Z0\n" +\
-            #                       "G10 L20 P1 Z%f\n"% (abs(self.tapping_work_height)+configs.home_orig-self.plate_thk - configs.offset)
 
         """ 1st pass: drill """
         cmd = (gcode_buf,
                "(begin: id[%d], %s, drill)\n" % (id, self.description()),
                "G90\n",
                "G0 X%f Y%f\n" % (self.cur_pos["X"], self.cur_pos["Y"]),
-               "G0 Z%f\n" % (configs.work_height), 
+               "G0 Z#<work_height>\n", 
 #               "M66P%dL3Q10000\n" % self.confirm_din,
                "G91\n",
                "M3 S%f\n" % (self.drill_rpm), 
                "F%f\n" % (self.drill_feed),
                "G1 Z-%f\n" % (self.drill_depth), 
-#               "G0 Z%f\n" % (self.drill_depth),
-               "G90\n",
-               "G0 Z%f\n" % (configs.safe_height),
+               "G0 Z[#<work_height>+30]\n",
                "M5\n",
                "(end: id[%d], %s, drill)\n" % (id, self.description()) 
                )
@@ -617,7 +614,6 @@ class HandlerClass:
         for motion in self.motionList:
             id = motion[self.cId]
             self.g_code = "".join((self.g_code, motion[self.cMotionObject].convert(id), '\n'))
-            print self.g_code
         # a = self.builder.get_object('hal_action_open1')
         teached_g_code = os.path.join(os.path.expanduser("../nc_files"), "teached.ngc")
         fout = open(teached_g_code,'w')
@@ -625,7 +621,7 @@ class HandlerClass:
         fout.close()
         # a.fixed_file = teached_g_code
         # a.activate()
-        
+        print 'convet code to: ', teached_g_code
         stat.tool_id = 0
 
     def on_clear_all_clicked (self, w, d=None):
