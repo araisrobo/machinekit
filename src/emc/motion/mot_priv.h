@@ -102,6 +102,9 @@ typedef struct {
     hal_bit_t *update_pos_req;
     hal_bit_t *update_pos_ack;
     hal_u32_t *rcmd_state;
+    hal_u32_t *rgantry_state;
+    hal_bit_t *rgantry_update_pos_ack_i;
+    hal_u32_t *rgantry_axis_id;
 
     hal_float_t *xuu_per_rev;   /* user unit per revolution for AXIS_X */
     hal_float_t *yuu_per_rev;   /* user unit per revolution for AXIS_Y */

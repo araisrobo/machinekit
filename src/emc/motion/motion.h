@@ -471,7 +471,8 @@ Suggestion: Split this in to an Error and a Status flag register..
 	HOME_LOCK,			// 22
 	HOME_LOCK_WAIT,			// 23
 	HOME_FINISHED,			// 24
-	HOME_ABORT			// 25
+	HOME_ABORT,			// 25
+	HOME_INDEX_WAIT_GANTRY          // 26
     } home_state_t;
 
     typedef enum {

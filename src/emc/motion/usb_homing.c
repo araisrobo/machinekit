@@ -64,9 +64,9 @@ static const char * const home_state_names[] =
     "HOME_FINAL_MOVE_WAIT",               // 21
     "HOME_LOCK",                          // 22
     "HOME_LOCK_WAIT",                     // 23
-    "HOME_WAIT",                          // 24
     "HOME_FINISHED",                      // 25
-    "HOME_ABORT"                          // 26
+    "HOME_ABORT",                         // 26
+    "HOME_INDEX_WAIT_GANTRY"              // 27
 };
 
 static const char * const rcmd_state_names[] =
@@ -663,11 +663,28 @@ void do_usb_homing(void)
                 /* set up a move at 'latch_vel' to find the index LOCK signal */
                 home_start_move(joint, joint->home_latch_vel, RISC_PROBE_INDEX);
                 emcmotStatus->update_pos_ack = 0; // to park rcmd_state at RCMD_UPDATE_POS_REQ
-                if(*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ)
+                if (*emcmot_hal_data->rgantry_axis_id == *(joint->joint_id))
+                {   // index homing for rgantry
+                    if (*emcmot_hal_data->rgantry_state != 0) // gantry is homing
+                    {
+                        joint->home_state = HOME_INDEX_WAIT_GANTRY;
+                    }
+                }
+                else if (*emcmot_hal_data->rcmd_state == RCMD_UPDATE_POS_REQ)
                 {
                     /* stop issue risc-probe-command */
                     home_stop_move(joint);
                     /* next state */
+                    joint->home_state = HOME_INDEX_SEARCH_WAIT;
+                }
+                break;
+
+            case HOME_INDEX_WAIT_GANTRY:
+                emcmotStatus->update_pos_ack = *emcmot_hal_data->rgantry_update_pos_ack_i; // forward update_pos_ack from rgantry
+                if (*emcmot_hal_data->rgantry_state == 0) // gantry homing finished
+                {
+                    /* stop issue risc-probe-command */
+                    home_stop_move(joint);
                     joint->home_state = HOME_INDEX_SEARCH_WAIT;
                 }
                 break;

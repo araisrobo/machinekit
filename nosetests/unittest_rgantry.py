@@ -47,7 +47,7 @@ class TestRgantry(TestCase):
         assert self.homing.linked == False
         
         self.home_state = hal.Pin("gantry.y.home-state")
-        assert self.home_state.type == hal.HAL_S32
+        assert self.home_state.type == hal.HAL_U32
         assert self.home_state.dir == hal.HAL_OUT
         assert self.home_state.linked == False
         
