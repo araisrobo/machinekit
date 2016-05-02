@@ -1,4 +1,7 @@
-#!/usr/bin/python
+#/usr/bin/env python
+# -*- coding: UTF-8 -*
+# vim: sts=4 sw=4 et
+
 #    Copyright (C) 2009-2012
 #    Jeff Epler <jepler@unpythonic.net>,
 #    Pavel Shramov <psha@kamba.psha.org.ru>,
@@ -49,6 +52,7 @@ import os
 import sys
 
 import thread
+import traceback
 
 from minigl import *
 
@@ -168,6 +172,11 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
         self.num_joints = int(inifile.find("TRAJ", "JOINTS") or live_axis_count)
         self.highlight_mode = 'line'
         self.highlight_mode = inifile.find("DISPLAY", "HIGHLIGHT_MODE")
+        
+        # for ARHMI:
+        self.message_box = None
+        self.message_buf = None
+        
     def activate(self):
         glcontext = gtk.gtkgl.widget_get_gl_context(self)
         gldrawable = gtk.gtkgl.widget_get_gl_drawable(self)
@@ -240,8 +249,9 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
         self.font_linespace = linespace
         self.font_charwidth = width
         rs274.glcanon.GlCanonDraw.realize(self)
-
-        if s.file: self.load()
+        
+        # 在系統啟動時，因為 HAL 還未設定，會造成 gcode syntax 錯誤
+        # if s.file: self.load()
 
     def set_current_view(self):
         if self.current_view not in ['p', 'x', 'y', 'y2', 'z', 'z2']:
@@ -249,6 +259,9 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
         return getattr(self, 'set_view_%s' % self.current_view)()
 
     def load(self,filename = None):
+#         print "gremlin.load: traceback"
+#         for line in traceback.format_stack():
+#             print(line.strip())
         s = self.stat
         s.poll()
         if not filename and s.file:
@@ -257,6 +270,7 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
             return
         if ('nc_subroutines') in filename:
             return
+
         td = tempfile.mkdtemp()
         self._current_file = filename
         try:
@@ -267,7 +281,14 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
             else:
                 canon = self.canon
                 canon.__init__(self.colors, self.get_geometry(), self.lathe_option, s, random)
-#             canon.set_highlight_mode(self.highlight_mode)
+            
+            self.canon.message_box = self.message_box
+            self.canon.message_buf = self.message_buf
+            self.canon.fread_t0 = time.time()
+            lst = filename.split('/')
+            self.canon.filename = lst[-1]
+            
+            canon.set_highlight_mode(self.highlight_mode)
             parameter = self.inifile.find("RS274NGC", "PARAMETER_FILE")
             temp_parameter = os.path.join(td, os.path.basename(parameter or "linuxcnc.var"))
             if parameter:
@@ -276,13 +297,13 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
 
             unitcode = "G%d" % (20 + (s.linear_units == 1))
             initcode = self.inifile.find("RS274NGC", "RS274NGC_STARTUP_CODE") or ""
+            # t0 = time.time()
             result, seq = self.load_preview(filename, canon, unitcode, initcode)
             if result > gcode.MIN_ERROR:
                 self.report_gcode_error(result, seq, filename)
-
+            # print "gremlin.load.load_preview: ", time.time() - t0
         finally:
             shutil.rmtree(td)
-
         self.set_current_view()
 
     def get_program_alpha(self): return self.program_alpha

@@ -23,6 +23,9 @@ import hershey
 import linuxcnc
 import array
 import gcode
+import gtk
+import time
+import traceback
 
 from numpy import linalg as LA
 
@@ -111,6 +114,10 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.max_y = 0
         # Let graphics are always display in the center
         self.arhmi_touchoff = True
+        self.message_box = None
+        self.message_buf = None
+        self.fread_t0 = 0 # begin of fread
+        self.filename = ""
 
     def comment(self, arg):
         if arg.startswith("AXIS,"):
@@ -150,7 +157,19 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.lineno = self.state.sequence_number
         self.call_level = self.state.call_level
 
+        if (self.message_buf):
+            if (self.call_level == 0):
+                if ((time.time() - self.fread_t0) > 0.5):
+                    # update current lineno at every 0.5 sec
+                    self.fread_t0 = time.time()
+                    self.message_buf.set_text("%s ... %d" % (self.filename, self.lineno))
+                    while gtk.events_pending():
+                        gtk.main_iteration_do(True)
+
     def draw_lines(self, lines, for_selection, j=0, geometry=None):
+#         print "gremlin.load: traceback"
+#         for line in traceback.format_stack():
+#             print(line.strip())
         return linuxcnc.draw_lines(geometry or self.geometry, lines, for_selection)
 
     def colored_lines(self, color, lines, for_selection, j=0):
@@ -310,7 +329,8 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         if (self.call_level == 0):
             self.path.append(('feed', self.lineno, self.lo, l, self.feedrate, [self.xo, self.yo, self.zo], length))
 
-    straight_probe = straight_feed
+    # why need straight_probe? =>
+    # straight_probe = straight_feed
 
     def user_defined_function(self, i, p, q):
         if self.suppress > 0: return
@@ -330,6 +350,14 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.blocks_append((self.lineno, self.block_pos,self.block_feed))
         self.block_pos = []
         self.pierce += 1
+
+    def program_end(self):
+        # M2/M30
+        self.path.append(('M2', self.lineno))
+        self.pierce = 0
+        self.message_buf.set_text("")
+        while gtk.events_pending():
+            gtk.main_iteration_do(True)
 
     def get_last_pos_of_prog(self):
         if len(self.all_traverse) > 0: 
@@ -1362,7 +1390,8 @@ class GlCanonDraw:
                 for char in string:
                     glCallList(base + ord(char))
                 if i < len(homed) and homed[i]:
-                    glRasterPos2i(pixel_width + 8, ypos)
+                    # glRasterPos2i(pixel_width + 8, ypos)
+                    glRasterPos2i(charwidth *3, ypos)
                     glBitmap(13, 16, 0, 3, 17, 0, homeicon)
                 if i < len(homed) and limit[i]:
                     glBitmap(13, 16, 0, 1, 17, 0, limiticon)
@@ -1772,7 +1801,6 @@ class GlCanonDraw:
     def load_preview(self, f, canon, unitcode, initcode, interpname=""):
         self.set_canon(canon)
         result, seq = gcode.parse(f, canon, unitcode, initcode, interpname)
-
         if result <= gcode.MIN_ERROR:
             self.canon.progress.nextphase(1)
             canon.calc_extents()
@@ -1780,7 +1808,6 @@ class GlCanonDraw:
             self.stale_dlist('program_norapids')
             self.stale_dlist('select_rapids')
             self.stale_dlist('select_norapids')
-
         return result, seq
 
     def from_internal_units(self, pos, unit=None):

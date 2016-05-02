@@ -419,7 +419,14 @@ void SET_SPINDLE_SPEED(double rpm) {}
 void ORIENT_SPINDLE(double d, int i) {}
 void WAIT_SPINDLE_ORIENT_COMPLETE(double timeout) {}
 void PROGRAM_STOP() {}
-void PROGRAM_END() {}
+void PROGRAM_END()
+{
+    maybe_new_line();
+    if(interp_error) return;
+    PyObject *result = callmethod(callback, "program_end", "");
+    if(result == NULL) interp_error ++;
+    Py_XDECREF(result);
+}
 void FINISH() {}
 void PALLET_SHUTTLE() {}
 void SELECT_POCKET(int pocket, int tool) {}
@@ -722,11 +729,12 @@ static PyObject *parse_file(PyObject *self, PyObject *args) {
         delete pinterp;
         pinterp = 0;
     }
-    if(interpname && *interpname)
+    if(interpname && *interpname) {
         pinterp = interp_from_shlib(interpname);
-    if(!pinterp)
+    }
+    if(!pinterp) {
         pinterp = new Interp;
-
+    }
     for(int i=0; i<USER_DEFINED_FUNCTION_NUM; i++) 
         USER_DEFINED_FUNCTION[i] = user_defined_function;
 
