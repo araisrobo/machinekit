@@ -341,8 +341,16 @@ static int init_hal_io(void)
     if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->update_pos_req), mot_comp_id, "motion.update-pos-req")) < 0) goto error;
     if ((retval = hal_pin_bit_newf(HAL_OUT, &(emcmot_hal_data->update_pos_ack), mot_comp_id, "motion.update-pos-ack")) < 0) goto error;
     if ((retval = hal_pin_u32_newf(HAL_IN, &(emcmot_hal_data->rcmd_state), mot_comp_id, "motion.rcmd-state")) < 0) goto error;
+    if ((retval = hal_pin_u32_newf(HAL_IN, &(emcmot_hal_data->rgantry_state), mot_comp_id, "motion.rgantry-state")) < 0) goto error;
+    if ((retval = hal_pin_bit_newf(HAL_IN, &(emcmot_hal_data->rgantry_update_pos_ack_i), mot_comp_id, "motion.rgantry-update-pos-ack-i")) < 0) goto error;
+    if ((retval = hal_pin_u32_newf(HAL_IN, &(emcmot_hal_data->rgantry_axis_id), mot_comp_id, "motion.rgantry-axis-id")) < 0) goto error;
+
     *emcmot_hal_data->update_pos_req = 0;
     *emcmot_hal_data->update_pos_ack = 0;
+    *emcmot_hal_data->rgantry_state = 0;
+    *emcmot_hal_data->rgantry_update_pos_ack_i = 0;
+    *emcmot_hal_data->rgantry_axis_id = 65536; // default to a invalid rgantry-axis-id
+
 #ifdef USB_MOTION_ENABLE
     *emcmot_hal_data->rcmd_state = RCMD_IDLE;
 #endif // USB_MOTION_ENABLE

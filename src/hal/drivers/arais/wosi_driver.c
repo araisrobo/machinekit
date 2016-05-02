@@ -971,7 +971,7 @@ static int load_parameters(FILE *fp)
                     n, n);
             sprintf(section, "AXIS_%d", n);
         }
-        
+
         s = iniFind(fp, "INPUT_SCALE", section);
         if (s == NULL) {
             rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no INPUT_SCALE defined for %s\n", section);
@@ -1025,7 +1025,7 @@ static int load_parameters(FILE *fp)
         while (wosi_flush(&w_param) == -1)
             ;
         stepgen_array[n].enc_scale = enc_scale;
-        
+
         rtapi_print_msg(RTAPI_MSG_INFO,
                 "j[%d] max_vel(%f) max_accel(%f) max_jerk(%f) pos_scale(%f) enc_scale(%f)\n",
                 n, max_vel, max_accel, max_jerk, pos_scale, enc_scale);
@@ -1096,7 +1096,7 @@ static int load_parameters(FILE *fp)
             rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_DEV defined for %s\n", section);
             return -1;
         }
-        
+
         rtapi_print_msg(RTAPI_MSG_INFO, "j[%d] OUT_CH(%d) OUT_DEV(%s)\n", n, ch, s);
 
         if (toupper(s[0]) == 'A') {
@@ -1122,7 +1122,7 @@ static int load_parameters(FILE *fp)
         if ((toupper(s[0]) == 'P') || (toupper(s[0]) == 'D'))
         {
             int omin, omax;
-        
+
             s = iniFind(fp, "OUT_MIN", section);
             if (s == NULL) {
                 rtapi_print_msg(RTAPI_MSG_ERR, "WOSI.ERROR: no OUT_MIN defined for %s\n", section);
@@ -1954,8 +1954,10 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             }
         }
 
-        if (stepgen->risc_probe_vel == 0)
+        if (stepgen->risc_probing && (stepgen->risc_probe_vel == 0)) {
             stepgen->risc_probing = 0;
+            // rtapi_print("(%s:%d) j[%d] reset risc_probing", __FILE__, __LINE__, n);
+        }
 
         if ((*stepgen->homing) && (stepgen->risc_probe_vel != 0)
                 && (stepgen->risc_probing == 0)
@@ -1974,6 +1976,11 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             assert(*stepgen->risc_probe_pin < 64);
             assert(dbuf[2] != 0);
             stepgen->risc_probing = 1;
+            // rtapi_print("(%s:%d) j[%d] risc_probe type(%d) pin(%d) vel(%f)", __FILE__, __LINE__,
+            //         n,
+            //         *stepgen->risc_probe_type,
+            //         *stepgen->risc_probe_pin,
+            //         stepgen->risc_probe_vel);
         }
 
         if ((n == *machine_control->blender_joint_id) && (*machine_control->blender_vel_req != machine_control->prev_blender_vel_req))
@@ -2678,7 +2685,7 @@ static int export_machine_control(machine_control_t * machine_control)
         return retval;
     }
     *(machine_control->sfifo_empty) = 0;
-    
+
     retval = hal_pin_bit_newf(HAL_OUT, &(machine_control->rtp_running), comp_id,
             "wosi.motion.rtp-running");
     if (retval != 0)

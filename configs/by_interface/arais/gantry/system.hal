@@ -72,9 +72,10 @@ net current-vel   wosi.motion.current-vel <= motion.current-vel
 
 
 # y-axis gantry
-net ypos-cmd  rgantry.0.position-cmd     <= axis.1.motor-pos-cmd
-net ypos-fb   rgantry.0.position-fb      => axis.1.motor-pos-fb
-
+net ypos-cmd        rgantry.0.position-cmd      <= axis.1.motor-pos-cmd
+net ypos-fb         rgantry.0.position-fb       => axis.1.motor-pos-fb
+net rgantry-state   rgantry.0.home-state        => motion.rgantry-state
+net rcmd-state      rgantry.0.rcmd-state-i       
 
 # create HAL signals for position commands from motion module
 # connect position commands from motion module for "servo_tick => wosi_driver"
@@ -88,6 +89,7 @@ net j6-pos-cmd      axis.5.motor-pos-cmd        => servo_tick.j6-pos-cmd
 # TODO: 目前的 update-pos-ack for rgantry 有問題
 net update-pos-ack  motion.update-pos-ack       => servo_tick.update-pos-ack
 net update-pos-ack                              => rgantry.0.update-pos-ack-i
+net rgantry-update-pos-ack motion.rgantry-update-pos-ack-i => rgantry.0.update-pos-ack-o
 
 # loop position commands back to motion module feedback
 net j0-pos-fb   wosi.stepgen.0.position-fb => axis.0.motor-pos-fb
@@ -160,6 +162,10 @@ net j0-risc-probe-type      axis.0.risc-probe-type => wosi.stepgen.0.risc-probe-
 # for usb-homing: y-axis gantry
 setp axis.1.joint-id                    1
 setp axis.1.home-sw-id                  [JOINT_1]HOME_SW_ID
+setp rgantry.0.axis-id                  1
+setp rgantry.0.joint.00.id              1
+setp rgantry.0.joint.01.id              2
+net  rgantry-axis-id  rgantry.0.axis-id => motion.rgantry-axis-id
 setp rgantry.0.homing-abs-enc           [JOINT_1]ENC_ABS
 setp rgantry.0.joint.00.home-sw-id      [JOINT_1]HOME_SW_ID
 setp rgantry.0.joint.01.home-sw-id      [JOINT_2]HOME_SW_ID
@@ -172,10 +178,9 @@ net  a1-homing                          <= axis.1.homing
 net  a1-homing                          => wosi.stepgen.1.homing
 net  a1-homing                          => wosi.stepgen.2.homing
 net  a1-homing                          => rgantry.0.homing
-net  a1-risc-probe-vel                  <= axis.1.risc-probe-vel 
-net  a1-risc-probe-vel                  => rgantry.0.risc-probe-vel-i
-net  a1-risc-probe-vel                  => servo_tick.j1-risc-probe-vel-i
-net  a1-risc-probe-vel                  => servo_tick.j2-risc-probe-vel-i
+net  a1-risc-probe-vel axis.1.risc-probe-vel               => rgantry.0.risc-probe-vel-i
+net  j1-risc-probe-vel rgantry.0.joint.00.risc-probe-vel-o => servo_tick.j1-risc-probe-vel-i
+net  j2-risc-probe-vel rgantry.0.joint.01.risc-probe-vel-o => servo_tick.j2-risc-probe-vel-i
 net  j1-risc-probe-pin                  <= rgantry.0.joint.00.risc-probe-pin-o 
 net  j1-risc-probe-pin                  => wosi.stepgen.1.risc-probe-pin
 net  j2-risc-probe-pin                  <= rgantry.0.joint.01.risc-probe-pin-o 
