@@ -353,8 +353,8 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
 
     def program_end(self):
         # M2/M30
-        self.path.append(('M2', self.lineno))
-        self.pierce = 0
+        # self.path.append(('M2', self.lineno))
+        # self.pierce = 0
         self.message_buf.set_text("")
         while gtk.events_pending():
             gtk.main_iteration_do(True)
