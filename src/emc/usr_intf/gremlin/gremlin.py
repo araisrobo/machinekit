@@ -176,7 +176,9 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
         # for ARHMI:
         self.message_box = None
         self.message_buf = None
-        
+        self.activate_motion_btns = None
+        self.disable_motion_btns = None
+
     def activate(self):
         glcontext = gtk.gtkgl.widget_get_gl_context(self)
         gldrawable = gtk.gtkgl.widget_get_gl_drawable(self)
@@ -298,12 +300,12 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
             unitcode = "G%d" % (20 + (s.linear_units == 1))
             initcode = self.inifile.find("RS274NGC", "RS274NGC_STARTUP_CODE") or ""
             # t0 = time.time()
-            self.canon.loading = True
+            self.disable_motion_btns()
             result, seq = self.load_preview(filename, canon, unitcode, initcode)
+            self.activate_motion_btns()
             if result > gcode.MIN_ERROR:
                 self.report_gcode_error(result, seq, filename)
             # print "gremlin.load.load_preview: ", time.time() - t0
-            self.canon.loading = False
         finally:
             shutil.rmtree(td)
         self.set_current_view()

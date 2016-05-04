@@ -118,7 +118,6 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.message_buf = None
         self.fread_t0 = 0 # begin of fread
         self.filename = ""
-        self.loading = False
 
     def comment(self, arg):
         if arg.startswith("AXIS,"):
