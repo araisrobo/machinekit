@@ -118,6 +118,7 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         self.message_buf = None
         self.fread_t0 = 0 # begin of fread
         self.filename = ""
+        self.loading = False
 
     def comment(self, arg):
         if arg.startswith("AXIS,"):
@@ -162,6 +163,8 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
                 if ((time.time() - self.fread_t0) > 0.5):
                     # update current lineno at every 0.5 sec
                     self.fread_t0 = time.time()
+                    self.message_box.modify_base(gtk.STATE_NORMAL, gtk.gdk.color_parse("white"))
+                    self.message_box.modify_text(gtk.STATE_NORMAL, gtk.gdk.color_parse("black"))
                     self.message_buf.set_text("%s ... %d" % (self.filename, self.lineno))
                     while gtk.events_pending():
                         gtk.main_iteration_do(True)
@@ -355,7 +358,10 @@ class GLCanon(Translated, ArcsToSegmentsMixin):
         # M2/M30
         # self.path.append(('M2', self.lineno))
         # self.pierce = 0
-        self.message_buf.set_text("")
+        if (self.message_buf):
+            self.message_buf.set_text("")
+            self.message_box.modify_base(gtk.STATE_NORMAL, gtk.gdk.color_parse("white"))
+            self.message_box.modify_text(gtk.STATE_NORMAL, gtk.gdk.color_parse("black"))
         while gtk.events_pending():
             gtk.main_iteration_do(True)
 

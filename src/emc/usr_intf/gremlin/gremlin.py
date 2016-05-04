@@ -298,10 +298,12 @@ class Gremlin(gtk.gtkgl.widget.DrawingArea, glnav.GlNavBase,
             unitcode = "G%d" % (20 + (s.linear_units == 1))
             initcode = self.inifile.find("RS274NGC", "RS274NGC_STARTUP_CODE") or ""
             # t0 = time.time()
+            self.canon.loading = True
             result, seq = self.load_preview(filename, canon, unitcode, initcode)
             if result > gcode.MIN_ERROR:
                 self.report_gcode_error(result, seq, filename)
             # print "gremlin.load.load_preview: ", time.time() - t0
+            self.canon.loading = False
         finally:
             shutil.rmtree(td)
         self.set_current_view()
