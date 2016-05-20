@@ -2099,10 +2099,10 @@ int tpAddLine(TP_STRUCT * const tp, EmcPose end, int canon_motion_type, double v
         tc.target = pmLine9Target(&tc.coords.line);
     }
 
-    if (tc.target < TP_POS_EPSILON) {
-        rtapi_print_msg(RTAPI_MSG_DBG,"failed to create line id %d, zero-length segment\n",tp->nextId);
-        return TP_ERR_ZERO_LENGTH;
-    }
+//    if (tc.target < TP_POS_EPSILON) {
+//        rtapi_print_msg(RTAPI_MSG_DBG,"failed to create line id %d, zero-length segment\n",tp->nextId);
+//        return TP_ERR_ZERO_LENGTH;
+//    }
     tc.nominal_length = tc.target;
     tc.distance_to_go = tc.target;
 

@@ -4,6 +4,12 @@
 export FLAVOR=posix
 linuxcnc_stop 
 sudo cp /dev/null /var/log/linuxcnc.log 
+sudo cp /dev/null /var/log/messages
+sudo cp /dev/null /var/log/syslog
+
 mklauncher . &
 python run.py -f -c -iSTEPPER.ini
-# python run.py -f -c -d -iSTEPPER.ini
+sleep 5 # delay 5 seconds for wosi_trans to be ready
+# set wosi_trans with highest priority
+sudo renice -n -20 -p `ps -C wosi_trans -o pid=`
+

@@ -517,7 +517,7 @@ int Interp::execute(const char *command)
 
 int Interp::execute()
 {
-  return Interp::execute(0);
+    return Interp::execute(0);
 }
 
 int Interp::execute(const char *command, int line_number)

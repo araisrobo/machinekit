@@ -244,9 +244,10 @@ def setup_io():
         elif (i == 1):  # dout_1 is for machine-on and brake-release
             # it is with 2 sec delay after servo-on,
             # to earn a 2 sec RISC-ON delay after AC-SVO-ON
-            hal.Pin("son_delay.out").link(dout_pin)
+            # hal.Pin("son_delay.out").link(dout_pin)
+            hal.Pin("and2.0.out").link(dout_pin)
             # 將延時過的 amp-enable 接給 FPGA/RISC.machine-on
-            hal.Pin("wosi.machine-on").link(dout_pin) 
+            # hal.Pin("wosi.machine-on").link(dout_pin) 
         elif (i == 32):  # dout_32 is for spindle-on
             hal.Pin("motion.spindle-on").link(dout_pin)
         elif (i <= 33):           # default to M64Pxx operations
