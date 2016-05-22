@@ -229,4 +229,8 @@ class LinuxcncControl:
             print "detected RCS error"
             return True
         return False
+    
+    def task_stop(self):
+        self.c.abort()
+        self.c.wait_complete()
 
