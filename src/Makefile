@@ -1437,6 +1437,9 @@ trivkins-objs := emc/kinematics/trivkins.o
 obj-m += 5axiskins.o
 5axiskins-objs := emc/kinematics/5axiskins.o
 
+obj-m += mc650kins.o
+mc650kins-objs := emc/kinematics/mc650kins.o
+
 obj-m += maxkins.o
 maxkins-objs := emc/kinematics/maxkins.o
 
@@ -1755,6 +1758,7 @@ $(RTLIBDIR)/scope_rt$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(scope_rt-objs))
 $(RTLIBDIR)/motmod$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(motmod-objs))
 $(RTLIBDIR)/trivkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(trivkins-objs))
 $(RTLIBDIR)/5axiskins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(5axiskins-objs))
+$(RTLIBDIR)/mc650kins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(mc650kins-objs))
 $(RTLIBDIR)/maxkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(maxkins-objs))
 $(RTLIBDIR)/gantrykins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(gantrykins-objs))
 $(RTLIBDIR)/align_gantry_kins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(align_gantry_kins-objs))
