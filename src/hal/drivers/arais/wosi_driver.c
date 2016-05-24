@@ -1855,8 +1855,17 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             dbuf[0] = RCMD_REMOTE_JOG;
             // jog-switch-positive
             dbuf[1] = n & 0xF;
-            dbuf[2] = *stepgen->jog_vel * stepgen->pos_scale * dt
-                    * FIXED_POINT_SCALE; // fixed-point 16.16
+            dbuf[2] = *stepgen->jog_vel * stepgen->pos_scale * dt;
+            if (dbuf[2] > 32767) {
+                dbuf[2] = 32767;
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], hit fixed-point boundary, jog_vel(%f) pos_scale(%f)\n", 
+                                                n, (*stepgen->jog_vel), (stepgen->pos_scale));
+            } else if (dbuf[2] < -32767) {
+                dbuf[2] = -32767;
+                rtapi_print_msg(RTAPI_MSG_ERR, "j[%d], hit fixed-point boundary, jog_vel(%f) pos_scale(%f)\n", 
+                                                n, (*stepgen->jog_vel), (stepgen->pos_scale));
+            }
+            dbuf[2] = dbuf[2] * FIXED_POINT_SCALE; // fixed-point 16.16
             send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 3);
             stepgen->prev_jog_vel = *stepgen->jog_vel;
         }
