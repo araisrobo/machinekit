@@ -36,8 +36,8 @@ static params_type param = {
 
 static void quit(int sig)
 {
-    rtapi_print_msg(RTAPI_MSG_INFO, "%s: quit(), signal(%d)\n",
-            param.modname, param.hal_comp_id);
+    printf("\n%s (%s:%d): received signal(%d), modname(%s) hal_comp_id(%d)\n", __FILE__, __FUNCTION__, __LINE__, 
+            sig, param.modname, param.hal_comp_id);
     wosi_trans_exit();
     exit(0);
 }
@@ -102,6 +102,7 @@ int wosi_trans_init(char *ring, char *inifile)
 
     signal(SIGINT, quit);
     signal(SIGTERM, quit);
+    signal(SIGUSR1, quit);
 
     return retval;
 }
