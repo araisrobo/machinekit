@@ -1,5 +1,5 @@
 /********************************************************************
-* Description: 5axiskins.c
+* Description: mc650kins.c
 *   Trivial kinematics for 3 axis Cartesian machine
 *
 *   Derived from a work by Fred Proctor & Will Shackleford
@@ -99,7 +99,7 @@ static vtkins_t vtk = {
 };
 
 static int comp_id, vtable_id;
-static const char *name = "5axiskins";
+static const char *name = "mc650kins";
 
 int rtapi_app_main(void) {
     int result;
@@ -116,10 +116,10 @@ int rtapi_app_main(void) {
 
     haldata = hal_malloc(sizeof(struct haldata));
 
-    result = hal_pin_float_new("5axiskins.pivot-length", HAL_IO, &(haldata->pivot_length), comp_id);
+    result = hal_pin_float_new("mc650kins.pivot-length", HAL_IO, &(haldata->pivot_length), comp_id);
     if(result < 0) goto error;
 
-    *(haldata->pivot_length) = 250.0;
+    *(haldata->pivot_length) = 310.0;
 
     hal_ready(comp_id);
     return 0;
