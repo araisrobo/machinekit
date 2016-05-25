@@ -1,0 +1,34 @@
+G21     ; to use millimeters for length units 
+F4000   ; 設定 G1 運轉速率
+G64 R1  ; Path Blending 
+G90     ; set absolute distance mode 
+
+#1 = 0  ; assign parameter #1 the value of 0 
+o101 while[#1 lt 10000]
+
+G1 X0.008 Y-0.004 Z-90.012 A-0.006 B-89.992 C-0.00184   ; P0
+G1 X-145 Y-40 Z-115 A-180 B30 C145
+G1 X0.007 Y37.484 Z-64.313 A-0.004 B8.916 C0.00486      ; P1
+G1 X145 Y-65 Z-60 A180 B-100 C-100
+G1 X0.007 Y37.484 Z-64.313 A-0.004 B8.916 C0.00486      ; P1
+G1 X-90 Y-70 Z-55 A0 B100 C100
+G1 X0.007 Y37.484 Z-64.313 A-0.004 B8.916 C0.00486      ; P1
+G1 X90 Y-40 Z-125 A-180 B90 C100
+G1 X0.007 Y37.484 Z-64.313 A-0.004 B8.916 C0.00486      ; P1
+
+#2 = 0  ; assign parameter #2 the value of 0 
+o102 while[#2 lt 5]
+
+G1 X-45 Y-15 Z-125 A0 B-40 C180
+G1 X0.007 Y37.484 Z-64.313 A-0.004 B8.916 C0.00486      ; P1
+G1 X45 Y-15 Z-125 A0 B-40 C180
+G1 X0.007 Y37.484 Z-64.313 A-0.004 B8.916 C0.00486      ; P1
+
+#2 = [#2 + 1] ; increment the test counte 
+o102 endwhile
+
+#1 = [#1 + 1] ; increment the test counte 
+o101 endwhile
+
+M2      ; end program
+
