@@ -48,7 +48,11 @@
 
 
 typedef struct {
-//    struct dts_dev *dev;
+    int fpga_state;
+    const char *fpga_dev;       // "fpga0"
+    int  uio_fd;
+    int firmware_given;
+    const char *uio_dev;
     void __iomem *base;
     int len;
     unsigned long ctrl_base_addr;
@@ -57,8 +61,8 @@ typedef struct {
 } hm2_soc_t;
 
 struct compatible {
-        char vendor[32];
-        char name[32];
+    char vendor[32];
+    char name[32];
 };
 
 struct dts_device_id {
@@ -81,4 +85,3 @@ typedef struct {
     hm2_lowlevel_io_t llio;
 } hm2_soc_t;
 */
-volatile void *virtual_base;
