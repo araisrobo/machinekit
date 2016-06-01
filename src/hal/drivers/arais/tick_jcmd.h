@@ -7,7 +7,6 @@ typedef struct {
     int         _tick;
     int         cmd;
     double      pos_cmd[TICK_JOINT_NUM];
-    double      risc_probe_vel[TICK_JOINT_NUM];
 } tick_jcmd_t;
 
 /* tick_cmd_t: the bit-map for tick_jcmd_t.cmd */
