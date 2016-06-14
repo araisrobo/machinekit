@@ -117,7 +117,6 @@ typedef struct
     double vel_cmd_t; /* velocity command (units/cycle_time) */
     double prev_pos_cmd; /* prev pos_cmd: previous position command */
     double pos_cmd;
-    double risc_probe_vel;
 
     hal_float_t *probed_pos;
     hal_float_t *pos_fb; /* pin: position feedback (position units) */
@@ -143,7 +142,10 @@ typedef struct
     hal_float_t *risc_probe_dist;
     hal_s32_t *risc_probe_pin;
     hal_s32_t *risc_probe_type;
-    uint32_t risc_probing;
+    hal_s32_t prev_risc_probe_type;
+    hal_float_t *risc_probe_vel;
+    hal_float_t prev_risc_probe_vel;
+
     hal_float_t *uu_per_rev;
     hal_float_t prev_uu_per_rev;
     hal_float_t *jog_vel;
@@ -1598,7 +1600,6 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
     {
         stepgen = &(stepgen_array[n]);
         stepgen->pos_cmd = tick_jcmd->pos_cmd[n];
-        stepgen->risc_probe_vel = tick_jcmd->risc_probe_vel[n];
     }
 
     /* begin set analog trigger level*/
@@ -1963,33 +1964,30 @@ void wosi_transceive(const tick_jcmd_t *tick_jcmd)
             }
         }
 
-        if (stepgen->risc_probing && (stepgen->risc_probe_vel == 0)) {
-            stepgen->risc_probing = 0;
-            // rtapi_print("(%s:%d) j[%d] reset risc_probing", __FILE__, __LINE__, n);
-        }
-
-        if ((*stepgen->homing) && (stepgen->risc_probe_vel != 0)
-                && (stepgen->risc_probing == 0)
-                && (*machine_control->rcmd_state == RCMD_IDLE))
+        if ((*stepgen->risc_probe_vel != stepgen->prev_risc_probe_vel)
+            || (*stepgen->risc_probe_type != stepgen->prev_risc_probe_type))
         {
-            // do RISC_PROBE
-            int32_t dbuf[4];
-            dbuf[0] = RCMD_RISC_PROBE;
-            dbuf[1] = n  // joint_num
-                    | (*stepgen->risc_probe_type << 8)
-                    | (*stepgen->risc_probe_pin << 16);
-            dbuf[2] = stepgen->risc_probe_vel * stepgen->pos_scale * dt
-                      *FIXED_POINT_SCALE; // fixed-point 16.16
-            dbuf[3] = *stepgen->risc_probe_dist * stepgen->pos_scale; // distance in pulse
-            send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 4);
-            assert(*stepgen->risc_probe_pin < 64);
-            assert(dbuf[2] != 0);
-            stepgen->risc_probing = 1;
-            // rtapi_print("(%s:%d) j[%d] risc_probe type(%d) pin(%d) vel(%f)", __FILE__, __LINE__,
-            //         n,
-            //         *stepgen->risc_probe_type,
-            //         *stepgen->risc_probe_pin,
-            //         stepgen->risc_probe_vel);
+            if (*stepgen->risc_probe_type != -1)
+            {
+                // do RISC_PROBE
+                int32_t dbuf[4];
+                dbuf[0] = RCMD_RISC_PROBE;
+                dbuf[1] = n  // joint_num
+                        | (*stepgen->risc_probe_type << 8)
+                        | (*stepgen->risc_probe_pin << 16);
+                dbuf[2] = (*stepgen->risc_probe_vel) * stepgen->pos_scale * dt
+                          *FIXED_POINT_SCALE; // fixed-point 16.16
+                dbuf[3] = *stepgen->risc_probe_dist * stepgen->pos_scale; // distance in pulse
+                send_sync_cmd((SYNC_USB_CMD | RISC_CMD_TYPE), (uint32_t *) dbuf, 4);
+                assert(*stepgen->risc_probe_pin < 64);
+                stepgen->prev_risc_probe_vel = *stepgen->risc_probe_vel;
+                stepgen->prev_risc_probe_type = *stepgen->risc_probe_type;
+                // rtapi_print("(%s:%d) j[%d] risc_probe type(%d) pin(%d) vel(%f)", __FILE__, __LINE__,
+                //         n,
+                //         *stepgen->risc_probe_type,
+                //         *stepgen->risc_probe_pin,
+                //         *stepgen->risc_probe_vel);
+            }
         }
 
         if ((n == *machine_control->blender_joint_id) && (*machine_control->blender_vel_req != machine_control->prev_blender_vel_req))
@@ -2336,6 +2334,16 @@ static int export_stepgen(int num, stepgen_t * addr)
         return retval;
     }
     *addr->risc_probe_type = -1;
+    addr->prev_risc_probe_type = -1;
+
+    retval = hal_pin_float_newf(HAL_IN, &(addr->risc_probe_vel), comp_id,
+                            "wosi.stepgen.%d.risc-probe-vel", num);
+    if (retval != 0)
+    {
+        return retval;
+    }
+    *addr->risc_probe_vel = 0;
+    addr->prev_risc_probe_vel = 0;
 
     retval = hal_pin_float_newf(HAL_IN, &(addr->uu_per_rev), comp_id,
             "wosi.stepgen.%d.uu-per-rev", num);

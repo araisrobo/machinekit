@@ -72,12 +72,20 @@ struct hm2_lowlevel_io_struct {
     int (*read)(hm2_lowlevel_io_t *self, u32 addr, void *buffer, int size);
     int (*write)(hm2_lowlevel_io_t *self, u32 addr, void *buffer, int size);
 
-    // these two are optional
-    int (*program_fpga)(hm2_lowlevel_io_t *self, const bitfile_t *bitfile);
-    int (*reset)(hm2_lowlevel_io_t *self);
-
     int (*queue_read)(hm2_lowlevel_io_t *self, u32 addr, void *buffer, int size);
     int (*queue_write)(hm2_lowlevel_io_t *self, u32 addr, void *buffer, int size);
+
+    // these are optional
+    int (*program_fpga)(hm2_lowlevel_io_t *self,
+			const bitfile_t *bitfile,
+			const struct firmware *fw);
+    int (*reset)(hm2_lowlevel_io_t *self);
+
+    // use this if the firmware is not Xilinx bitfile format.
+    // if NULL, uses legacy behavior (bitfile_parse_and_verify()
+    int (*verify_firmware)(hm2_lowlevel_io_t *self, const struct firmware *fw);
+
+
     // 
     // This is a HAL parameter allocated and added to HAL by hostmot2.
     // 
@@ -112,6 +120,8 @@ struct hm2_lowlevel_io_struct {
     // if FALSE, the hostmot2 driver will export only global read() and write() functions (and pet_watchdog())
     // if TRUE, the hostmot2 driver will export those three functions and also read_gpio() and write_gpio()
     int threadsafe;
+    
+    char *firmware; // Name of the firmware file
 
     void *private;  // for the low-level driver to hang their struct on
 };

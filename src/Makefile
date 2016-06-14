@@ -7,7 +7,7 @@ ifeq ("$(origin VV)", "command line")
 endif
 # Delete the default suffix rules
 .SUFFIXES:
-.PHONY: default userspace modules clean modclean depclean install python pythonclean cscope cscopeclean
+.PHONY: default userspace modules clean modclean depclean docclean install python pythonclean cscope cscopeclean
 
 # A "trivial build" is one which should not include dependency information
 # either because it should be usable before dependency information can be
@@ -24,6 +24,15 @@ TRIVIAL_BUILD=no
 endif
 endif
 
+# asciidoctor frontmatter generation for comp/instcomp
+# this assumes we're running inside a git repo.
+# if not, override EDIT_REMOTE EDIT_REPO EDIT_BRANCH via the environment, eg
+#  EDIT_REMOTE=machinekit  make manpages  i_docpages
+
+EDIT_REMOTE ?= origin
+EDIT_REPO  ?= $(shell git ls-remote --get-url $(EDIT_REMOTE)  |sed 's/.git$$//')
+EDIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+# $(info EDIT_REMOTE=$(EDIT_REMOTE) EDIT_BRANCH=$(EDIT_BRANCH)  EDIT_REPO=$(EDIT_REPO))
 
 # Beautify output
 # ---------------------------------------------------------------------------
@@ -183,6 +192,7 @@ CHECKS := # runtests nosetests
 # Submakefiles from each of these directories will be included if they exist
 SUBDIRS := \
 	\
+	../man \
 	machinetalk \
 	machinetalk/support \
 	machinetalk/messagebus \
@@ -300,6 +310,7 @@ TODEPS = $(patsubst %.cc,depends/%$(2).d,$(patsubst %.c,depends/%$(2).d,$(1)))
 TOOBJSDEPS = $(call TOOBJS,$(1),$(2)) $(call TODEPS, $(1),$(2))
 
 SUBMAKEFILES := $(patsubst %,%/Submakefile,$(SUBDIRS))
+#$(info SUBMAKEFILES=$(SUBMAKEFILES))
 -include $(wildcard $(SUBMAKEFILES))
 
 # This checks that all the things listed in USERSRCS are either C files
@@ -723,8 +734,12 @@ modclean:
 
 depclean:
 	-rm -rf depends
-
-clean: depclean modclean
+	
+docclean:
+	-rm -f ../man/man9/*.9icomp
+	-rm -f ../man/doc/man9/*.asciidoc
+	
+clean: depclean modclean docclean
 	find . -name '*.o' |xargs rm -f
 	-rm -rf objects
 	-rm -f $(TARGETS)
@@ -1283,8 +1298,9 @@ endif
 
 ifdef TARGET_PLATFORM_SOCFPGA
 ifeq ($(BUILD_SYS),user-dso)
-obj-$(CONFIG_HM2_SOC) += hm2_soc.o
+obj-$(CONFIG_HM2_SOC) += hm2_soc.o hm2_soc_ol.o
 hm2_soc-objs := hal/drivers/mesa-hostmot2/hm2_soc.o
+hm2_soc_ol-objs := hal/drivers/mesa-hostmot2/hm2_soc_ol.o
 endif
 endif
 
@@ -1433,6 +1449,9 @@ scope_rt-objs := hal/utils/scope_rt.o $(MATHSTUB)
 
 obj-m += trivkins.o
 trivkins-objs := emc/kinematics/trivkins.o
+
+obj-m += XYZACkins.o
+XYZACkins-objs := emc/kinematics/XYZACkins.o
 
 obj-m += 5axiskins.o
 5axiskins-objs := emc/kinematics/5axiskins.o
@@ -1717,6 +1736,7 @@ ifdef TARGET_PLATFORM_SOCFPGA
 ifeq ($(BUILD_SYS),user-dso)
 $(RTLIBDIR)/hostmot2$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hostmot2-objs))
 $(RTLIBDIR)/hm2_soc$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_soc-objs))
+$(RTLIBDIR)/hm2_soc_ol$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(hm2_soc_ol-objs))
 endif
 endif
 
@@ -1757,6 +1777,7 @@ $(RTLIBDIR)/opto_ac5$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(opto_ac5-objs))
 $(RTLIBDIR)/scope_rt$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(scope_rt-objs))
 $(RTLIBDIR)/motmod$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(motmod-objs))
 $(RTLIBDIR)/trivkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(trivkins-objs))
+$(RTLIBDIR)/XYZACkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(XYZACkins-objs))
 $(RTLIBDIR)/5axiskins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(5axiskins-objs))
 $(RTLIBDIR)/mc650kins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(mc650kins-objs))
 $(RTLIBDIR)/maxkins$(MODULE_EXT): $(addprefix $(OBJDIR)/,$(maxkins-objs))
