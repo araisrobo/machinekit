@@ -2472,7 +2472,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                 req_vel = tc->maxvel;
             }
             if ((tc->currentvel + tc->cur_accel * t + 0.5 * tc->jerk * t * t) <= req_vel) {
-                if ((tc->progress/tc_target) < 0.9) {
+                if (((tc->progress/tc_target) < 0.9) || (fabs(req_vel) < FLT_EPSILON)) {
                     tc->accel_state = ACCEL_S6;
                 }
                 else
@@ -2606,7 +2606,7 @@ void tcRunCycle(TP_STRUCT *tp, TC_STRUCT *tc)
                 req_vel = tc->maxvel;
             }
             if ((tc->currentvel + tc->cur_accel * t + 0.5 * tc->jerk * t * t) <= req_vel) {
-                if(tc->progress/tc_target < 0.9){
+                if (((tc->progress/tc_target) < 0.9) || (fabs(req_vel) < FLT_EPSILON)) {
                     tc->accel_state = ACCEL_S6;
 //                    DPS("S5 move to S6\n");
                 }
